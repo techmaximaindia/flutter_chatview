@@ -28,6 +28,7 @@ import 'package:flutter/material.dart';
 
 import 'reaction_widget.dart';
 import 'share_icon.dart';
+import 'package:intl/intl.dart';
 
 class ImageMessageView extends StatelessWidget {
   const ImageMessageView({
@@ -138,6 +139,27 @@ class ImageMessageView extends StatelessWidget {
                 isMessageBySender: isMessageBySender,
                 reaction: message.reaction,
                 messageReactionConfig: messageReactionConfig,
+              ),
+             if (imageUrl.isUrl)
+              Positioned(
+                bottom: 0,
+                left: 0,
+                right: 0,
+                child: Padding(
+                  padding: const EdgeInsets.all(0),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      Text(
+                        DateFormat('hh:mm a').format(message.createdAt),
+                        style: TextStyle(
+                          fontSize: 10,
+                          color: Colors.black54,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ),
           ],
         ),
