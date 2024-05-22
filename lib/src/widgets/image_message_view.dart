@@ -73,7 +73,7 @@ class ImageMessageView extends StatelessWidget {
       mainAxisAlignment:
           isMessageBySender ? MainAxisAlignment.end : MainAxisAlignment.start,
       children: [
-        if (isMessageBySender) iconButton,
+        /* if (isMessageBySender) iconButton, */
         Stack(
           children: [
             GestureDetector(
@@ -163,7 +163,7 @@ class ImageMessageView extends StatelessWidget {
               ),
           ],
         ),
-        if (!isMessageBySender) iconButton,
+        /* if (!isMessageBySender) iconButton, */
       ],
     );
   }
