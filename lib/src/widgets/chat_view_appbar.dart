@@ -25,6 +25,7 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 
 import '../values/typedefs.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
 class ChatViewAppBar extends StatelessWidget {
   const ChatViewAppBar({
@@ -42,6 +43,7 @@ class ChatViewAppBar extends StatelessWidget {
     this.padding,
     this.leading,
     this.showLeading = true,
+    this.platform
   }) : super(key: key);
 
   /// Allow user to change colour of appbar.
@@ -83,6 +85,8 @@ class ChatViewAppBar extends StatelessWidget {
   /// Allow user to turn on/off leading icon.
   final bool showLeading;
 
+  final String? platform;
+
   @override
   Widget build(BuildContext context) {
     return Material(
@@ -113,8 +117,25 @@ class ChatViewAppBar extends StatelessWidget {
                   if (profilePicture != null)
                     Padding(
                       padding: const EdgeInsets.only(right: 8.0),
-                      child: CircleAvatar(
-                          backgroundImage: NetworkImage(profilePicture!)),
+                      child: Stack(
+                        children: [
+                          CircleAvatar(
+                            backgroundColor: Colors.blue,
+                            backgroundImage: NetworkImage(profilePicture!),
+                          ),
+                          Positioned(
+                            bottom: 0,
+                            right: 0,
+                            child: ClipOval(
+                              child: CircleAvatar(
+                                backgroundColor: Colors.white,
+                                radius: 9,
+                                child: get_platform_widget(platform),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -143,5 +164,84 @@ class ChatViewAppBar extends StatelessWidget {
         ),
       ),
     );
+  }
+  get_platform_widget(platform) 
+  {
+    if (platform == 'livechatwidget') 
+    {
+      return Icon
+      (
+        FontAwesomeIcons.message,
+        size: 13,
+        color: Colors.blueAccent,
+      );
+    } 
+    else if (platform == 'fb_whatsapp') 
+    {
+      return Icon
+      (
+        FontAwesomeIcons.whatsapp,
+        size: 13,
+        color: Colors.green,
+      );
+    } 
+    else if (platform == "telegram") 
+    {
+      return Icon
+      (
+        FontAwesomeIcons.telegram, 
+        size: 13, 
+        color: Colors.blue
+      );
+    } 
+    else if (platform == "facebook") 
+    {
+      return Icon
+      (
+        FontAwesomeIcons.facebook, 
+        size: 13, 
+        color: Colors.blue
+      );
+    } 
+    else if (platform == "twitter") 
+    {
+      return Icon
+      (
+        FontAwesomeIcons.twitter, 
+        size: 13, 
+        color: Colors.blue
+      );
+    } 
+    else if (platform == "wa_whatsapp") 
+    {
+      return Icon
+      (
+        FontAwesomeIcons.whatsapp,
+        size: 13,
+        color: Colors.green,
+      );
+    } 
+    else if (platform == "sms") 
+    {
+      return Icon
+      (
+        FontAwesomeIcons.sms, 
+        size: 13, 
+        color: Colors.blue
+      );
+    } 
+    else if (platform == "instagram") 
+    {
+      return Icon
+      (
+        FontAwesomeIcons.instagram,
+        size: 13, 
+        color: Color.fromARGB(255, 220, 142, 142)
+      );
+    } 
+    else 
+    {
+      return SizedBox.shrink();
+    }
   }
 }

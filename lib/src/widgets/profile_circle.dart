@@ -60,6 +60,7 @@ class ProfileCircle extends StatelessWidget {
         onLongPress: onLongPress,
         onTap: onTap,
         child: CircleAvatar(
+          backgroundColor: Colors.blue,
           radius: circleRadius ?? 16,
           backgroundImage: NetworkImage(imageUrl ?? profileImage),
         ),
