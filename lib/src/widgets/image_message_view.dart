@@ -66,6 +66,14 @@ class ImageMessageView extends StatelessWidget {
         shareIconConfig: imageMessageConfig?.shareIconConfig,
         imageUrl: imageUrl,
       );
+    void _showFullScreenImage(BuildContext context, String imageUrl) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => FullScreenImageView(imageUrl: imageUrl),
+      ),
+    );
+  }    
 
   @override
   Widget build(BuildContext context) {
@@ -78,9 +86,7 @@ class ImageMessageView extends StatelessWidget {
         Stack(
           children: [
             GestureDetector(
-              onTap: () => imageMessageConfig?.onTap != null
-                  ? imageMessageConfig?.onTap!(imageUrl)
-                  : null,
+              onTap: () => _showFullScreenImage(context,imageUrl),
               child: Transform.scale(
                 scale: highlightImage ? highlightScale : 1.0,
                 alignment: isMessageBySender
@@ -183,5 +189,52 @@ class ImageMessageView extends StatelessWidget {
         /* if (!isMessageBySender) iconButton, */
       ],
     );
+  }
+}
+class FullScreenImageView extends StatelessWidget {
+  final String imageUrl;
+
+  const FullScreenImageView({Key? key, required this.imageUrl}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        leading: IconButton(
+          icon: Icon(Icons.close, color: Colors.white),
+          onPressed: () {
+            Navigator.pop(context);
+          },
+        ),
+      ),
+      body: Center(
+        child: InteractiveViewer(
+          panEnabled: true,
+          scaleEnabled: true,
+          minScale: 0.5,
+          maxScale: 4.0,
+          child: Container(
+            decoration: BoxDecoration(
+              image: DecorationImage(
+                image: _buildImageProvider(),
+                fit: BoxFit.contain,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  ImageProvider _buildImageProvider() {
+    if (imageUrl.isUrl) {
+      return NetworkImage(imageUrl);
+    } else if (imageUrl.fromMemory) {
+      return MemoryImage(base64Decode(imageUrl.substring(imageUrl.indexOf('base64') + 7)));
+    } else {
+      return FileImage(File(imageUrl));
+    }
   }
 }
