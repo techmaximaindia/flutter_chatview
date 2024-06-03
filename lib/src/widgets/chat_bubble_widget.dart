@@ -30,6 +30,7 @@ import 'message_view.dart';
 import 'profile_circle.dart';
 import 'reply_message_widget.dart';
 import 'swipe_to_reply.dart';
+import 'package:intl/intl.dart';
 
 class ChatBubbleWidget extends StatefulWidget {
   const ChatBubbleWidget({
@@ -293,23 +294,12 @@ class _ChatBubbleWidgetState extends State<ChatBubbleWidget> {
   }
 
   Widget _messagesWidgetColumn(ChatUser? messagedUser) {
+    DateTime createdAt = widget.message.createdAt;
+    String formattedTime = DateFormat('hh:mm a').format(createdAt);
     return Column(
       crossAxisAlignment:
           isMessageBySender ? CrossAxisAlignment.end : CrossAxisAlignment.start,
       children: [
-        if ((chatController?.chatUsers.length ?? 0) > 1 &&
-            !isMessageBySender &&
-            (featureActiveConfig?.enableOtherUserName ?? true))
-          Padding(
-            padding:
-                widget.chatBubbleConfig?.inComingChatBubbleConfig?.padding ??
-                    const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            child: Text(
-              messagedUser?.name ?? '',
-              style: widget.chatBubbleConfig?.inComingChatBubbleConfig
-                  ?.senderNameTextStyle,
-            ),
-          ),
         if (replyMessage.isNotEmpty)
           widget.repliedMessageConfig?.repliedMessageWidgetBuilder != null
               ? widget.repliedMessageConfig!
@@ -355,6 +345,94 @@ class _ChatBubbleWidgetState extends State<ChatBubbleWidget> {
               1.1,
           onMaxDuration: _onMaxDuration,
         ),
+        if ((chatController?.chatUsers.length == 2) && isMessageBySender)
+        Padding(
+          padding:
+              widget.chatBubbleConfig?.outgoingChatBubbleConfig?.padding ??
+                  const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (currentUser?.name?.contains('Bot') ?? false)
+                Row(
+                  children: [
+                    Icon(
+                      Icons.smart_toy_outlined,
+                      size: 10,
+                      color: Colors.black54,
+                    ),
+                    SizedBox(width: 4,),
+                    Text(
+                      currentUser?.name ?? '',
+                      style: TextStyle(fontSize: 10, color: Colors.black54)
+                    ),
+                    SizedBox(width: 4),
+                    Icon(Icons.access_time,size:10,color: Colors.black54,),
+                    SizedBox(width: 4),
+                    Text(
+                      formattedTime,
+                      style: TextStyle(
+                        fontSize: 10,
+                        color: Colors.black54,
+                      ),
+                    ),
+                  ],
+                )
+              else
+              Row(
+                children: 
+                [
+                  Icon
+                  (
+                    Icons.person,
+                    size: 10,
+                    color: Colors.black54,
+                  ),
+                  SizedBox(width: 4),
+                  Text(
+                    currentUser?.name ?? '',
+                    style: TextStyle(fontSize: 10, color: Colors.black54)
+                  ),
+                  SizedBox(width: 4,),
+                  Icon(Icons.access_time,size:10,color: Colors.black54,),
+                  SizedBox(width: 4),
+                  Text(
+                    formattedTime,
+                    style: TextStyle(
+                      fontSize: 10,
+                      color: Colors.black54,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        )
+        else if ((chatController?.chatUsers.length ?? 0) > 1 && !isMessageBySender)
+          Padding(
+            padding:
+                widget.chatBubbleConfig?.inComingChatBubbleConfig?.padding ??
+                    const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                /* Text(
+                  currentUser?.name ?? '',
+                  style: widget.chatBubbleConfig?.inComingChatBubbleConfig
+                      ?.senderNameTextStyle,
+                ),*/
+                Icon(Icons.access_time,size:10,color: Colors.black54,),
+                SizedBox(width: 4),
+                Text(
+                  formattedTime,
+                  style: TextStyle(
+                    fontSize: 10,
+                    color: Colors.black54,
+                  ),
+                ),
+              ],
+            ),
+          ),
       ],
     );
   }

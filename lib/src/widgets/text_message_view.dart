@@ -23,6 +23,7 @@ import 'package:flutter/material.dart';
 
 import 'package:chatview/src/extensions/extensions.dart';
 import 'package:chatview/src/models/models.dart';
+import 'package:chatview/src/models/chat_user.dart';
 
 import '../utils/constants/constants.dart';
 import 'link_preview.dart';
@@ -40,6 +41,7 @@ class TextMessageView extends StatelessWidget {
     this.messageReactionConfig,
     this.highlightMessage = false,
     this.highlightColor,
+    this.currentUser
   }) : super(key: key);
 
   /// Represents current message is sent by current user.
@@ -65,70 +67,49 @@ class TextMessageView extends StatelessWidget {
 
   /// Allow user to set color of highlighted message.
   final Color? highlightColor;
+  final ChatUser? currentUser;
 
-  @override
-  Widget build(BuildContext context) {
-    final textTheme = Theme.of(context).textTheme;
-    final textMessage = message.message;
-    DateTime createdAt = message.createdAt;
-    String formattedTime = DateFormat('hh:mm a').format(createdAt);
-  return Stack(
-    clipBehavior: Clip.none,
+@override
+Widget build(BuildContext context) {
+  final textTheme = Theme.of(context).textTheme;
+  final textMessage = message.message;
+  DateTime createdAt = message.createdAt;
+  String formattedTime = DateFormat('hh:mm a').format(createdAt);
+  return Column(
+    crossAxisAlignment: CrossAxisAlignment.end,
     children: [
-      Container(
-        constraints: BoxConstraints(
-          maxWidth: chatBubbleMaxWidth ??
-              MediaQuery.of(context).size.width * 0.75,
-        ),
-        padding: _padding ??
-            const EdgeInsets.symmetric(
-              horizontal: 12,
-              vertical: 10,
-            ),
-        margin: _margin ??
-            EdgeInsets.fromLTRB(
-                5, 0, 6, message.reaction.reactions.isNotEmpty ? 15 : 2),
-        decoration: BoxDecoration(
-          color: highlightMessage ? highlightColor : _color,
-          borderRadius: _borderRadius(textMessage),
-        ),
-        child: Stack(
-            children: [
-              Container(
-                padding: EdgeInsets.only(bottom: 15, right: 35), 
-                child: textMessage.isUrl
-                  ? LinkPreview(
-                      linkPreviewConfig: _linkPreviewConfig,
-                      url: textMessage,
-                    )
-                  : Wrap(
-                      crossAxisAlignment: WrapCrossAlignment.end,
-                      children: [
-                        Text(
-                          textMessage,
-                          style: _textStyle ??
-                              textTheme.bodyMedium!.copyWith(
-                                color: Colors.black,
-                                fontSize: 16,
-                              ),
-                        ),
-                      ],
-                    ),
-              ),
-                Positioned(
-                  bottom: 0,
-                  right: 0,
-                  /* left :15, */
-                  child: Text(
-                    formattedTime,
-                    style: TextStyle(
-                      color: Colors.black54,
-                      fontSize: 10,
-                    ),
-                  ),
+      Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Container(
+            constraints: BoxConstraints(
+                maxWidth: chatBubbleMaxWidth ??
+                    MediaQuery.of(context).size.width * 0.75),
+            padding: _padding ??
+                const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 10,
                 ),
-              ],
+            margin: _margin ??
+                EdgeInsets.fromLTRB(
+                    5, 0, 6, message.reaction.reactions.isNotEmpty ? 15 : 2),
+            decoration: BoxDecoration(
+              color: highlightMessage ? highlightColor : _color,
+              borderRadius: _borderRadius(textMessage),
             ),
+            child: textMessage.isUrl
+                ? LinkPreview(
+                    linkPreviewConfig: _linkPreviewConfig,
+                    url: textMessage,
+                  )
+                : Text(
+                    textMessage,
+                    style: _textStyle ??
+                        textTheme.bodyMedium!.copyWith(
+                          color: Colors.black,
+                          fontSize: 16,
+                        ),
+                  ),
           ),
           if (message.reaction.reactions.isNotEmpty)
             ReactionWidget(
@@ -138,8 +119,12 @@ class TextMessageView extends StatelessWidget {
               messageReactionConfig: messageReactionConfig,
             ),
         ],
-      );
-    }
+      ),
+    ],
+  );
+}
+
+
 
   EdgeInsetsGeometry? get _padding => isMessageBySender
       ? outgoingChatBubbleConfig?.padding
@@ -171,4 +156,3 @@ class TextMessageView extends StatelessWidget {
       ? outgoingChatBubbleConfig?.color ?? Colors.purple
       : inComingChatBubbleConfig?.color ?? Colors.grey.shade500;
 }
-

@@ -39,6 +39,7 @@ class ImageMessageView extends StatelessWidget {
     this.messageReactionConfig,
     this.highlightImage = false,
     this.highlightScale = 1.2,
+    this.currentUser,
   }) : super(key: key);
 
   /// Provides message instance of chat.
@@ -58,7 +59,7 @@ class ImageMessageView extends StatelessWidget {
 
   /// Provides scale of highlighted image when user taps on replied image.
   final double highlightScale;
-
+  final ChatUser? currentUser;
   String get imageUrl => message.message;
 
   Widget get iconButton => ShareIcon(
@@ -73,7 +74,7 @@ class ImageMessageView extends StatelessWidget {
       mainAxisAlignment:
           isMessageBySender ? MainAxisAlignment.end : MainAxisAlignment.start,
       children: [
-        /* if (isMessageBySender) iconButton, */
+       /*  if (isMessageBySender) */
         Stack(
           children: [
             GestureDetector(
@@ -140,7 +141,7 @@ class ImageMessageView extends StatelessWidget {
                 reaction: message.reaction,
                 messageReactionConfig: messageReactionConfig,
               ),
-             if (imageUrl.isUrl)
+             /* if (imageUrl.isUrl)
               Positioned(
                 bottom: 0,
                 left: 0,
@@ -148,8 +149,24 @@ class ImageMessageView extends StatelessWidget {
                 child: Padding(
                   padding: const EdgeInsets.all(0),
                   child: Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
+                      if (isMessageBySender)
+                        Text(
+                          currentUser?.name ?? '',
+                          style: TextStyle(
+                            fontSize: 10,
+                            color: Colors.black54,
+                          ),
+                        )
+                      else
+                        Text(
+                          '',
+                          style: TextStyle(
+                            fontSize: 10,
+                            color: Colors.black54,
+                          ),
+                        ),
                       Text(
                         DateFormat('hh:mm a').format(message.createdAt),
                         style: TextStyle(
@@ -160,7 +177,7 @@ class ImageMessageView extends StatelessWidget {
                     ],
                   ),
                 ),
-              ),
+              ), */
           ],
         ),
         /* if (!isMessageBySender) iconButton, */
