@@ -23,6 +23,9 @@ import 'package:chatview/chatview.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
 
+/* enum  chatmaximamessage{
+  incoming,outgoing
+} */
 class Message {
   /// Provides id
   final String id;
@@ -54,11 +57,16 @@ class Message {
   /// Provides max duration for recorded voice message.
   Duration? voiceMessageDuration;
 
+  final String profilename;
+  final String chatmaximatype;
+
   Message({
     this.id = '',
     required this.message,
     required this.createdAt,
     required this.sendBy,
+    this.profilename='',
+    this.chatmaximatype='',
     this.replyMessage = const ReplyMessage(),
     Reaction? reaction,
     this.messageType = MessageType.text,
