@@ -41,7 +41,7 @@ class TextMessageView extends StatelessWidget {
     this.messageReactionConfig,
     this.highlightMessage = false,
     this.highlightColor,
-    this.currentUser
+    this.currentUser,
   }) : super(key: key);
 
   /// Represents current message is sent by current user.
@@ -67,64 +67,133 @@ class TextMessageView extends StatelessWidget {
 
   /// Allow user to set color of highlighted message.
   final Color? highlightColor;
+
+  /// Represents the current user.
   final ChatUser? currentUser;
 
-@override
-Widget build(BuildContext context) {
-  final textTheme = Theme.of(context).textTheme;
-  final textMessage = message.message;
-  DateTime createdAt = message.createdAt;
-  String formattedTime = DateFormat('hh:mm a').format(createdAt);
-  return Column(
-    crossAxisAlignment: CrossAxisAlignment.end,
-    children: [
-      Stack(
-        clipBehavior: Clip.none,
-        children: [
-          Container(
-            constraints: BoxConstraints(
-                maxWidth: chatBubbleMaxWidth ??
-                    MediaQuery.of(context).size.width * 0.75),
-            padding: _padding ??
-                const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 10,
-                ),
-            margin: _margin ??
-                EdgeInsets.fromLTRB(
-                    5, 0, 6, message.reaction.reactions.isNotEmpty ? 15 : 2),
-            decoration: BoxDecoration(
-              color: highlightMessage ? highlightColor : _color,
-              borderRadius: _borderRadius(textMessage),
-            ),
-            child: textMessage.isUrl
-                ? LinkPreview(
-                    linkPreviewConfig: _linkPreviewConfig,
-                    url: textMessage,
-                  )
-                : Text(
-                    textMessage,
-                    style: _textStyle ??
-                        textTheme.bodyMedium!.copyWith(
-                          color: Colors.black,
-                          fontSize: 16,
-                        ),
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+    final textMessage = message.message;
+    DateTime createdAt = message.createdAt;
+    String formattedTime = DateFormat('hh:mm a').format(createdAt);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        Stack(
+          clipBehavior: Clip.none,
+          children: [
+            Container(
+              constraints: BoxConstraints(
+                  maxWidth: chatBubbleMaxWidth ??
+                      MediaQuery.of(context).size.width * 0.75),
+              padding: _padding ??
+                  const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 10,
                   ),
-          ),
-          if (message.reaction.reactions.isNotEmpty)
-            ReactionWidget(
-              key: key,
-              isMessageBySender: isMessageBySender,
-              reaction: message.reaction,
-              messageReactionConfig: messageReactionConfig,
+              margin: _margin ??
+                  EdgeInsets.fromLTRB(
+                      5, 0, 6, message.reaction.reactions.isNotEmpty ? 15 : 2),
+              decoration: BoxDecoration(
+                color: highlightMessage ? highlightColor : _color,
+                borderRadius: _borderRadius(textMessage),
+              ),
+              child: textMessage.isUrl
+                  ? LinkPreview(
+                      linkPreviewConfig: _linkPreviewConfig,
+                      url: textMessage,
+                    )
+                  : Text(
+                      textMessage,
+                      style: _textStyle ??
+                          textTheme.bodyMedium!.copyWith(
+                            color: Colors.black,
+                            fontSize: 16,
+                          ),
+                    ),
             ),
+            if (message.reaction.reactions.isNotEmpty)
+              ReactionWidget(
+                key: key,
+                isMessageBySender: isMessageBySender,
+                reaction: message.reaction,
+                messageReactionConfig: messageReactionConfig,
+              ),
+          ],
+        ),
+        SizedBox(height: 3), // Add some space between bubble and time
+         if (isMessageBySender) ...[
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (message.profilename == 'Bot') ...[
+                Icon(
+                  Icons.smart_toy_outlined,
+                  size: 10,
+                  color: Colors.black54,
+                ),
+                SizedBox(width: 4),
+                Text(
+                  'Bot',
+                  style: TextStyle(fontSize: 10, color: Colors.black54),
+                ),
+                SizedBox(width: 4),
+              ] else ...[
+                Icon(
+                  Icons.person,
+                  size: 10,
+                  color: Colors.black54,
+                ),
+                SizedBox(width: 4),
+                Text(
+                  message.profilename ?? '',
+                  style: TextStyle(
+                    fontSize: 10,
+                    color: Colors.black54,
+                  ),
+                ),
+                SizedBox(width: 4),
+              ],
+              Icon(
+                Icons.access_time,
+                size: 10,
+                color: Colors.black54,
+              ),
+              SizedBox(width: 4),
+              Text(
+                formattedTime,
+                style: TextStyle(
+                  fontSize: 10,
+                  color: Colors.black54,
+                ),
+              ),
+            ],
+          ),
+        ] else ...[
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.access_time,
+                size: 10,
+                color: Colors.black54,
+              ),
+              SizedBox(width: 4),
+              Text(
+                formattedTime,
+                style: TextStyle(
+                  fontSize: 10,
+                  color: Colors.black54,
+                ),
+              ),
+            ],
+          ),
         ],
-      ),
-    ],
-  );
-}
-
-
+      ],
+    );
+  }
 
   EdgeInsetsGeometry? get _padding => isMessageBySender
       ? outgoingChatBubbleConfig?.padding

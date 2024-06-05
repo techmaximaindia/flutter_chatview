@@ -345,7 +345,7 @@ class _ChatBubbleWidgetState extends State<ChatBubbleWidget> {
               1.1,
           onMaxDuration: _onMaxDuration,
         ),
-        if ((chatController?.chatUsers.length == 2) && isMessageBySender)
+        /* if ((chatController?.chatUsers.length == 2) && isMessageBySender)
         Padding(
           padding:
               widget.chatBubbleConfig?.outgoingChatBubbleConfig?.padding ??
@@ -363,7 +363,7 @@ class _ChatBubbleWidgetState extends State<ChatBubbleWidget> {
                     ),
                     SizedBox(width: 4,),
                     Text(
-                      currentUser?.name ?? '',
+                      'Bot',
                       style: TextStyle(fontSize: 10, color: Colors.black54)
                     ),
                     SizedBox(width: 4),
@@ -407,8 +407,8 @@ class _ChatBubbleWidgetState extends State<ChatBubbleWidget> {
               ),
             ],
           ),
-        )
-        else if ((chatController?.chatUsers.length ?? 0) > 1 && !isMessageBySender)
+        ) */
+        /* else if ((chatController?.chatUsers.length ?? 0) > 1 && !isMessageBySender)
           Padding(
             padding:
                 widget.chatBubbleConfig?.inComingChatBubbleConfig?.padding ??
@@ -432,7 +432,7 @@ class _ChatBubbleWidgetState extends State<ChatBubbleWidget> {
                 ),
               ],
             ),
-          ),
+          ), */
       ],
     );
   }
