@@ -59,6 +59,7 @@ class Message {
 
   final String profilename;
   final String chatmaximatype;
+  final String chatmaxima_profile_image;
 
   Message({
     this.id = '',
@@ -67,6 +68,7 @@ class Message {
     required this.sendBy,
     this.profilename='',
     this.chatmaximatype='',
+    this.chatmaxima_profile_image='',
     this.replyMessage = const ReplyMessage(),
     Reaction? reaction,
     this.messageType = MessageType.text,
