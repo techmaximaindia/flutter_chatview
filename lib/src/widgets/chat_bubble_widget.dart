@@ -231,7 +231,7 @@ class _ChatBubbleWidgetState extends State<ChatBubbleWidget> {
                   ? profileCircleConfig?.bottomPadding ?? 15
                   : profileCircleConfig?.bottomPadding ?? 2,
               profileCirclePadding: profileCircleConfig?.padding,
-              imageUrl: currentUser?.profilePhoto,
+              imageUrl: widget.message.chatmaxima_profile_image??'',
               circleRadius: profileCircleConfig?.circleRadius,
               onTap: () => _onAvatarTap(messagedUser),
               onLongPress: () => _onAvatarLongPress(messagedUser),
