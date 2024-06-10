@@ -26,7 +26,6 @@ import 'package:chatview/src/extensions/extensions.dart';
 import 'package:chatview/src/widgets/chat_groupedlist_widget.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
 import '../../chatview.dart';
 import 'reaction_popup.dart';
@@ -52,6 +51,8 @@ class ChatListWidget extends StatefulWidget {
     this.loadMoreData,
     this.isLastPage,
     this.onChatListTap,
+    this.chatTextFieldTopPadding = 0,
+    this.emojiPickerSheetConfig,
   }) : super(key: key);
 
   /// Provides controller for accessing few function for running chat.
@@ -108,6 +109,12 @@ class ChatListWidget extends StatefulWidget {
 
   /// Provides callback when user tap anywhere on whole chat.
   final VoidCallBack? onChatListTap;
+
+  /// Provides top padding of chat text field
+  final double chatTextFieldTopPadding;
+
+  /// Configuration for emoji picker sheet
+  final Config? emojiPickerSheetConfig;
 
   @override
   State<ChatListWidget> createState() => _ChatListWidgetState();
@@ -222,6 +229,7 @@ class _ChatListWidgetState extends State<ChatListWidget>
                       }
                     },
                     onChatListTap: _onChatListTap,
+                    chatTextFieldTopPadding: widget.chatTextFieldTopPadding,
                   ),
                   if (featureActiveConfig?.enableReactionPopup ?? false)
                     ReactionPopup(
@@ -229,6 +237,7 @@ class _ChatListWidgetState extends State<ChatListWidget>
                       reactionPopupConfig: widget.reactionPopupConfig,
                       onTap: _onChatListTap,
                       showPopUp: showPopupValue,
+                      emojiPickerSheetConfig: widget.emojiPickerSheetConfig,
                     ),
                 ],
               );
@@ -253,37 +262,36 @@ class _ChatListWidgetState extends State<ChatListWidget>
   void _showReplyPopup({
     required Message message,
     required bool sendByCurrentUser,
-  }) async {
+  }) {
     final replyPopup = widget.replyPopupConfig;
     ScaffoldMessenger.of(context)
         .showSnackBar(
           SnackBar(
             duration: const Duration(hours: 1),
-            backgroundColor: Colors.blue/* replyPopup?.backgroundColor */ ?? Colors.white,
+            backgroundColor: replyPopup?.backgroundColor ?? Colors.white,
             content: replyPopup?.replyPopupBuilder != null
                 ? replyPopup!.replyPopupBuilder!(message, sendByCurrentUser)
                 : ReplyPopupWidget(
-                  message: message,
                     buttonTextStyle: replyPopup?.buttonTextStyle,
                     topBorderColor: replyPopup?.topBorderColor,
                     onMoreTap: () {
                       _onChatListTap();
-                      if (replyPopup?.onMoreTap != null) {
-                        replyPopup?.onMoreTap!();
-                      }
+                      replyPopup?.onMoreTap?.call(
+                        message,
+                        sendByCurrentUser,
+                      );
                     },
                     onReportTap: () {
                       _onChatListTap();
-                      if (replyPopup?.onReportTap != null) {
-                        replyPopup?.onReportTap!();
-                      }
+                      replyPopup?.onReportTap?.call(
+                        message,
+                      );
                     },
                     onUnsendTap: () {
                       _onChatListTap();
-                      if (replyPopup?.onUnsendTap != null) {
-                        /*  Clipboard.setData(ClipboardData(text: message)); */
-                        //replyPopup?.onUnsendTap!(message);
-                      }
+                      replyPopup?.onUnsendTap?.call(
+                        message,
+                      );
                     },
                     onReplyTap: () {
                       widget.assignReplyMessage(message);
