@@ -22,8 +22,11 @@
 import 'package:flutter/material.dart';
 
 import 'package:chatview/src/utils/package_strings.dart';
+import 'package:flutter/services.dart';
 
 import '../values/typedefs.dart';
+
+import '../models/message.dart';
 
 class ReplyPopupWidget extends StatelessWidget {
   const ReplyPopupWidget({
@@ -35,6 +38,7 @@ class ReplyPopupWidget extends StatelessWidget {
     required this.onMoreTap,
     this.buttonTextStyle,
     this.topBorderColor,
+    required this.message,
   }) : super(key: key);
 
   /// Represents message is sent by current user or not.
@@ -58,6 +62,9 @@ class ReplyPopupWidget extends StatelessWidget {
   /// Allow user to set color of top border of reply snack bar.
   final Color? topBorderColor;
 
+  final Message message;
+
+
   @override
   Widget build(BuildContext context) {
     final textStyle =
@@ -80,21 +87,21 @@ class ReplyPopupWidget extends StatelessWidget {
               style: textStyle,
             ),
           ),
-          if (sendByCurrentUser)
+          /* if (sendByCurrentUser) */
             InkWell(
-              onTap: onUnsendTap,
+              onTap: () async{Clipboard.setData(ClipboardData(text: message.message));
+               },
               child: Text(
-                PackageStrings.unsend,
+                'Copy Text',
                 style: textStyle,
               ),
             ),
-          InkWell(
-            onTap: onMoreTap,
+         /*  InkWell(
             child: Text(
               PackageStrings.more,
               style: textStyle,
             ),
-          ),
+          ), */
         ],
       ),
     );

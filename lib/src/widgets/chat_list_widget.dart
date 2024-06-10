@@ -26,6 +26,7 @@ import 'package:chatview/src/extensions/extensions.dart';
 import 'package:chatview/src/widgets/chat_groupedlist_widget.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../chatview.dart';
 import 'reaction_popup.dart';
@@ -51,7 +52,6 @@ class ChatListWidget extends StatefulWidget {
     this.loadMoreData,
     this.isLastPage,
     this.onChatListTap,
-    this.chatTextFieldTopPadding = 0,
   }) : super(key: key);
 
   /// Provides controller for accessing few function for running chat.
@@ -108,9 +108,6 @@ class ChatListWidget extends StatefulWidget {
 
   /// Provides callback when user tap anywhere on whole chat.
   final VoidCallBack? onChatListTap;
-
-  /// Provides top padding of chat text field
-  final double chatTextFieldTopPadding;
 
   @override
   State<ChatListWidget> createState() => _ChatListWidgetState();
@@ -225,7 +222,6 @@ class _ChatListWidgetState extends State<ChatListWidget>
                       }
                     },
                     onChatListTap: _onChatListTap,
-                    chatTextFieldTopPadding: widget.chatTextFieldTopPadding,
                   ),
                   if (featureActiveConfig?.enableReactionPopup ?? false)
                     ReactionPopup(
@@ -257,16 +253,17 @@ class _ChatListWidgetState extends State<ChatListWidget>
   void _showReplyPopup({
     required Message message,
     required bool sendByCurrentUser,
-  }) {
+  }) async {
     final replyPopup = widget.replyPopupConfig;
     ScaffoldMessenger.of(context)
         .showSnackBar(
           SnackBar(
             duration: const Duration(hours: 1),
-            backgroundColor: replyPopup?.backgroundColor ?? Colors.white,
+            backgroundColor: Colors.blue/* replyPopup?.backgroundColor */ ?? Colors.white,
             content: replyPopup?.replyPopupBuilder != null
                 ? replyPopup!.replyPopupBuilder!(message, sendByCurrentUser)
                 : ReplyPopupWidget(
+                  message: message,
                     buttonTextStyle: replyPopup?.buttonTextStyle,
                     topBorderColor: replyPopup?.topBorderColor,
                     onMoreTap: () {
@@ -284,7 +281,8 @@ class _ChatListWidgetState extends State<ChatListWidget>
                     onUnsendTap: () {
                       _onChatListTap();
                       if (replyPopup?.onUnsendTap != null) {
-                        replyPopup?.onUnsendTap!(message);
+                        /*  Clipboard.setData(ClipboardData(text: message)); */
+                        //replyPopup?.onUnsendTap!(message);
                       }
                     },
                     onReplyTap: () {
