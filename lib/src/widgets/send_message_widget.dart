@@ -202,6 +202,8 @@ class SendMessageWidgetState extends State<SendMessageWidget> {
                                         _voiceReplyMessageView
                                       else if (state.messageType.isImage)
                                         _imageReplyMessageView
+                                      else if(state.messageType.isCustom)
+                                        _customReplyMessageView
                                       else
                                         Text(
                                           state.message,
@@ -273,6 +275,24 @@ class SendMessageWidgetState extends State<SendMessageWidget> {
         ),
         Text(
           PackageStrings.photo,
+          style: TextStyle(
+            color: widget.sendMessageConfig?.replyMessageColor ?? Colors.black,
+          ),
+        ),
+      ],
+    );
+  }
+  Widget get _customReplyMessageView {
+    return Row(
+      children: [
+        Icon(
+          Icons.file_present,
+          size: 20,
+          color: widget.sendMessageConfig?.replyMessageColor ??
+              Colors.grey.shade700,
+        ),
+        Text(
+          'File',
           style: TextStyle(
             color: widget.sendMessageConfig?.replyMessageColor ?? Colors.black,
           ),
