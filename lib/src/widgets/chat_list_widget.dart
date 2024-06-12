@@ -258,7 +258,7 @@ class _ChatListWidgetState extends State<ChatListWidget>
     ScaffoldMessenger.of(context)
         .showSnackBar(
           SnackBar(
-            duration: const Duration(hours: 1),
+            duration: const Duration(seconds: 4),
             backgroundColor: Colors.blue/* replyPopup?.backgroundColor */ ?? Colors.white,
             content: replyPopup?.replyPopupBuilder != null
                 ? replyPopup!.replyPopupBuilder!(message, sendByCurrentUser)
