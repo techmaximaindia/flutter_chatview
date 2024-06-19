@@ -28,22 +28,27 @@ class ChatUser {
 
   /// Provides profile picture URL of user.
   final String? profilePhoto;
+  
+  final String? chatmaxima_user_name; 
 
   ChatUser({
     required this.id,
     required this.name,
     this.profilePhoto,
+    required this.chatmaxima_user_name,
   });
 
   factory ChatUser.fromJson(Map<String, dynamic> json) => ChatUser(
         id: json["id"],
         name: json["name"],
         profilePhoto: json["profilePhoto"],
+        chatmaxima_user_name: json["chatmaxima_user_name"],
       );
 
   Map<String, dynamic> toJson() => {
         'id': id,
         'name': name,
         'profilePhoto': profilePhoto,
+        'chatmaxima_user_name':chatmaxima_user_name
       };
 }
