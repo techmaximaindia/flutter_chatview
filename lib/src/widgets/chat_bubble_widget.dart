@@ -172,7 +172,8 @@ class _ChatBubbleWidgetState extends State<ChatBubbleWidget> {
                   ? profileCircleConfig?.bottomPadding ?? 15
                   : profileCircleConfig?.bottomPadding ?? 2,
               profileCirclePadding: profileCircleConfig?.padding,
-              imageUrl: messagedUser?.profilePhoto,
+              imageUrl: messagedUser?.profilePhoto??'',
+              user_names: messagedUser?.chatmaxima_user_name??'',
               circleRadius: profileCircleConfig?.circleRadius,
               onTap: () => _onAvatarTap(messagedUser),
               onLongPress: () => _onAvatarLongPress(messagedUser),
@@ -232,6 +233,7 @@ class _ChatBubbleWidgetState extends State<ChatBubbleWidget> {
                   : profileCircleConfig?.bottomPadding ?? 2,
               profileCirclePadding: profileCircleConfig?.padding,
               imageUrl: widget.message.chatmaxima_profile_image??'',
+              user_names: widget.message.profilename??'',
               circleRadius: profileCircleConfig?.circleRadius,
               onTap: () => _onAvatarTap(messagedUser),
               onLongPress: () => _onAvatarLongPress(messagedUser),

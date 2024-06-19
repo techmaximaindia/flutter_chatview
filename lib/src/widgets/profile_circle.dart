@@ -21,11 +21,15 @@
  */
 import 'package:flutter/material.dart';
 import 'package:chatview/src/utils/constants/constants.dart';
+import 'package:chatview/src/models/models.dart';
+import 'package:chatview/src/models/chat_user.dart';
+import 'chat_view_appbar.dart';
 
 class ProfileCircle extends StatelessWidget {
   const ProfileCircle({
     Key? key,
     required this.bottomPadding,
+    this.user_names,
     this.imageUrl,
     this.profileCirclePadding,
     this.circleRadius,
@@ -50,6 +54,7 @@ class ProfileCircle extends StatelessWidget {
 
   /// Allow user to do operation when user long press on profile circle.
   final VoidCallback? onLongPress;
+  final String? user_names;
 
   @override
   Widget build(BuildContext context) {
@@ -59,11 +64,22 @@ class ProfileCircle extends StatelessWidget {
       child: InkWell(
         onLongPress: onLongPress,
         onTap: onTap,
-        child: CircleAvatar(
-          backgroundColor: Colors.blue,
-          radius: circleRadius ?? 16,
-          backgroundImage: NetworkImage(imageUrl ?? profileImage),
-        ),
+        child: imageUrl != null && imageUrl !=''
+            ? CircleAvatar(
+                backgroundColor: Color.fromRGBO(108, 117, 125,2),
+                radius: circleRadius ?? 16,
+                backgroundImage: NetworkImage(imageUrl!),
+              )
+            : CircleAvatar(
+                backgroundColor: Color.fromRGBO(108, 117, 125,2),
+                radius: circleRadius ?? 16,
+                child: Text(
+                  user_names != null && user_names!.isNotEmpty 
+                      ? user_names![0].toUpperCase()
+                      : '', 
+                  style: TextStyle(color: Colors.white),
+                ),
+              ),
       ),
     );
   }
