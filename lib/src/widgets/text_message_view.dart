@@ -24,7 +24,9 @@ import 'package:flutter/material.dart';
 import 'package:chatview/src/extensions/extensions.dart';
 import 'package:chatview/src/models/models.dart';
 import 'package:chatview/src/models/chat_user.dart';
-
+import 'package:flutter_html/flutter_html.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'package:html/parser.dart' as html_parser;
 import '../utils/constants/constants.dart';
 import 'link_preview.dart';
 import 'reaction_widget.dart';
@@ -100,19 +102,19 @@ class TextMessageView extends StatelessWidget {
                 color: highlightMessage ? highlightColor : _color,
                 borderRadius: _borderRadius(textMessage),
               ),
-              child: textMessage.isUrl
-                  ? LinkPreview(
-                      linkPreviewConfig: _linkPreviewConfig,
-                      url: textMessage,
-                    )
-                  : Text(
-                      textMessage,
-                      style: _textStyle ??
-                          textTheme.bodyMedium!.copyWith(
-                            color: Colors.black,
-                            fontSize: 16,
-                          ),
-                    ),
+              child:textMessage.isUrl
+                      ? LinkPreview(
+                          linkPreviewConfig: _linkPreviewConfig,
+                          url: textMessage,
+                        )
+                      : _buildMessageContent(textMessage, textTheme),/* Text(
+                          textMessage,
+                          style: _textStyle ??
+                            textTheme.bodyMedium!.copyWith(
+                              color: Colors.black,
+                              fontSize: 16,
+                            ),
+                        ), */
             ),
             if (message.reaction.reactions.isNotEmpty)
               ReactionWidget(
@@ -193,6 +195,39 @@ class TextMessageView extends StatelessWidget {
         ],
       ],
     );
+  }
+  Widget _buildMessageContent(String textMessage, TextTheme textTheme) {
+    final document = html_parser.parse(textMessage);
+    final String parsedString = document.body?.text ?? '';
+
+    if (parsedString.isNotEmpty && parsedString != textMessage) {
+      return Html(
+        data: textMessage,
+        style: {
+          'body': Style(
+            fontSize: FontSize(16),
+            color: Colors.black,
+          ),
+        },
+        onLinkTap: (url, _, __) async{
+          if (url != null && url !='') {
+            final uri = Uri.parse(url!);
+            if (await canLaunchUrl(uri)) {
+                await launchUrl(uri);
+            }
+          }
+        },
+      );
+    } else {
+      return Text(
+        textMessage,
+        style: _textStyle ??
+            textTheme.bodyMedium!.copyWith(
+              color: Colors.black,
+              fontSize: 16,
+            ),
+      );
+    }
   }
 
   EdgeInsetsGeometry? get _padding => isMessageBySender
