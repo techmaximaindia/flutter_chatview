@@ -118,18 +118,23 @@ class ChatViewAppBar extends StatelessWidget {
                       padding: const EdgeInsets.only(right: 8.0),
                       child: Stack(
                         children: [
-                          if (profilePicture != null&& profilePicture !='')
+                          if (profilePicture != null&& profilePicture!='')
                             CircleAvatar(
                               backgroundColor: Color.fromRGBO(108, 117, 125,2),
                               backgroundImage: NetworkImage(profilePicture!),
                             )
-                          else
+                          else if(chatTitle!=null&& chatTitle!='')
                             CircleAvatar(
                               backgroundColor: Color.fromRGBO(108, 117, 125,2),
                               child: Text(
                                 chatTitle[0].toUpperCase(),
                                 style: TextStyle(color: Colors.white),
                               ),
+                            )
+                          else
+                            CircleAvatar(
+                              backgroundColor: Color.fromRGBO(108, 117, 125,2),
+                              child: Text('Anonymous'[0].toUpperCase(),style: TextStyle(color: Colors.white),),
                             ),
                           if(platform!=null && platform!='')
                           Positioned(
