@@ -154,6 +154,7 @@ class _ChatUITextFieldState extends State<ChatUITextField> {
     var request = http.Request('POST', Uri.parse(url));
     request.body = json.encode({
       "short_code": shortcode,
+      "source":"mobileapp"
       /* "media_type":"text" */
     });
     request.headers.addAll(headers);
