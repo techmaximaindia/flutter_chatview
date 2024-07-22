@@ -41,6 +41,7 @@ class ChatUITextField extends StatefulWidget {
     Key? key,
     this.sendMessageConfig,
     /* required this.focusNode, */
+    this.autofocus = true,
     required this.textEditingController,
     required this.onPressed,
     required this.onRecordingComplete,
@@ -64,6 +65,8 @@ class ChatUITextField extends StatefulWidget {
 
   /// Provides callback when user select images from camera/gallery.
   final StringsCallBack onImageSelected;
+
+  final bool autofocus;
   
 
   @override
@@ -155,7 +158,6 @@ class _ChatUITextFieldState extends State<ChatUITextField> {
     request.body = json.encode({
       "short_code": shortcode,
       "source":"mobileapp"
-      /* "media_type":"text" */
     });
     request.headers.addAll(headers);
 
@@ -273,6 +275,49 @@ class _ChatUITextFieldState extends State<ChatUITextField> {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 mainAxisSize: MainAxisSize.min,
                                 children: suggestions.map((suggestion) {
+                                    Widget mediaWidget;
+                                    switch (suggestion['media_type']) {
+                                      case 'image':
+                                        mediaWidget = Image.network(
+                                          suggestion['media_url'] ?? '',
+                                          width: 50,
+                                          height: 50,
+                                          fit: BoxFit.cover,
+                                        );
+                                        break;
+                                      case 'video':
+                                        mediaWidget = Icon(
+                                          Icons.video_call,
+                                          /* size: 50, */
+                                          color: Colors.grey,
+                                        );
+                                        break;
+                                      case 'audio':
+                                        mediaWidget = Icon(
+                                          Icons.audiotrack,
+                                          /* size: 50, */
+                                          color: Colors.grey,
+                                        );
+                                        break;
+                                      case 'file':
+                                        mediaWidget = Icon(
+                                          Icons.file_copy_outlined,
+                                          /* size: 50, */
+                                          color: Colors.grey,
+                                        );
+                                        break;
+                                      default:
+                                        mediaWidget = Text(
+                                          suggestion['content'] ?? '',
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: TextStyle(
+                                            color: Colors.black,
+                                            fontSize: 14,
+                                          ),
+                                        );
+                                        break;
+                                    }
                                    return ListTile(
                                     contentPadding: EdgeInsets.symmetric(vertical: 0, horizontal: 10),
                                     dense: true,
@@ -283,7 +328,7 @@ class _ChatUITextFieldState extends State<ChatUITextField> {
                                         (
                                           child:Text
                                           (
-                                            '${suggestion['short_code'] ?? 'No Shortcode'}',
+                                            '${suggestion['short_code'] ?? 'No Shortcode'} - ',
                                             maxLines: 1,
                                             overflow: TextOverflow.ellipsis,
                                             style: TextStyle(
@@ -292,9 +337,35 @@ class _ChatUITextFieldState extends State<ChatUITextField> {
                                               fontSize: 14,
                                             ),
                                           ),
+                                          /* child:Text
+                                          (
+                                            suggestion['short_code']?.isNotEmpty == true ? suggestion['short_code']! : 'No Shortcode',
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: TextStyle(
+                                              color: Colors.black,
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 14,
+                                            ),
+                                          ), */
                                         ),
                                         SizedBox(width: 5,),
-                                         if (suggestion['content'] != null && suggestion['content']!="") ...[
+                                        Flexible(
+                                          child: mediaWidget,
+                                        ),
+                                         /* if (suggestion['content'] != null && suggestion['content']!="")
+                                          Flexible(
+                                            child: Text(
+                                              suggestion['content']??'',
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                              style: TextStyle(
+                                                color: Colors.black,
+                                                fontSize: 14,
+                                              ),
+                                            ),
+                                          ), */
+                                         /* if (suggestion['content'] != null && suggestion['content']!="") ...[
                                           Flexible(
                                             child: Text(
                                               suggestion['content']??'Nothing to Suggest',
@@ -306,7 +377,7 @@ class _ChatUITextFieldState extends State<ChatUITextField> {
                                               ),
                                             ),
                                           ),
-                                        ],
+                                        ], */
                                       ],
                                     ),
                                     onTap: () async{
@@ -354,7 +425,7 @@ class _ChatUITextFieldState extends State<ChatUITextField> {
                                   Expanded(
                                     child: TextField(
                                       /* focusNode: widget.focusNode, */
-                                      autofocus: true,
+                                      autofocus: widget.autofocus,
                                       controller: widget.textEditingController,
                                       style: textFieldConfig?.textStyle ?? const TextStyle(color: Colors.white),
                                       maxLines: textFieldConfig?.maxLines ?? 5,
@@ -530,9 +601,24 @@ class _ChatUITextFieldState extends State<ChatUITextField> {
       print("CANNED_ RESPONSES");
       print(canned_response);
       setState(() {
-        if (canned_response.isEmpty) 
+        if (inputText.substring(1).isEmpty){
+          suggestions=[{
+            "short_code": "Enter the shortcode",
+            "content": "",
+            "media_type": "",
+            "media_url": ""
+          }];
+        }
+        else if (canned_response.isEmpty) 
         {
-          suggestions = [];
+          suggestions = [
+          {
+            "short_code": "Nothing to Suggest",
+            "content": "",
+            "media_type": "",
+            "media_url": ""
+          }
+        ];
         } 
         else 
         {

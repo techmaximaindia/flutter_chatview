@@ -63,6 +63,7 @@ class SendMessageWidget extends StatefulWidget {
 
   /// Provides controller for accessing few function for running chat.
   final ChatController chatController;
+  
 
   @override
   State<SendMessageWidget> createState() => SendMessageWidgetState();
@@ -74,7 +75,8 @@ class SendMessageWidgetState extends State<SendMessageWidget> {
       ValueNotifier(const ReplyMessage());
 
   ReplyMessage get replyMessage => _replyMessage.value;
-  final _focusNode = FocusNode();
+  /* final _focusNode = FocusNode(); */
+  final bool _focusNode=true;
 
   ChatUser? get repliedUser => replyMessage.replyTo.isNotEmpty
       ? widget.chatController.getUserFromId(replyMessage.replyTo)
@@ -228,6 +230,7 @@ class SendMessageWidgetState extends State<SendMessageWidget> {
                         ),
                         ChatUITextField(
                          /*  focusNode: _focusNode, */
+                          autofocus:_focusNode,
                           textEditingController: _textEditingController,
                           onPressed: _onPressed,
                           sendMessageConfig: widget.sendMessageConfig,
@@ -348,7 +351,7 @@ class SendMessageWidgetState extends State<SendMessageWidget> {
         voiceMessageDuration: message.voiceMessageDuration,
       );
     }
-    FocusScope.of(context).requestFocus(_focusNode);
+    /* FocusScope.of(context).requestFocus(_focusNode); */
     if (widget.onReplyCallback != null) widget.onReplyCallback!(replyMessage);
   }
 
@@ -358,7 +361,7 @@ class SendMessageWidgetState extends State<SendMessageWidget> {
   }
 
   double get _bottomPadding => (!kIsWeb && Platform.isIOS)
-      ? (_focusNode.hasFocus
+      ? (_focusNode==true
           ? bottomPadding1
           : View.of(context).viewPadding.bottom > 0
               ? bottomPadding2
@@ -368,7 +371,7 @@ class SendMessageWidgetState extends State<SendMessageWidget> {
   @override
   void dispose() {
     _textEditingController.dispose();
-    _focusNode.dispose();
+    /* _focusNode.dispose(); */
     _replyMessage.dispose();
     super.dispose();
   }
