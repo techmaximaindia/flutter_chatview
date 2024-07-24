@@ -21,6 +21,9 @@
  */
 import 'dart:async';
 import 'dart:io' show Platform;
+import 'dart:convert';
+import 'dart:typed_data';
+import 'package:http_parser/http_parser.dart';
 
 import 'package:audio_waveforms/audio_waveforms.dart';
 import 'package:chatview/src/utils/constants/constants.dart';
@@ -33,8 +36,10 @@ import 'dart:convert';
 import '../../chatview.dart';
 import '../utils/debounce.dart';
 import '../utils/package_strings.dart';
-/* import 'package:path_provider/path_provider.dart'; */
+import 'package:path_provider/path_provider.dart';
 import 'dart:io';
+import 'image_message_view.dart';
+import 'package:path/path.dart';
 
 class ChatUITextField extends StatefulWidget {
   const ChatUITextField({
@@ -166,7 +171,6 @@ class _ChatUITextFieldState extends State<ChatUITextField> {
     if (response.statusCode == 200) 
     {
       String responseBody = await response.stream.bytesToString();
-      /* print(responseBody); */
       Map<String, dynamic> decodedResponse = json.decode(responseBody);
 
       if (decodedResponse.containsKey('data') && decodedResponse['data'] != null) 
@@ -234,11 +238,14 @@ class _ChatUITextFieldState extends State<ChatUITextField> {
                       bottomPadding4,
                       bottomPadding4,
                       bottomPadding4),
-                child: Stack(
+                child: Stack
+                (
                   alignment: Alignment.bottomCenter,
-                  children: [
+                  children: 
+                  [
                     if (suggestions.isNotEmpty)
-                      Container(
+                      Container
+                      (
                         decoration: BoxDecoration(
                           color: widget.sendMessageConfig?.textFieldBackgroundColor ?? Colors.white,
                           borderRadius: const BorderRadius.vertical(
@@ -256,7 +263,8 @@ class _ChatUITextFieldState extends State<ChatUITextField> {
                           leftPadding,
                           30,
                         ),
-                        child: Container(
+                        child: Container
+                        (
                           margin: const EdgeInsets.only(bottom: 2),
                           padding: const EdgeInsets.symmetric(
                             vertical: 4,
@@ -266,17 +274,21 @@ class _ChatUITextFieldState extends State<ChatUITextField> {
                             color: Colors.grey.shade200,
                             borderRadius: BorderRadius.circular(12),
                           ),
-                          child: ConstrainedBox(
+                          child: ConstrainedBox
+                          (
                             constraints: BoxConstraints(
                               maxHeight: 150,
                             ),
-                            child: SingleChildScrollView(
+                            child: SingleChildScrollView
+                            (
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 mainAxisSize: MainAxisSize.min,
-                                children: suggestions.map((suggestion) {
+                                children: suggestions.map((suggestion) 
+                                {
                                     Widget mediaWidget;
-                                    switch (suggestion['media_type']) {
+                                    switch (suggestion['media_type']) 
+                                    {
                                       case 'image':
                                         mediaWidget = Image.network(
                                           suggestion['media_url'] ?? '',
@@ -318,7 +330,8 @@ class _ChatUITextFieldState extends State<ChatUITextField> {
                                         );
                                         break;
                                     }
-                                   return ListTile(
+                                   return ListTile
+                                   (
                                     contentPadding: EdgeInsets.symmetric(vertical: 0, horizontal: 10),
                                     dense: true,
                                     visualDensity: VisualDensity(horizontal: 0, vertical: -3),
@@ -337,51 +350,78 @@ class _ChatUITextFieldState extends State<ChatUITextField> {
                                               fontSize: 14,
                                             ),
                                           ),
-                                          /* child:Text
-                                          (
-                                            suggestion['short_code']?.isNotEmpty == true ? suggestion['short_code']! : 'No Shortcode',
-                                            maxLines: 1,
-                                            overflow: TextOverflow.ellipsis,
-                                            style: TextStyle(
-                                              color: Colors.black,
-                                              fontWeight: FontWeight.bold,
-                                              fontSize: 14,
-                                            ),
-                                          ), */
                                         ),
                                         SizedBox(width: 5,),
                                         Flexible(
                                           child: mediaWidget,
                                         ),
-                                         /* if (suggestion['content'] != null && suggestion['content']!="")
-                                          Flexible(
-                                            child: Text(
-                                              suggestion['content']??'',
-                                              maxLines: 1,
-                                              overflow: TextOverflow.ellipsis,
-                                              style: TextStyle(
-                                                color: Colors.black,
-                                                fontSize: 14,
-                                              ),
-                                            ),
-                                          ), */
-                                         /* if (suggestion['content'] != null && suggestion['content']!="") ...[
-                                          Flexible(
-                                            child: Text(
-                                              suggestion['content']??'Nothing to Suggest',
-                                              maxLines: 1,
-                                              overflow: TextOverflow.ellipsis,
-                                              style: TextStyle(
-                                                color: Colors.black,
-                                                fontSize: 14,
-                                              ),
-                                            ),
-                                          ),
-                                        ], */
                                       ],
                                     ),
                                     onTap: () async{
-                                      widget.textEditingController.text = suggestion['content'] ?? '';
+                                      if (suggestion['media_url']!='') 
+                                      {
+
+                                        Future<File> _fileFromImageUrl(image_url) async 
+                                        {
+                                          final fileName = image_url.split('/').last;
+                                            final response = await http.get(Uri.parse(image_url));
+
+                                            final documentDirectory = await getApplicationDocumentsDirectory();
+
+                                            final file = File(join(documentDirectory.path, fileName));
+
+                                            file.writeAsBytesSync(response.bodyBytes);
+
+                                            return file;
+                                          }
+                                        String getFileExtension(String fileName) 
+                                        {
+                                          return ".${fileName.split('.').last}".toLowerCase();
+                                        }
+                                       final prefs = await SharedPreferences.getInstance();
+                                        final String? uuid = prefs.getString('uuid');
+                                        final String? cb_lead_id = prefs.getString('cb_lead_id');
+                                        final String? platform = prefs.getString('platform');
+                                        final String? conversation_id = prefs.getString('conversation_id');
+                                        String url = 'https://chatmaxima.com/api/send_image_message/';
+                                        Map<String, String> headers = {"Authorization": "$uuid"};
+                                        
+                                        if (suggestion['media_url'] != '' ) 
+                                        {
+                                          var postUri = Uri.parse(url);
+                                          var request = http.MultipartRequest("POST", postUri);
+                                          request.fields['cb_lead_id'] = "$cb_lead_id";
+                                          request.fields['platform'] = "$platform";
+                                          request.fields['message_body'] = ''; 
+                                          request.fields['conversation_id'] = "$conversation_id";
+                                          request.fields['cb_message_source'] = 'android';
+                                          request.headers.addAll(headers);
+                                          String extension = getFileExtension("${suggestion['media_url']}");
+                                          String media_type = "file";
+                                          if(extension == '.jpeg' || extension == '.jpg' || extension == '.png'|| extension=='.gif'||extension=='.svg')
+                                          {
+                                              media_type = "image";
+                                          }
+                                          else if(extension=='.mp4')
+                                          {
+                                            media_type="video";
+                                          }
+                                          else if(extension=='.mp3')
+                                          {
+                                            media_type="audio";
+                                          }
+                                          var uploadfile = await _fileFromImageUrl(suggestion['media_url']);
+                                          //request.files.add(await http.MultipartFile.fromPath('file', uploadfile, contentType: MediaType('application', media_type)));
+                                          request.files.add(await http.MultipartFile.fromPath('file', uploadfile.path, contentType: MediaType('application', media_type)));
+                                          final response = await request.send();
+                                          final responseData = await response.stream.toBytes();
+                                          final responseString = String.fromCharCodes(responseData);
+                                        }
+                                      } 
+                                      else 
+                                      {
+                                        widget.textEditingController.text = suggestion['content'] ?? '';
+                                      }
                                       setState(() {
                                         suggestions = [];
                                       });
@@ -535,38 +575,6 @@ class _ChatUITextFieldState extends State<ChatUITextField> {
       widget.onRecordingComplete(path);
     }
   }
- /*  Future<void> download_convert_path(String url) async 
- {
-  try 
-  {
-    final response = await http.get(Uri.parse(url));
-    if (response.statusCode == 200) 
-    {
-      final cache_dir = await getApplicationCacheDirectory();
-      final file_name = url.split('/').last;
-      final image = File('${cache_dir.path}/$file_name');
-       await image.writeAsBytes(response.bodyBytes);
-      print("DOWNLOAD CACHE");
-      print(image.path);
-      ImagePickerConfiguration? config;
-        String imagePath = image.path;
-        if (config?.onImagePicked != null) {
-          String? updatedImagePath = await config?.onImagePicked!(imagePath);
-          if (updatedImagePath != null) imagePath = updatedImagePath;
-        }
-      widget.onImageSelected(imagePath,'');
-    } 
-    else 
-    {
-      throw Exception('Failed to download image: ${response.statusCode}');
-    }
-  } 
-  catch (e) 
-  {
-    print('Error downloading image: $e');
-    widget.onImageSelected('', 'Error downloading image');
-  }
-} */
   void _onIconPressed(
     ImageSource imageSource, {
     ImagePickerConfiguration? config,
@@ -581,8 +589,6 @@ class _ChatUITextFieldState extends State<ChatUITextField> {
             config?.preferredCameraDevice ?? CameraDevice.rear,
       );
       String? imagePath = image?.path;
-      print("SELECTED IMAGE ");
-      print(imagePath);
       if (config?.onImagePicked != null) {
         String? updatedImagePath = await config?.onImagePicked!(imagePath);
         if (updatedImagePath != null) imagePath = updatedImagePath;
@@ -598,47 +604,58 @@ class _ChatUITextFieldState extends State<ChatUITextField> {
     if (inputText.startsWith('/')) 
     {
       final canned_response = await fetch_canned_responses(inputText.substring(1));
-      print("CANNED_ RESPONSES");
-      print(canned_response);
-      setState(() {
-        if (inputText.substring(1).isEmpty){
-          suggestions=[{
-            "short_code": "Enter the shortcode",
-            "content": "",
-            "media_type": "",
-            "media_url": ""
-          }];
+      setState(() 
+      {
+        if (inputText.substring(1).isEmpty)
+        {
+            suggestions=[
+              {
+              "short_code": "Enter the shortcode",
+              "content": "",
+              "media_type": "",
+              "media_url": ""
+            }
+          ];
         }
         else if (canned_response.isEmpty) 
         {
-          suggestions = [
-          {
-            "short_code": "Nothing to Suggest",
-            "content": "",
-            "media_type": "",
-            "media_url": ""
-          }
-        ];
+          suggestions = 
+          [
+            {
+              "short_code": "Nothing to Suggest",
+              "content": "",
+              "media_type": "",
+              "media_url": ""
+            }
+          ];
         } 
         else 
         {
           suggestions=canned_response;
         }
       });
-    } else {
+    } 
+    else 
+    {
       _removeSuggestionOverlay();
-      setState(() {
+      setState(() 
+      {
         suggestions = [];
       });
     }
-    if(inputText.isEmpty){
+    if(inputText.isEmpty)
+    {
       _inputText.value='';
-    }else{
+    }
+    else
+    {
       _inputText.value=inputText;
     }
-    debouncer.run(() {
+    debouncer.run(() 
+    {
       composingStatus.value = TypeWriterStatus.typed;
-    }, () {
+    },() 
+    {
       composingStatus.value = TypeWriterStatus.typing;
     });
   }
