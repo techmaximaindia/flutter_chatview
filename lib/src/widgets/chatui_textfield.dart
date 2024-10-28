@@ -400,7 +400,7 @@ class _ChatUITextFieldState extends State<ChatUITextField> {
                                           request.headers.addAll(headers);
                                           String extension = getFileExtension("${suggestion['media_url']}");
                                           String media_type = "file";
-                                          if(extension == '.jpeg' || extension == '.jpg' || extension == '.png')
+                                          if(extension == '.jpeg' || extension == '.jpg' || extension == '.png' || extension=='.gif'||extension=='.svg')
                                           {
                                               media_type = "image";
                                           }
