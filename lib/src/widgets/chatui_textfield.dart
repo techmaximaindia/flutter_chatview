@@ -211,6 +211,7 @@ class _ChatUITextFieldState extends State<ChatUITextField> {
   @override
   Widget build(BuildContext context) 
   {
+    final outlineBorder = _outLineBorder;
     return IntrinsicHeight
     (
      child: Align
@@ -219,26 +220,27 @@ class _ChatUITextFieldState extends State<ChatUITextField> {
         child: SizedBox
         (
           width: MediaQuery.of(context).size.width,
+          //height:MediaQuery.of(context).size.height, new
           child: Stack
           (
             children: 
             [
-              Positioned
+              /* Positioned
               (
                 right: 0,
                 left: 0,
                 bottom: 0,
                 child: Container(
                   height: MediaQuery.of(context).size.height / ((!kIsWeb && Platform.isIOS) ? 24 : 28),
-                  color: widget.sendMessageConfig?.textFieldBackgroundColor ?? Colors.white,
+                  color: widget.sendMessageConfig?.textFieldBackgroundColor ?? Colors.white,  newe
                 ),
-              ),
-              Padding(
+              ), */
+              /* Padding(
                 padding: EdgeInsets.fromLTRB(bottomPadding4,
                       bottomPadding4,
                       bottomPadding4,
                       bottomPadding4),
-                child: Stack
+                child: */ Stack
                 (
                   alignment: Alignment.bottomCenter,
                   children: 
@@ -398,7 +400,7 @@ class _ChatUITextFieldState extends State<ChatUITextField> {
                                           request.headers.addAll(headers);
                                           String extension = getFileExtension("${suggestion['media_url']}");
                                           String media_type = "file";
-                                          if(extension == '.jpeg' || extension == '.jpg' || extension == '.png'|| extension=='.gif'||extension=='.svg')
+                                          if(extension == '.jpeg' || extension == '.jpg' || extension == '.png')
                                           {
                                               media_type = "image";
                                           }
@@ -434,7 +436,7 @@ class _ChatUITextFieldState extends State<ChatUITextField> {
                         ),
                       ),
                       Container(
-                        padding: textFieldConfig?.padding ?? const EdgeInsets.symmetric(horizontal: 4),
+                        padding: textFieldConfig?.padding ?? const EdgeInsets.symmetric(horizontal: 4), /* new */
                         margin: textFieldConfig?.margin,
                         decoration: BoxDecoration(
                           borderRadius: textFieldConfig?.borderRadius ?? BorderRadius.circular(textFieldBorderRadius),
@@ -552,7 +554,7 @@ class _ChatUITextFieldState extends State<ChatUITextField> {
                         ),
                       ),
                   ],
-                ),
+                /* ), */
               ),
            ],     
           ),
