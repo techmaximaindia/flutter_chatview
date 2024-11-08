@@ -40,7 +40,7 @@ class LinkPreview extends StatelessWidget {
   /// Provides configuration of chat bubble appearance when link/URL is passed
   /// in message.
   final LinkPreviewConfiguration? linkPreviewConfig;
-
+  
   @override
   Widget build(BuildContext context) {
     return Padding(
@@ -51,10 +51,10 @@ class LinkPreview extends StatelessWidget {
         children: [
           Padding(
             padding: const EdgeInsets.symmetric(vertical: verticalPadding),
-            child: url.isImageUrl
+            child:url.isImageUrl
                 ? InkWell(
                     onTap: _onLinkTap,
-                    child: Image.network(
+                    child:Image.network(
                       url,
                       height: 120,
                       width: double.infinity,
@@ -76,12 +76,12 @@ class LinkPreview extends StatelessWidget {
                         ),
                       ),
                     ),
-                    backgroundColor: linkPreviewConfig?.backgroundColor ??
-                        Colors.grey.shade200,
+                    backgroundColor: linkPreviewConfig?.backgroundColor ??Colors.grey.shade200,
                     borderRadius: linkPreviewConfig?.borderRadius,
-                    bodyStyle: linkPreviewConfig?.bodyStyle ??
-                        const TextStyle(color: Colors.black),
+                    bodyStyle: linkPreviewConfig?.bodyStyle ??const TextStyle(color: Colors.black),
                     titleStyle: linkPreviewConfig?.titleStyle,
+                    errorBody: '',
+                    errorTitle: '',
                   ),
           ),
           const SizedBox(height: verticalPadding),
@@ -100,6 +100,7 @@ class LinkPreview extends StatelessWidget {
       ),
     );
   }
+
 
   void _onLinkTap() {
     if (linkPreviewConfig?.onUrlDetect != null) {
