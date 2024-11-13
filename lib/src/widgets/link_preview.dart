@@ -26,7 +26,6 @@ import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../utils/constants/constants.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 class LinkPreview extends StatelessWidget {
   const LinkPreview({
@@ -41,7 +40,7 @@ class LinkPreview extends StatelessWidget {
   /// Provides configuration of chat bubble appearance when link/URL is passed
   /// in message.
   final LinkPreviewConfiguration? linkPreviewConfig;
-  
+
   @override
   Widget build(BuildContext context) {
     return Padding(
@@ -52,9 +51,7 @@ class LinkPreview extends StatelessWidget {
         children: [
           Padding(
             padding: const EdgeInsets.symmetric(vertical: verticalPadding),
-            child: url.contains('https://www.google.com/maps?') 
-                ? _buildGoogleMap()
-                :url.isImageUrl
+            child:url.isImageUrl
                 ? InkWell(
                     onTap: _onLinkTap,
                     child:Image.network(
@@ -103,51 +100,7 @@ class LinkPreview extends StatelessWidget {
       ),
     );
   }
-
-Widget _buildGoogleMap() {
-  // Parse the URL to get latitude and longitude
-  final uri = Uri.parse(url);
-  final queryParams = uri.queryParameters;
-  final latLng = queryParams['q']?.split(',');  // Assumes the 'q' parameter contains lat, lon
-
-  if (latLng != null && latLng.length == 2) {
-    final latitude = double.tryParse(latLng[0]);
-    final longitude = double.tryParse(latLng[1]);
-
-    if (latitude != null && longitude != null) {
-      // Return GoogleMap widget with dynamic coordinates
-      return SizedBox(
-        height: 250, // Set your desired height
-        width: double.infinity,
-        child: GoogleMap(
-          initialCameraPosition: CameraPosition(
-            target: LatLng(latitude, longitude),
-            zoom: 15,
-          ),
-          markers: {
-            Marker(
-              markerId: MarkerId("locationMarker"),
-              position: LatLng(latitude, longitude),
-            ),
-          },
-          mapType: MapType.normal,
-          myLocationEnabled: true,
-          zoomControlsEnabled: true,
-          compassEnabled: true,
-        ),
-      );
-    }
-  }
-
-  // Fallback: Return an empty widget or default UI if coordinates are not found
-  return SizedBox(
-    height: 250,  // Set your fallback height
-    width: double.infinity,
-    child: Center(child: Text('Invalid coordinates in URL')),
-  );
-}
-
-  void _onLinkTap() {
+void _onLinkTap() {
     if (linkPreviewConfig?.onUrlDetect != null) {
       linkPreviewConfig?.onUrlDetect!(url);
     } else {
