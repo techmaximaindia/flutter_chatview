@@ -40,6 +40,7 @@ import 'package:path_provider/path_provider.dart';
 import 'dart:io';
 import 'image_message_view.dart';
 import 'package:path/path.dart';
+import '../utils/constants/constants.dart';
 
 class ChatUITextField extends StatefulWidget {
   const ChatUITextField({
@@ -154,7 +155,7 @@ class _ChatUITextFieldState extends State<ChatUITextField> {
     print(shortcode);
     final prefs = await SharedPreferences.getInstance();
     final String? uuid = prefs.getString('uuid');
-    final url ='https://chatmaxima.com/api/canned_responses/';
+    final url = base_url+'api/canned_responses/';
     var headers = {
       'Authorization': '$uuid',
       'Content-Type': 'application/json',
@@ -385,7 +386,7 @@ class _ChatUITextFieldState extends State<ChatUITextField> {
                                         final String? cb_lead_id = prefs.getString('cb_lead_id');
                                         final String? platform = prefs.getString('platform');
                                         final String? conversation_id = prefs.getString('conversation_id');
-                                        String url = 'https://chatmaxima.com/api/send_image_message/';
+                                        String url = base_url+'api/send_image_message/';
                                         Map<String, String> headers = {"Authorization": "$uuid"};
                                         
                                         if (suggestion['media_url'] != '' ) 
