@@ -86,3 +86,6 @@ Widget lastSeenAgoBuilder(Message message, String formattedDate) {
     ),
   );
 }
+
+String base_url ='https://chatmaxima.com/'; 
+/*String base_url ='https://297c-2401-4900-1ce2-3976-cf5e-7ad1-31d-8417.ngrok-free.app/chatmaxima/';*/
