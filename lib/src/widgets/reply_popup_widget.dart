@@ -28,6 +28,11 @@ import '../values/typedefs.dart';
 
 import '../models/message.dart';
 
+import 'dart:convert';
+import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
+import '../utils/constants/constants.dart';
+
 class ReplyPopupWidget extends StatelessWidget {
   const ReplyPopupWidget({
     Key? key,
@@ -70,8 +75,158 @@ class ReplyPopupWidget extends StatelessWidget {
     final textStyle =
         buttonTextStyle ?? const TextStyle(fontSize: 14, color: Colors.black);
     final deviceWidth = MediaQuery.of(context).size.width;
+    Future<String> call_ai_assist(BuildContext context, String message) async {
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        final String? uuid = prefs.getString('uuid');
+        final url = base_url + 'api/ai_assist/';
+
+        var headers = {
+          'Content-Type': 'application/json',
+          'Authorization': '$uuid',
+        };
+
+        var request = http.Request('POST', Uri.parse(url));
+        request.body = json.encode({
+          "source": "mobileapp",
+          "type": "reply",
+          "conversation_attributes": {
+            "query": message,
+          },
+        });
+        request.headers.addAll(headers);
+
+        http.StreamedResponse response = await request.send();
+        if (response.statusCode == 200) {
+          String responseBody = await response.stream.bytesToString();
+          Map<String, dynamic> decodedResponse = json.decode(responseBody);
+          return json.decode(decodedResponse['ai_response'])['answer'];
+        } else {
+          return "Error: Unable to fetch AI response.";
+        }
+      } catch (e) {
+        return "Error: $e";
+      }
+    }
+    Future<void> sendMessage(String message,) async {
+      final prefs = await SharedPreferences.getInstance();
+
+      final String? cb_lead_id = prefs.getString('cb_lead_id');
+      final String? platform = prefs.getString('platform');
+      final String? conversation_id = prefs.getString('conversation_id');
+
+      Map<String, dynamic> data = {
+        "cb_lead_id": cb_lead_id,
+        "platform": platform,
+        "message_body": message,
+        "conversation_id":conversation_id,
+        "cb_message_source": 'android',
+        "reply_message_id": '', 
+      };
+
+      String jsonData = json.encode(data);
+
+      final String? uuid = prefs.getString('uuid');
+
+      String url = base_url + 'api/send_message/';
+      var response = await http.post(
+        Uri.parse(url),
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": "$uuid",
+        },
+        body: jsonData,
+      );
+      if (response.statusCode == 200) {
+        print("Message sent successfully: ${response.body}");
+      } else {
+        print("Failed to send message: ${response.statusCode}");
+        print("Response body: ${response.body}");
+      }
+    }
+   void _show_dialog_fetch_response(BuildContext context, String title, String message) {
+      final TextEditingController _messageController = TextEditingController(text: "Loading...");
+      showDialog(
+        context: context,
+        builder: (BuildContext context) {
+          return AlertDialog(
+            contentPadding: const EdgeInsets.only(left: 26, right: 26, top: 10, bottom: 15),
+            shape: const RoundedRectangleBorder(
+              borderRadius: BorderRadius.all(Radius.circular(10.0)),
+            ),
+            title: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black,
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.close),
+                  onPressed: () {
+                    Navigator.of(context).pop(); 
+                  },
+                ),
+              ],
+            ),
+            content: SizedBox(
+              height: 350.0,
+              child: SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    TextField(
+                      controller: _messageController,
+                      maxLines: null,
+                      decoration: const InputDecoration(
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            actions: [
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: ElevatedButton(
+                  onPressed: () async {
+                    sendMessage(message);
+                    Navigator.of(context).pop(); 
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color.fromARGB(200, 0, 138, 255),
+                    elevation: 0,
+                    shadowColor: Colors.transparent,
+                    minimumSize: const Size(double.infinity, 58),
+                  ),
+                  child: const Text(
+                    'Send',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          );
+        },
+      );
+      call_ai_assist(context,message).then((response) {
+        _messageController.text = response; 
+      }).catchError((error) {
+        _messageController.text = "Failed to fetch response.";
+      });
+    }
+
     return Container(
-      height: deviceWidth > 500 ? deviceWidth * 0.05 : deviceWidth * 0.13,
+      height: deviceWidth > 600 ? deviceWidth * 0.05 : deviceWidth * 0.16,
       decoration: BoxDecoration(
         border: Border(
             top: BorderSide(
@@ -81,28 +236,59 @@ class ReplyPopupWidget extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
           InkWell(
+              onTap: () async{
+                _show_dialog_fetch_response(context, "AI Response", message.message);
+               },
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.smart_toy, 
+                    size: 15,
+                    color: Colors.white,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    'AI Assist',
+                    style: TextStyle(color: Colors.white),
+                  ),
+                ],
+              ),
+            ), 
+          InkWell(
             onTap: onReplyTap,
-            child: Text(
-              PackageStrings.reply,
-              style: textStyle,
-            ),
+            child: Row(
+                children: [
+                  Icon(
+                    Icons.reply, 
+                    size: 15,
+                    color: Colors.white,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    'Reply',
+                    style: TextStyle(color: Colors.white),
+                  ),
+                ],
+              ),
           ),
-          /* if (sendByCurrentUser) */
             InkWell(
               onTap: () async{Clipboard.setData(ClipboardData(text: message.message));
                },
-              child: Text(
-                'Copy Text',
-                style: textStyle,
+              child:  Row(
+                children: [
+                  Icon(
+                    Icons.copy, 
+                    size: 15,
+                    color: Colors.white,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    'Copy',
+                    style: TextStyle(color: Colors.white),
+                  ),
+                ],
               ),
             ),
-            
-         /*  InkWell(
-            child: Text(
-              PackageStrings.more,
-              style: textStyle,
-            ),
-          ), */
         ],
       ),
     );
