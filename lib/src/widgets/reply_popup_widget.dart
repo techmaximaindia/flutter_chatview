@@ -146,6 +146,13 @@ class ReplyPopupWidget extends StatelessWidget {
     }
    void _show_dialog_fetch_response(BuildContext context, String title, String message) {
       final TextEditingController _messageController = TextEditingController(text: "Loading...");
+     
+      call_ai_assist(context,message).then((response) {
+        _messageController.text = response; 
+      }).catchError((error) {
+        _messageController.text = "Failed to fetch response.";
+      });
+       
       showDialog(
         context: context,
         builder: (BuildContext context) {
@@ -195,7 +202,7 @@ class ReplyPopupWidget extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: ElevatedButton(
                   onPressed: () async {
-                    sendMessage(message);
+                    sendMessage(_messageController.text);
                     Navigator.of(context).pop(); 
                   },
                   style: ElevatedButton.styleFrom(
@@ -218,11 +225,6 @@ class ReplyPopupWidget extends StatelessWidget {
           );
         },
       );
-      call_ai_assist(context,message).then((response) {
-        _messageController.text = response; 
-      }).catchError((error) {
-        _messageController.text = "Failed to fetch response.";
-      });
     }
 
     return Container(
