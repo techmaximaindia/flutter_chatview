@@ -36,11 +36,14 @@ import 'dart:convert';
 import '../../chatview.dart';
 import '../utils/debounce.dart';
 import '../utils/package_strings.dart';
+import '../utils/constants/constants.dart';
 import 'package:path_provider/path_provider.dart';
 import 'dart:io';
 import 'image_message_view.dart';
 import 'package:path/path.dart';
-import '../utils/constants/constants.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+
+
 
 class ChatUITextField extends StatefulWidget {
   const ChatUITextField({
@@ -52,6 +55,7 @@ class ChatUITextField extends StatefulWidget {
     required this.onPressed,
     required this.onRecordingComplete,
     required this.onImageSelected,
+    required this.onAIPressed,
   }) : super(key: key);
 
   /// Provides configuration of default text field in chat.
@@ -73,6 +77,8 @@ class ChatUITextField extends StatefulWidget {
   final StringsCallBack onImageSelected;
 
   final bool autofocus;
+  
+  final VoidCallBack onAIPressed;
   
 
   @override
@@ -151,8 +157,6 @@ class _ChatUITextFieldState extends State<ChatUITextField> {
       print('Shortcode is null');
       return Future.value([]); 
     }
-
-    print(shortcode);
     final prefs = await SharedPreferences.getInstance();
     final String? uuid = prefs.getString('uuid');
     final url = base_url+'api/canned_responses/';
@@ -208,10 +212,58 @@ class _ChatUITextFieldState extends State<ChatUITextField> {
     _suggestionOverlay?.remove();
     _suggestionOverlay = null;
   }
+  Future<void> call_ai_assist({String? text}) async 
+  {
+    final prefs = await SharedPreferences.getInstance();
+    final String? uuid = prefs.getString('uuid');
+    final url = base_url + 'api/reply/';
+    final String? cb_lead_id = prefs.getString('cb_lead_id');
+    final String? platform = prefs.getString('platform');
+    final String? conversation_id = prefs.getString('conversation_id');
+    final String? cb_lead_name=prefs.getString('cb_lead_name');
+    var headers = 
+    {
+      'Content-Type': 'application/json',
+      'Authorization': '$uuid',
+    };
+    var request = http.Request('POST', Uri.parse(url));
+    request.body = json.encode({
+        "source": "mobileapp",
+        "type": "reply",
+        "conversation_attributes": {
+          "build_type": "summary",
+          "conversation_alias": conversation_id,
+          "source": "chat",
+          "from_name": cb_lead_name,
+          "suggestion": text??'',
+          "message_id":'',
+          "query":''
+        }
+    });
+    request.headers.addAll(headers);
 
+    http.StreamedResponse response = await request.send();
+    if (response.statusCode == 200) {
+      String responseBody = await response.stream.bytesToString();
+      Map<String, dynamic> decodedResponse = json.decode(responseBody);
+      if (decodedResponse['success'] == 'false') {
+        widget.textEditingController.text=decodedResponse['ai_error_message'];
+      } 
+      else 
+      {
+        widget.textEditingController.text= json.decode(decodedResponse['ai_response'])['answer'];
+      }
+    } 
+    else 
+    {
+      print('Error occurs while Generating Your AI Messages Please Try again');
+
+    }
+  }
   @override
   Widget build(BuildContext context) 
   {
+
     final outlineBorder = _outLineBorder;
     return IntrinsicHeight
     (
@@ -401,7 +453,7 @@ class _ChatUITextFieldState extends State<ChatUITextField> {
                                           request.headers.addAll(headers);
                                           String extension = getFileExtension("${suggestion['media_url']}");
                                           String media_type = "file";
-                                          if(extension == '.jpeg' || extension == '.jpg' || extension == '.png' || extension=='.gif'||extension=='.svg')
+                                          if(extension == '.jpeg' || extension == '.jpg' || extension == '.png')
                                           {
                                               media_type = "image";
                                           }
@@ -501,14 +553,52 @@ class _ChatUITextFieldState extends State<ChatUITextField> {
                                   valueListenable: _inputText,
                                   builder: (_, inputTextValue, child) {
                                     if (inputTextValue.isNotEmpty ) {
-                                      return IconButton(
+                                      return Column(
+                                        mainAxisAlignment: MainAxisAlignment.end,
+                                        children: [
+                                          IconButton(
+                                            onPressed: () {
+                                              final inputText = widget.textEditingController.text;
+                                              if (inputText.isNotEmpty) {
+                                                call_ai_assist(text:inputText);
+                                                print("Suggestion Text");
+                                                print("$call_ai_assist(text:inputText,replyMessageId: '')");
+                                              }
+                                            },
+                                            icon: const FaIcon(
+                                              FontAwesomeIcons.magicWandSparkles,
+                                              size: 18,
+                                              color: Colors.black,
+                                            ),
+                                          ),
+                                         /*  IconButton(
+                                            onPressed: () {
+                                              call_ai_assist(inputTextValue);
+                                            },
+                                            icon: const FaIcon(
+                                              FontAwesomeIcons.magicWandSparkles, 
+                                              size:18,
+                                              color: Colors.black,
+                                            ),
+                                          ), */
+                                          IconButton(
+                                            color: sendMessageConfig?.defaultSendButtonColor ?? Colors.green,
+                                            onPressed: () {
+                                              widget.onPressed();
+                                              _inputText.value = '';
+                                            },
+                                            icon: sendMessageConfig?.sendButtonIcon ?? const Icon(Icons.send),
+                                            ),
+                                       ],
+                                    );
+                                      /* return IconButton(
                                         color: sendMessageConfig?.defaultSendButtonColor ?? Colors.green,
                                         onPressed: () {
                                           widget.onPressed();
                                           _inputText.value = '';
                                         },
                                         icon: sendMessageConfig?.sendButtonIcon ?? const Icon(Icons.send),
-                                      );
+                                      ); */
                                     } else {
                                       return Row(
                                         children: [
@@ -537,6 +627,17 @@ class _ChatUITextFieldState extends State<ChatUITextField> {
                                                   color: imagePickerIconsConfig?.galleryIconColor,
                                                 ),
                                               ),
+                                            if(inputTextValue.isEmpty)  
+                                              IconButton(
+                                                onPressed: () {
+                                                  widget.onAIPressed();
+                                                },
+                                                icon: const FaIcon(
+                                                  FontAwesomeIcons.magicWandSparkles,
+                                                  size: 18,
+                                                  color: Colors.black,
+                                                ),
+                                              ),  
                                           ],
                                           if (sendMessageConfig?.allowRecordingVoice ?? true && Platform.isIOS && Platform.isAndroid && !kIsWeb)
                                             IconButton(
@@ -637,7 +738,7 @@ class _ChatUITextFieldState extends State<ChatUITextField> {
           suggestions=canned_response;
         }
       });
-    } 
+    }
     else 
     {
       _removeSuggestionOverlay();

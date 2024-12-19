@@ -31,6 +31,10 @@ import 'package:flutter/material.dart';
 
 import '../utils/constants/constants.dart';
 
+import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:convert';
+
 class SendMessageWidget extends StatefulWidget {
   const SendMessageWidget({
     Key? key,
@@ -88,6 +92,7 @@ class SendMessageWidgetState extends State<SendMessageWidget> {
 
   ChatUser? currentUser;
 
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
@@ -95,7 +100,54 @@ class SendMessageWidgetState extends State<SendMessageWidget> {
       currentUser = provide!.currentUser;
     }
   }
+  Future<void> call_ai_assist({String? replyMessageId,String? query}) async 
+  {
+    final prefs = await SharedPreferences.getInstance();
+    final String? uuid = prefs.getString('uuid');
+    final url = base_url + 'api/reply/';
+      final String? cb_lead_id = prefs.getString('cb_lead_id');
+      final String? platform = prefs.getString('platform');
+      final String? conversation_id = prefs.getString('conversation_id');
+      final String? cb_lead_name=prefs.getString('cb_lead_name');
+      var headers = 
+      {
+        'Content-Type': 'application/json',
+        'Authorization': '$uuid',
+      };
+      var request = http.Request('POST', Uri.parse(url));
+      request.body = json.encode({
+          "source": "mobileapp",
+          "type": "reply",
+          "conversation_attributes": {
+            "build_type": "summary",
+            "conversation_alias": conversation_id,
+            "source": "chat",
+            "from_name": cb_lead_name,
+            "suggestion": '',
+            "message_id": replyMessageId,
+            "query":query
+          }
+      });
+      request.headers.addAll(headers);
 
+      http.StreamedResponse response = await request.send();
+      if (response.statusCode == 200) {
+        String responseBody = await response.stream.bytesToString();
+        Map<String, dynamic> decodedResponse = json.decode(responseBody);
+        if (decodedResponse['success'] == 'false') {
+          _textEditingController.text=decodedResponse['ai_error_message'];
+        } 
+        else 
+        {
+          _textEditingController.text= json.decode(decodedResponse['ai_response'])['answer'];
+        }
+      } 
+      else 
+      {
+        print('Error occurs while Generating Your AI Messages Please Try again');
+
+      }
+    }
   @override
   Widget build(BuildContext context) {
     final replyTitle = "${PackageStrings.replyTo} $_replyTo";
@@ -229,14 +281,19 @@ class SendMessageWidgetState extends State<SendMessageWidget> {
                           valueListenable: _replyMessage,
                         ),
                         ChatUITextField(
-                         /*  focusNode: _focusNode, */
-                          autofocus:_focusNode,
                           textEditingController: _textEditingController,
                           onPressed: _onPressed,
                           sendMessageConfig: widget.sendMessageConfig,
                           onRecordingComplete: _onRecordingComplete,
                           onImageSelected: _onImageSelected,
-                        )
+                          onAIPressed: () {
+                            print("onAI Pressed");
+                                call_ai_assist(
+                                  replyMessageId: _replyMessage.value.messageId,
+                                  query: _replyMessage.value.message,
+                                );
+                          },
+                        ),
                       ],
                     ),
                   ),
@@ -266,7 +323,6 @@ class SendMessageWidgetState extends State<SendMessageWidget> {
       ],
     );
   }
-
   Widget get _imageReplyMessageView {
     return Row(
       children: [
