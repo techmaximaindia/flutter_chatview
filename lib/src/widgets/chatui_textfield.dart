@@ -561,8 +561,6 @@ class _ChatUITextFieldState extends State<ChatUITextField> {
                                               final inputText = widget.textEditingController.text;
                                               if (inputText.isNotEmpty) {
                                                 call_ai_assist(text:inputText);
-                                                print("Suggestion Text");
-                                                print("$call_ai_assist(text:inputText,replyMessageId: '')");
                                               }
                                             },
                                             icon: const FaIcon(
@@ -571,16 +569,6 @@ class _ChatUITextFieldState extends State<ChatUITextField> {
                                               color: Colors.black,
                                             ),
                                           ),
-                                         /*  IconButton(
-                                            onPressed: () {
-                                              call_ai_assist(inputTextValue);
-                                            },
-                                            icon: const FaIcon(
-                                              FontAwesomeIcons.magicWandSparkles, 
-                                              size:18,
-                                              color: Colors.black,
-                                            ),
-                                          ), */
                                           IconButton(
                                             color: sendMessageConfig?.defaultSendButtonColor ?? Colors.green,
                                             onPressed: () {
@@ -591,14 +579,6 @@ class _ChatUITextFieldState extends State<ChatUITextField> {
                                             ),
                                        ],
                                     );
-                                      /* return IconButton(
-                                        color: sendMessageConfig?.defaultSendButtonColor ?? Colors.green,
-                                        onPressed: () {
-                                          widget.onPressed();
-                                          _inputText.value = '';
-                                        },
-                                        icon: sendMessageConfig?.sendButtonIcon ?? const Icon(Icons.send),
-                                      ); */
                                     } else {
                                       return Row(
                                         children: [
