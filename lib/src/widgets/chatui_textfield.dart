@@ -42,7 +42,8 @@ import 'dart:io';
 import 'image_message_view.dart';
 import 'package:path/path.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
-
+import 'package:socket_io_client/socket_io_client.dart' as IO;
+import 'socket_manager.dart';
 
 
 class ChatUITextField extends StatefulWidget {
@@ -56,6 +57,8 @@ class ChatUITextField extends StatefulWidget {
     required this.onRecordingComplete,
     required this.onImageSelected,
     required this.onAIPressed,
+    /* this.reply_message_id,
+    this.reply_messages, */
   }) : super(key: key);
 
   /// Provides configuration of default text field in chat.
@@ -79,6 +82,10 @@ class ChatUITextField extends StatefulWidget {
   final bool autofocus;
   
   final VoidCallBack onAIPressed;
+/* 
+  final String? reply_message_id;
+  
+  final String? reply_messages; */
   
 
   @override
@@ -86,6 +93,9 @@ class ChatUITextField extends StatefulWidget {
 }
 
 class _ChatUITextFieldState extends State<ChatUITextField> {
+ 
+  final TextEditingController _messageController = TextEditingController(text: "");
+
   final ValueNotifier<String> _inputText = ValueNotifier('');
 
   final ImagePicker _imagePicker = ImagePicker();
@@ -132,14 +142,28 @@ class _ChatUITextFieldState extends State<ChatUITextField> {
         defaultTargetPlatform == TargetPlatform.android) {
       controller = RecorderController();
     }
+    SocketManager().connectSocket(
+      onMessageReceived: (incomingText) {
+        setState(() {
+          _messageController.text += incomingText;
+          _messageController.selection = TextSelection.fromPosition(
+            TextPosition(offset: _messageController.text.length),
+          );
+        });
+      },
+      source: 'chat',
+    );
   }
   @override
-  void dispose() {
+  Future<void> dispose() async {
     debouncer.dispose();
     composingStatus.dispose();
     isRecording.dispose();
     _inputText.dispose();
     _suggestionOverlay?.remove();
+    SocketManager().disconnectSocket();
+    final prefs = await SharedPreferences.getInstance();
+    prefs.remove('conversation_id');
     super.dispose();
   }
 
@@ -212,54 +236,372 @@ class _ChatUITextFieldState extends State<ChatUITextField> {
     _suggestionOverlay?.remove();
     _suggestionOverlay = null;
   }
-  Future<void> call_ai_assist({String? text}) async 
-  {
-    final prefs = await SharedPreferences.getInstance();
-    final String? uuid = prefs.getString('uuid');
-    final url = base_url + 'api/reply/';
-    final String? cb_lead_id = prefs.getString('cb_lead_id');
-    final String? platform = prefs.getString('platform');
-    final String? conversation_id = prefs.getString('conversation_id');
-    final String? cb_lead_name=prefs.getString('cb_lead_name');
-    var headers = 
-    {
-      'Content-Type': 'application/json',
-      'Authorization': '$uuid',
-    };
-    var request = http.Request('POST', Uri.parse(url));
-    request.body = json.encode({
+
+ Future<String> call_ai_assist(BuildContext context,String text) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final String? uuid = prefs.getString('uuid');
+      final url = base_url + 'api/reply/';
+      final String? cb_lead_id = prefs.getString('cb_lead_id');
+      final String? platform = prefs.getString('platform');
+      final String? conversation_id = prefs.getString('conversation_id');
+      final String? cb_lead_name = prefs.getString('cb_lead_name');
+      final String? ticket_id = prefs.getString('ticket_id');
+      final String? ticket_name = prefs.getString('ticket_name');
+
+      final String? page=prefs.getString('page');
+
+      String source;
+      String? alias;
+      String? from_name;
+
+      if(page=='chat'){
+        source = "chat";
+        alias = conversation_id;
+        from_name = cb_lead_name;
+      }
+      else{
+        source = "chat";
+        alias = conversation_id;
+        from_name = cb_lead_name;
+      }
+
+      var headers = {
+        'Content-Type': 'application/json',
+        'Authorization': '$uuid',
+      };
+      var request = http.Request('POST', Uri.parse(url));
+      request.body = json.encode({
         "source": "mobileapp",
         "type": "reply",
         "conversation_attributes": {
           "build_type": "summary",
-          "conversation_alias": conversation_id,
-          "source": "chat",
-          "from_name": cb_lead_name,
-          "suggestion": text??'',
-          "message_id":'',
-          "query":''
+          "conversation_alias": alias,
+          "source": source,
+          "from_name": from_name,
+          "suggestion": text,
+          "message_id": "",
+          "query": "",
+          "response_mode":'streaming',
         }
-    });
-    request.headers.addAll(headers);
+      });
+      request.headers.addAll(headers);
 
-    http.StreamedResponse response = await request.send();
-    if (response.statusCode == 200) {
-      String responseBody = await response.stream.bytesToString();
-      Map<String, dynamic> decodedResponse = json.decode(responseBody);
-      if (decodedResponse['success'] == 'false') {
-        widget.textEditingController.text=decodedResponse['ai_error_message'];
-      } 
-      else 
-      {
-        widget.textEditingController.text= json.decode(decodedResponse['ai_response'])['answer'];
+      http.StreamedResponse response = await request.send();
+      if (response.statusCode == 200) {
+        String responseBody = await response.stream.bytesToString();
+        Map<String, dynamic> decodedResponse = json.decode(responseBody);
+        if (decodedResponse['success'] == 'false') {
+          return decodedResponse['ai_error_message'];
+        } else {
+          var aiResponse = json.decode(decodedResponse['ai_response']);
+          return source == "ticket"
+              ? json.decode(aiResponse['answer'])['body']
+              : aiResponse['answer'];
+        }
+      } else {
+        throw "Failed to generate AI response";
       }
+    } catch (e) {
+      return "";
+    }
+  }
+  Future<void> sendMessage(String message,) async 
+  {
+    final prefs = await SharedPreferences.getInstance();
+    final String? cb_lead_id = prefs.getString('cb_lead_id');
+    final String? platform = prefs.getString('platform');
+    final String? conversation_id = prefs.getString('conversation_id');
+    Map<String, dynamic> data = {
+      "cb_lead_id": cb_lead_id,
+      "platform": platform,
+      "message_body": message,
+      "conversation_id":conversation_id,
+      "cb_message_source": 'android',
+      "reply_message_id": '', 
+    };
+    String jsonData = json.encode(data);
+    final String? uuid = prefs.getString('uuid');
+    String url = base_url + 'api/send_message/';
+    var response = await http.post(
+      Uri.parse(url),
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": "$uuid",
+      },
+      body: jsonData,
+    );
+    if (response.statusCode == 200) {
+
     } 
-    else 
-    {
-      print('Error occurs while Generating Your AI Messages Please Try again');
+    else {
 
     }
   }
+    Future<void> send_ticket_Message(String message,) async {
+    final prefs = await SharedPreferences.getInstance();
+      final String? ticket_id = prefs.getString('ticket_id');
+    final String? ticket_name = prefs.getString('ticket_name');
+    final String? platform = prefs.getString('platform');
+    Map<String, dynamic> data = 
+    {
+    "ticket_alias": ticket_id,
+    "message_body": message,
+    "source":'mobileapp'
+  };
+
+    String jsonData = json.encode(data);
+    final String? uuid = prefs.getString('uuid');
+    String url = base_url + 'api/ticket/response/';
+    var response = await http.post(
+        Uri.parse(url),
+        headers: 
+        {
+          "Content-Type": "application/json",
+          "Authorization": "$uuid"
+        },
+        body: jsonData,
+      );
+    if (response.statusCode == 200) {
+    } 
+    else {
+
+    }
+  }
+
+  void  _show_dialog_fetch_response(BuildContext context,String message)  {
+  
+    bool _isEditing = false;
+    bool _isExpanded = false; 
+     
+    _messageController.clear();
+
+    call_ai_assist(context,message).then((response) {
+        _messageController.text = response; 
+      }).catchError((error) {
+        _messageController.text = "Failed to fetch response.";
+      });
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (BuildContext context) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return SafeArea(
+              child: ClipRRect(
+                borderRadius: BorderRadius.only(
+                  topLeft: Radius.circular(20.0),
+                  topRight: Radius.circular(20.0),
+              ),
+              child: Container(
+                height: _isExpanded ? MediaQuery.of(context).size.height : MediaQuery.of(context).size.height * 0.8,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [Color(0xFF0059FC), Color(0xFF820AFF)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                ),
+                child: Column(
+                  children: [
+                    Container(
+                      height: 60,
+                      padding: EdgeInsets.symmetric(horizontal: 16.0),
+                      child: Stack(
+                        alignment: Alignment.center,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Row(
+                                children: [
+                                  TextButton(
+                                    onPressed: () {
+                                      setState(() {
+                                        _isEditing = !_isEditing;
+                                      });
+                                    },
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min, 
+                                      children: [
+                                        Text(
+                                          'Edit',
+                                          style: TextStyle(
+                                            color: _isEditing ? Colors.white : Colors.white,
+                                          ),
+                                        ),
+                                        if (_isEditing) ...[
+                                          SizedBox(width: 3),
+                                          Icon(
+                                            Icons.check_circle,
+                                            color: Colors.white,
+                                            size: 18,
+                                          ),
+                                        ],
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              TextButton(
+                                onPressed: () {
+                                  _messageController.clear();
+                                  Navigator.of(context).pop();
+                                },
+                                child: const Text(
+                                  'Cancel',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          Row
+                            (
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: 
+                              [
+                                RichText(
+                                  text: TextSpan(
+                                    children: [
+                                      WidgetSpan(
+                                        child: FaIcon(
+                                          FontAwesomeIcons.magicWandSparkles,
+                                          color: Colors.white,
+                                          size: 16,
+                                        ),
+                                        alignment: PlaceholderAlignment.middle,
+                                      ),
+                                      WidgetSpan(
+                                        child: SizedBox(width: 5),
+                                      ),
+                                      TextSpan(
+                                        text: "MaxIA",
+                                        style: TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 18,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                        ],
+                      ),
+                    ),
+                    /* Divider(color: Colors.white54, thickness: 1), */
+                    Expanded
+                    (
+                      child: Padding
+                      (
+                        padding: const EdgeInsets.all(16.0),
+                        child: SingleChildScrollView
+                        (
+                          child: Card
+                          (
+                            color: Color(0xFF90CAF9), 
+                            shape: RoundedRectangleBorder
+                            (
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            elevation: 5,
+                            child: Padding
+                            (
+                              padding: const EdgeInsets.all(16.0),
+                              child: Column
+                              (
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: 
+                                [
+                                  TextField
+                                  (
+                                    controller: _messageController,
+                                    maxLines: null,
+                                    decoration: const InputDecoration
+                                    (
+                                      border: InputBorder.none,
+                                    ),
+                                    enabled: _isEditing,
+                                    style: TextStyle(
+                                      color:Colors.black, 
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    Column(
+                      children: [
+                        Container(
+                          height: 60,
+                          padding: EdgeInsets.only(left: 8.0, right: 8.0, bottom: 20.0),
+                          child: Center(
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Expanded(
+                                  child: SizedBox(
+                                    width: double.infinity,
+                                    child: Padding(
+                                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                                      child: ElevatedButton(
+                                        onPressed: () async {
+                                          final value = await SharedPreferences.getInstance();
+                                          final String? page = value.getString('page');
+
+                                          if (page == 'chat') {
+                                            sendMessage(_messageController.text);
+                                          } else {
+                                            send_ticket_Message(_messageController.text);
+                                          }
+                                          _messageController.clear();
+                                          Navigator.of(context).pop();
+                                        },
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: Colors.white,
+                                          elevation: 0,
+                                          shadowColor: Colors.transparent,
+                                          minimumSize: const Size(double.infinity, 58),
+                                        ),
+                                        child: const Text(
+                                          'Send',
+                                          style: TextStyle(
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.w600,
+                                            color: Colors.blue,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            );
+          },
+        );
+      },
+    ).whenComplete(() {
+      _messageController.clear();
+    });
+  } 
+  
   @override
   Widget build(BuildContext context) 
   {
@@ -560,8 +902,12 @@ class _ChatUITextFieldState extends State<ChatUITextField> {
                                             onPressed: () {
                                               final inputText = widget.textEditingController.text;
                                               if (inputText.isNotEmpty) {
-                                                call_ai_assist(text:inputText);
+                                                _show_dialog_fetch_response(context,inputText);
                                               }
+                                              else{
+                                                _inputText.value='';
+                                              }
+                                              
                                             },
                                             icon: const FaIcon(
                                               FontAwesomeIcons.magicWandSparkles,
@@ -569,6 +915,16 @@ class _ChatUITextFieldState extends State<ChatUITextField> {
                                               color: Colors.black,
                                             ),
                                           ),
+                                         /*  IconButton(
+                                            onPressed: () {
+                                              call_ai_assist(inputTextValue);
+                                            },
+                                            icon: const FaIcon(
+                                              FontAwesomeIcons.magicWandSparkles, 
+                                              size:18,
+                                              color: Colors.black,
+                                            ),
+                                          ), */
                                           IconButton(
                                             color: sendMessageConfig?.defaultSendButtonColor ?? Colors.green,
                                             onPressed: () {
@@ -579,6 +935,14 @@ class _ChatUITextFieldState extends State<ChatUITextField> {
                                             ),
                                        ],
                                     );
+                                      /* return IconButton(
+                                        color: sendMessageConfig?.defaultSendButtonColor ?? Colors.green,
+                                        onPressed: () {
+                                          widget.onPressed();
+                                          _inputText.value = '';
+                                        },
+                                        icon: sendMessageConfig?.sendButtonIcon ?? const Icon(Icons.send),
+                                      ); */
                                     } else {
                                       return Row(
                                         children: [
@@ -611,6 +975,7 @@ class _ChatUITextFieldState extends State<ChatUITextField> {
                                               IconButton(
                                                 onPressed: () {
                                                   widget.onAIPressed();
+                                                  /* call_ai_assist(text: '',replyMessageId: widget.reply_message_id,query: widget.reply_messages); */
                                                 },
                                                 icon: const FaIcon(
                                                   FontAwesomeIcons.magicWandSparkles,

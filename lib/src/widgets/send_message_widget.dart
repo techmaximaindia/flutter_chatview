@@ -31,9 +31,13 @@ import 'package:flutter/material.dart';
 
 import '../utils/constants/constants.dart';
 
+import 'package:socket_io_client/socket_io_client.dart' as IO;
+
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'socket_manager.dart';
 
 class SendMessageWidget extends StatefulWidget {
   const SendMessageWidget({
@@ -75,6 +79,7 @@ class SendMessageWidget extends StatefulWidget {
 
 class SendMessageWidgetState extends State<SendMessageWidget> {
   final _textEditingController = TextEditingController();
+   final TextEditingController _messageController = TextEditingController(text: "");
   final ValueNotifier<ReplyMessage> _replyMessage =
       ValueNotifier(const ReplyMessage());
 
@@ -93,6 +98,21 @@ class SendMessageWidgetState extends State<SendMessageWidget> {
   ChatUser? currentUser;
 
 
+   @override
+   void initState() {
+    super.initState();
+    SocketManager().connectSocket(
+      onMessageReceived: (incomingText) {
+        setState(() {
+          _messageController.text += incomingText;
+          _messageController.selection = TextSelection.fromPosition(
+            TextPosition(offset: _messageController.text.length),
+          );
+        });
+      },
+      source: 'chat',
+    );
+   }
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
@@ -100,54 +120,370 @@ class SendMessageWidgetState extends State<SendMessageWidget> {
       currentUser = provide!.currentUser;
     }
   }
-  Future<void> call_ai_assist({String? replyMessageId,String? query}) async 
+
+  Future<String> call_ai_assist(BuildContext context,String? replyMessageId,String? query,) async 
   {
-    final prefs = await SharedPreferences.getInstance();
-    final String? uuid = prefs.getString('uuid');
-    final url = base_url + 'api/reply/';
+    try{
+      final prefs = await SharedPreferences.getInstance();
+      final String? uuid = prefs.getString('uuid');
+      final url = base_url + 'api/reply/';
+        final String? cb_lead_id = prefs.getString('cb_lead_id');
+        final String? platform = prefs.getString('platform');
+        final String? conversation_id = prefs.getString('conversation_id');
+        final String? cb_lead_name=prefs.getString('cb_lead_name');
+        final String? ticket_id = prefs.getString('ticket_id');
+        final String? ticket_name=prefs.getString('ticket_name');
+
+        final String? page=prefs.getString('page');
+
+        String source;
+        String? alias;
+        String? from_name;
+
+        if(page=='chat'){
+          source = "chat";
+          alias = conversation_id;
+          from_name = cb_lead_name;
+        }
+        else{
+          source = "ticket";
+          alias = ticket_id;
+          from_name = ticket_name;
+        }
+        var headers = 
+        {
+          'Content-Type': 'application/json',
+          'Authorization': '$uuid',
+        };
+        var request = http.Request('POST', Uri.parse(url));
+        request.body = json.encode({
+            "source": "mobileapp",
+            "type": "reply",
+            "conversation_attributes": {
+              "build_type": "summary",
+              "conversation_alias": alias,
+              "source": source,
+              "from_name": from_name,
+              "suggestion": '',
+              "message_id": replyMessageId,
+              "query":query,
+              "response_mode":'streaming',
+            }
+        });
+        request.headers.addAll(headers);
+        http.StreamedResponse response = await request.send();
+        if (response.statusCode == 200) {
+          String responseBody = await response.stream.bytesToString();
+          Map<String, dynamic> decodedResponse = json.decode(responseBody);
+          if (decodedResponse['success'] == 'false') {
+            return decodedResponse['ai_error_message'];
+          } else {
+            var aiResponse = json.decode(decodedResponse['ai_response']);
+            return source == "ticket"
+                ? json.decode(aiResponse['answer'])['body']
+                : aiResponse['answer'];
+          }
+        } else {
+          throw "Failed to generate AI response";
+        }
+      }
+      catch (e) {
+        return "";
+      }
+    }
+    Future<void> sendMessage(String message,) async {
+      final prefs = await SharedPreferences.getInstance();
       final String? cb_lead_id = prefs.getString('cb_lead_id');
       final String? platform = prefs.getString('platform');
       final String? conversation_id = prefs.getString('conversation_id');
-      final String? cb_lead_name=prefs.getString('cb_lead_name');
-      var headers = 
-      {
-        'Content-Type': 'application/json',
-        'Authorization': '$uuid',
+      Map<String, dynamic> data = {
+        "cb_lead_id": cb_lead_id,
+        "platform": platform,
+        "message_body": message,
+        "conversation_id":conversation_id,
+        "cb_message_source": 'android',
+        "reply_message_id": '', 
       };
-      var request = http.Request('POST', Uri.parse(url));
-      request.body = json.encode({
-          "source": "mobileapp",
-          "type": "reply",
-          "conversation_attributes": {
-            "build_type": "summary",
-            "conversation_alias": conversation_id,
-            "source": "chat",
-            "from_name": cb_lead_name,
-            "suggestion": '',
-            "message_id": replyMessageId,
-            "query":query
-          }
-      });
-      request.headers.addAll(headers);
-
-      http.StreamedResponse response = await request.send();
+      String jsonData = json.encode(data);
+      final String? uuid = prefs.getString('uuid');
+      String url = base_url + 'api/send_message/';
+      var response = await http.post(
+        Uri.parse(url),
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": "$uuid",
+        },
+        body: jsonData,
+      );
       if (response.statusCode == 200) {
-        String responseBody = await response.stream.bytesToString();
-        Map<String, dynamic> decodedResponse = json.decode(responseBody);
-        if (decodedResponse['success'] == 'false') {
-          _textEditingController.text=decodedResponse['ai_error_message'];
-        } 
-        else 
-        {
-          _textEditingController.text= json.decode(decodedResponse['ai_response'])['answer'];
-        }
-      } 
-      else 
-      {
-        print('Error occurs while Generating Your AI Messages Please Try again');
+      } else {
 
       }
     }
+
+    Future<void> send_ticket_Message(String message,) async 
+    {
+      final prefs = await SharedPreferences.getInstance();
+      final String? ticket_id = prefs.getString('ticket_id');
+      final String? ticket_name = prefs.getString('ticket_name');
+      final String? platform = prefs.getString('platform');
+      Map<String, dynamic> data = 
+      {
+        "ticket_alias": ticket_id,
+        "message_body": message,
+        "source":'mobileapp'
+      };
+
+      String jsonData = json.encode(data);
+      final String? uuid = prefs.getString('uuid');
+      String url = base_url + 'api/ticket/response/';
+      var response = await http.post(
+          Uri.parse(url),
+          headers: 
+          {
+            "Content-Type": "application/json",
+            "Authorization": "$uuid"
+          },
+          body: jsonData,
+        );
+      if (response.statusCode == 200) 
+      {
+      } 
+      else 
+      {
+
+      }
+    }
+
+  void _show_dialog_fetch_response(BuildContext context,String reply_message,String reply_message_id) 
+  {
+    bool _isEditing = false;
+    bool _isExpanded = false; 
+    _messageController.clear();
+    call_ai_assist(context,reply_message_id,reply_message).then((response) {
+        _messageController.text = response; 
+      }).catchError((error) {
+        _messageController.text = "";
+      });
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (BuildContext context) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return SafeArea(
+              child: ClipRRect(
+                borderRadius: BorderRadius.only(
+                  topLeft: Radius.circular(20.0),
+                  topRight: Radius.circular(20.0),
+              ),
+              child: Container(
+                height: _isExpanded ? MediaQuery.of(context).size.height : MediaQuery.of(context).size.height * 0.8,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [Color(0xFF0059FC), Color(0xFF820AFF)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                ),
+                child: Column(
+                  children: [
+                    Container(
+                        height: 60,
+                        padding: EdgeInsets.symmetric(horizontal: 16.0),
+                        child: Stack(
+                          alignment: Alignment.center,
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Row(
+                                  children: [
+                                    TextButton(
+                                      onPressed: () {
+                                        setState(() {
+                                          _isEditing = !_isEditing;
+                                        });
+                                      },
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min, 
+                                        children: [
+                                          Text(
+                                            'Edit',
+                                            style: TextStyle(
+                                              color: _isEditing ? Colors.white : Colors.white,
+                                            ),
+                                          ),
+                                          if (_isEditing) ...[
+                                            SizedBox(width: 3),
+                                            Icon(
+                                              Icons.check_circle,
+                                              color: Colors.white,
+                                              size: 18,
+                                            ),
+                                          ],
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+
+                                TextButton(
+                                  onPressed: () {
+                                    _messageController.clear();
+                                    Navigator.of(context).pop();
+                                  },
+                                  child: const Text(
+                                    'Cancel',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            Row
+                            (
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: 
+                              [
+                                RichText(
+                                  text: TextSpan(
+                                    children: [
+                                      WidgetSpan(
+                                        child: FaIcon(
+                                          FontAwesomeIcons.magicWandSparkles,
+                                          color: Colors.white,
+                                          size: 16,
+                                        ),
+                                        alignment: PlaceholderAlignment.middle,
+                                      ),
+                                      WidgetSpan(
+                                        child: SizedBox(width: 5),
+                                      ),
+                                      TextSpan(
+                                        text: "MaxIA",
+                                        style: TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 18,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    Expanded
+                    (
+                      child: Padding
+                      (
+                        padding: const EdgeInsets.all(16.0),
+                        child: SingleChildScrollView
+                        (
+                          child: Card
+                          (
+                            color: Color(0xFF90CAF9), 
+                            shape: RoundedRectangleBorder
+                            (
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            elevation: 5,
+                            child: Padding
+                            (
+                              padding: const EdgeInsets.all(16.0),
+                              child: Column
+                              (
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: 
+                                [
+                                  TextField
+                                  (
+                                    controller: _messageController,
+                                    maxLines: null,
+                                    decoration: const InputDecoration
+                                    (
+                                      border: InputBorder.none,
+                                    ),
+                                    enabled: _isEditing,
+                                    style: TextStyle(
+                                      color:Colors.black, 
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    Column(
+                      children: [
+                        Container(
+                          height: 60,
+                          padding: EdgeInsets.only(left: 8.0, right: 8.0, bottom: 20.0),
+                          child: Center(
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Expanded(
+                                  child: SizedBox(
+                                    width: double.infinity,
+                                    child: Padding(
+                                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                                      child: ElevatedButton(
+                                        onPressed: () async {
+                                          final value = await SharedPreferences.getInstance();
+                                          final String? page = value.getString('page');
+
+                                          if (page == 'chat') {
+                                            sendMessage(_messageController.text);
+                                          } else {
+                                            send_ticket_Message(_messageController.text);
+                                          }
+                                          _messageController.clear();
+                                          Navigator.of(context).pop();
+                                        },
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: Colors.white,
+                                          elevation: 0,
+                                          shadowColor: Colors.transparent,
+                                          minimumSize: const Size(double.infinity, 58),
+                                        ),
+                                        child: const Text(
+                                          'Send',
+                                          style: TextStyle(
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.w600,
+                                            color: Colors.blue,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            );
+          },
+        );
+      },
+    ).whenComplete(() {
+      _messageController.clear();
+    });
+  }
   @override
   Widget build(BuildContext context) {
     final replyTitle = "${PackageStrings.replyTo} $_replyTo";
@@ -288,10 +624,7 @@ class SendMessageWidgetState extends State<SendMessageWidget> {
                           onImageSelected: _onImageSelected,
                           onAIPressed: () {
                             print("onAI Pressed");
-                                call_ai_assist(
-                                  replyMessageId: _replyMessage.value.messageId,
-                                  query: _replyMessage.value.message,
-                                );
+                              _show_dialog_fetch_response(context,_replyMessage.value.message,_replyMessage.value.messageId);
                           },
                         ),
                       ],
@@ -423,10 +756,13 @@ class SendMessageWidgetState extends State<SendMessageWidget> {
       : bottomPadding3;
 
   @override
-  void dispose() {
+  Future<void> dispose() async {
     _textEditingController.dispose();
     /* _focusNode.dispose(); */
     _replyMessage.dispose();
+    SocketManager().disconnectSocket();
+    final prefs = await SharedPreferences.getInstance();
+    prefs.remove('conversation_id');
     super.dispose();
   }
 }
