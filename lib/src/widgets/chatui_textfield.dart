@@ -129,7 +129,8 @@ class _ChatUITextFieldState extends State<ChatUITextField> {
   final LayerLink _layerLink = LayerLink();
   List<Map<String, String>> suggestions = [];
   String apiStatusMessage = ''; 
-
+  String? current_page;
+  final ScrollController _scrollController = ScrollController();
   @override
   void initState() {
     attachListeners();
@@ -142,6 +143,7 @@ class _ChatUITextFieldState extends State<ChatUITextField> {
         defaultTargetPlatform == TargetPlatform.android) {
       controller = RecorderController();
     }
+    
     SocketManager().connectSocket(
       onMessageReceived: (incomingText) {
         setState(() {
@@ -150,9 +152,20 @@ class _ChatUITextFieldState extends State<ChatUITextField> {
             TextPosition(offset: _messageController.text.length),
           );
         });
+        _scrollToBottom();
       },
       source: 'chat',
     );
+    _loadPreferences();
+  }
+  Future<void> _loadPreferences() async {
+   final prefs = await SharedPreferences.getInstance();
+    current_page = prefs.getString('page')??''; 
+  }
+  void _scrollToBottom() {
+    if (_scrollController.hasClients) {
+      _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
+    }
   }
   @override
   Future<void> dispose() async {
@@ -164,9 +177,10 @@ class _ChatUITextFieldState extends State<ChatUITextField> {
     SocketManager().disconnectSocket();
     final prefs = await SharedPreferences.getInstance();
     prefs.remove('conversation_id');
+    prefs.remove('ticket_id');
+    _loadPreferences();
     super.dispose();
   }
-
   void attachListeners() {
     composingStatus.addListener(() {
       widget.sendMessageConfig?.textFieldConfig?.onMessageTyping
@@ -261,9 +275,9 @@ class _ChatUITextFieldState extends State<ChatUITextField> {
         from_name = cb_lead_name;
       }
       else{
-        source = "chat";
-        alias = conversation_id;
-        from_name = cb_lead_name;
+        source = "ticket";
+        alias = ticket_id;
+        from_name = ticket_name;
       }
 
       var headers = {
@@ -286,7 +300,6 @@ class _ChatUITextFieldState extends State<ChatUITextField> {
         }
       });
       request.headers.addAll(headers);
-
       http.StreamedResponse response = await request.send();
       if (response.statusCode == 200) {
         String responseBody = await response.stream.bytesToString();
@@ -298,6 +311,7 @@ class _ChatUITextFieldState extends State<ChatUITextField> {
           return source == "ticket"
               ? json.decode(aiResponse['answer'])['body']
               : aiResponse['answer'];
+
         }
       } else {
         throw "Failed to generate AI response";
@@ -502,6 +516,7 @@ class _ChatUITextFieldState extends State<ChatUITextField> {
                         padding: const EdgeInsets.all(16.0),
                         child: SingleChildScrollView
                         (
+                          controller: _scrollController,
                           child: Card
                           (
                             color: Color(0xFF90CAF9), 
@@ -893,38 +908,27 @@ class _ChatUITextFieldState extends State<ChatUITextField> {
                                   ),
                                 ValueListenableBuilder<String>(
                                   valueListenable: _inputText,
-                                  builder: (_, inputTextValue, child) {
-                                    if (inputTextValue.isNotEmpty ) {
+                                  builder: (_, inputTextValue, child){
+                                    if (inputTextValue.isNotEmpty) {
                                       return Column(
                                         mainAxisAlignment: MainAxisAlignment.end,
                                         children: [
-                                          IconButton(
-                                            onPressed: () {
-                                              final inputText = widget.textEditingController.text;
-                                              if (inputText.isNotEmpty) {
-                                                _show_dialog_fetch_response(context,inputText);
-                                              }
-                                              else{
-                                                _inputText.value='';
-                                              }
-                                              
-                                            },
-                                            icon: const FaIcon(
-                                              FontAwesomeIcons.magicWandSparkles,
-                                              size: 18,
-                                              color: Colors.black,
+                                          if(current_page!='ticket')
+                                            IconButton(
+                                              onPressed: () {
+                                                final inputText = widget.textEditingController.text;
+                                                if (inputText.isNotEmpty) {
+                                                  _show_dialog_fetch_response(context, inputText);
+                                                } else {
+                                                  _inputText.value = '';
+                                                }
+                                              },
+                                              icon: const FaIcon(
+                                                FontAwesomeIcons.magicWandSparkles,
+                                                size: 18,
+                                                color: Colors.black,
+                                              ),
                                             ),
-                                          ),
-                                         /*  IconButton(
-                                            onPressed: () {
-                                              call_ai_assist(inputTextValue);
-                                            },
-                                            icon: const FaIcon(
-                                              FontAwesomeIcons.magicWandSparkles, 
-                                              size:18,
-                                              color: Colors.black,
-                                            ),
-                                          ), */
                                           IconButton(
                                             color: sendMessageConfig?.defaultSendButtonColor ?? Colors.green,
                                             onPressed: () {
@@ -935,14 +939,6 @@ class _ChatUITextFieldState extends State<ChatUITextField> {
                                             ),
                                        ],
                                     );
-                                      /* return IconButton(
-                                        color: sendMessageConfig?.defaultSendButtonColor ?? Colors.green,
-                                        onPressed: () {
-                                          widget.onPressed();
-                                          _inputText.value = '';
-                                        },
-                                        icon: sendMessageConfig?.sendButtonIcon ?? const Icon(Icons.send),
-                                      ); */
                                     } else {
                                       return Row(
                                         children: [
@@ -971,11 +967,11 @@ class _ChatUITextFieldState extends State<ChatUITextField> {
                                                   color: imagePickerIconsConfig?.galleryIconColor,
                                                 ),
                                               ),
-                                            if(inputTextValue.isEmpty)  
+                                            
+                                            if(inputTextValue.isEmpty && current_page!='ticket')  
                                               IconButton(
                                                 onPressed: () {
                                                   widget.onAIPressed();
-                                                  /* call_ai_assist(text: '',replyMessageId: widget.reply_message_id,query: widget.reply_messages); */
                                                 },
                                                 icon: const FaIcon(
                                                   FontAwesomeIcons.magicWandSparkles,

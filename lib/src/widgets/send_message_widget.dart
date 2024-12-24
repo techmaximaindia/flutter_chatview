@@ -97,6 +97,8 @@ class SendMessageWidgetState extends State<SendMessageWidget> {
 
   ChatUser? currentUser;
 
+  final ScrollController _scrollController = ScrollController();
+
 
    @override
    void initState() {
@@ -109,6 +111,7 @@ class SendMessageWidgetState extends State<SendMessageWidget> {
             TextPosition(offset: _messageController.text.length),
           );
         });
+        _scrollToBottom();
       },
       source: 'chat',
     );
@@ -120,8 +123,12 @@ class SendMessageWidgetState extends State<SendMessageWidget> {
       currentUser = provide!.currentUser;
     }
   }
-
-  Future<String> call_ai_assist(BuildContext context,String? replyMessageId,String? query,) async 
+   void _scrollToBottom() {
+    if (_scrollController.hasClients) {
+      _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
+    }
+  }
+  Future<String> call_ai_assist(BuildContext context,String replyMessageId,String query,) async 
   {
     try{
       final prefs = await SharedPreferences.getInstance();
@@ -385,6 +392,7 @@ class SendMessageWidgetState extends State<SendMessageWidget> {
                         padding: const EdgeInsets.all(16.0),
                         child: SingleChildScrollView
                         (
+                          controller: _scrollController,
                           child: Card
                           (
                             color: Color(0xFF90CAF9), 
@@ -763,6 +771,7 @@ class SendMessageWidgetState extends State<SendMessageWidget> {
     SocketManager().disconnectSocket();
     final prefs = await SharedPreferences.getInstance();
     prefs.remove('conversation_id');
+    prefs.remove('ticket_id');
     super.dispose();
   }
 }
