@@ -258,5 +258,5 @@ class TextMessageView extends StatelessWidget {
 
   Color get _color => isMessageBySender
       ? outgoingChatBubbleConfig?.color ?? Colors.purple
-      : inComingChatBubbleConfig?.color ?? Colors.grey.shade500;
+      : inComingChatBubbleConfig?.color ?? Colors.white;
 }
