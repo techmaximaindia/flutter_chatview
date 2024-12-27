@@ -26,9 +26,11 @@ import 'package:chatview/src/extensions/extensions.dart';
 import 'package:chatview/src/models/models.dart';
 import 'package:flutter/material.dart';
 
+import '../../chatview.dart';
 import 'reaction_widget.dart';
 import 'share_icon.dart';
 import 'package:intl/intl.dart';
+import 'text_message_view.dart';
 
 class ImageMessageView extends StatelessWidget {
   const ImageMessageView({
@@ -61,6 +63,7 @@ class ImageMessageView extends StatelessWidget {
   final double highlightScale;
   final ChatUser? currentUser;
   String get imageUrl => message.message;
+ 
 
   Widget get iconButton => ShareIcon(
         shareIconConfig: imageMessageConfig?.shareIconConfig,
@@ -78,6 +81,7 @@ class ImageMessageView extends StatelessWidget {
   @override
 Widget build(BuildContext context) {
   String formattedTime = DateFormat('hh:mm a').format(message.createdAt);
+  String image_text_message=message.image_text_message;
   return Row(
     mainAxisSize: MainAxisSize.min,
     mainAxisAlignment:
@@ -145,63 +149,73 @@ Widget build(BuildContext context) {
                   ),
                 ),
               ),
-              if (message.reaction.reactions.isNotEmpty)
+             /*  if (message.reaction.reactions.isNotEmpty)
                 ReactionWidget(
                   isMessageBySender: isMessageBySender,
                   reaction: message.reaction,
                   messageReactionConfig: messageReactionConfig,
-                ),
+                ), */
             ],
           ),
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (isMessageBySender) ...[
-                if (message.profilename == 'Bot') ...[
-                  Icon(
-                    Icons.smart_toy_outlined,
-                    size: 10,
-                    color: Colors.black54,
-                  ),
-                  SizedBox(width: 4),
-                  Text(
-                    'Bot',
-                    style: TextStyle(fontSize: 10, color: Colors.black54),
-                  ),
-                  SizedBox(width: 4),
-                ] else ...[
-                  Icon(
-                    Icons.person,
-                    size: 10,
-                    color: Colors.black54,
-                  ),
-                  SizedBox(width: 4),
-                  Text(
-                    message.profilename ?? '',
-                    style: TextStyle(
-                      fontSize: 10,
+          if (image_text_message!='')
+            Padding(
+              padding: const EdgeInsets.only(top: 6.0),
+              child: TextMessageView(
+                message:Message(message:message.image_text_message, createdAt: message.createdAt, sendBy: message.sendBy),
+                isMessageBySender: isMessageBySender,
+              ),
+            ),
+          if (image_text_message.isEmpty)  
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (isMessageBySender) ...[
+                  if (message.profilename == 'Bot') ...[
+                    Icon(
+                      Icons.smart_toy_outlined,
+                      size: 10,
                       color: Colors.black54,
                     ),
-                  ),
-                  SizedBox(width: 4),
+                    SizedBox(width: 4),
+                    Text(
+                      'Bot',
+                      style: TextStyle(fontSize: 10, color: Colors.black54),
+                    ),
+                    SizedBox(width: 4),
+                  ] else ...[
+                    Icon(
+                      Icons.person,
+                      size: 10,
+                      color: Colors.black54,
+                    ),
+                    SizedBox(width: 4),
+                    Text(
+                      message.profilename ?? '',
+                      style: TextStyle(
+                        fontSize: 10,
+                        color: Colors.black54,
+                      ),
+                    ),
+                    SizedBox(width: 4),
+                  ],
                 ],
-              ],
-              SizedBox(width: 5),
-              Icon(
-                Icons.access_time,
-                size: 10,
-                color: Colors.black54,
-              ),
-              SizedBox(width: 4),
-              Text(
-                formattedTime,
-                style: TextStyle(
-                  fontSize: 10,
+                SizedBox(width: 5),
+
+                Icon(
+                  Icons.access_time,
+                  size: 10,
                   color: Colors.black54,
                 ),
-              ),
-            ],
-          ),
+                SizedBox(width: 4),
+                Text(
+                  formattedTime,
+                  style: TextStyle(
+                    fontSize: 10,
+                    color: Colors.black54,
+                  ),
+                ),
+              ],
+            ),
         ],
       ),
       /* if (!isMessageBySender) iconButton, */
