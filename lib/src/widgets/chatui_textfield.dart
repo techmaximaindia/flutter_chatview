@@ -131,6 +131,7 @@ class _ChatUITextFieldState extends State<ChatUITextField> {
   String apiStatusMessage = ''; 
   String? current_page;
   final ScrollController _scrollController = ScrollController();
+  final ValueNotifier<bool> _isSendEnabled = ValueNotifier<bool>(false);
   @override
   void initState() {
     attachListeners();
@@ -152,6 +153,7 @@ class _ChatUITextFieldState extends State<ChatUITextField> {
             TextPosition(offset: _messageController.text.length),
           );
         });
+        _isSendEnabled.value = true;
         _scrollToBottom();
       },
       source: 'chat',
@@ -389,11 +391,14 @@ class _ChatUITextFieldState extends State<ChatUITextField> {
     bool _isExpanded = false; 
      
     _messageController.clear();
+    _isSendEnabled.value = false;
 
     call_ai_assist(context,message).then((response) {
         _messageController.text = response; 
+         _isSendEnabled.value = response.isNotEmpty;
       }).catchError((error) {
         _messageController.text = "Failed to fetch response.";
+        _isSendEnabled.value = false;
       });
 
     showModalBottomSheet(
@@ -545,6 +550,11 @@ class _ChatUITextFieldState extends State<ChatUITextField> {
                                     style: TextStyle(
                                       color:Colors.black, 
                                     ),
+                                    onChanged:(text){
+                                      setState(() {
+                                        _isSendEnabled.value = text.trim().isNotEmpty;
+                                      });
+                                    }
                                   ),
                                 ],
                               ),
@@ -567,33 +577,43 @@ class _ChatUITextFieldState extends State<ChatUITextField> {
                                     width: double.infinity,
                                     child: Padding(
                                       padding: const EdgeInsets.symmetric(horizontal: 16),
-                                      child: ElevatedButton(
-                                        onPressed: () async {
-                                          final value = await SharedPreferences.getInstance();
-                                          final String? page = value.getString('page');
+                                      child:ValueListenableBuilder<bool>
+                                      (
+                                        valueListenable: _isSendEnabled,
+                                        builder: (context, isSendEnabled, child) 
+                                        {
+                                         return ElevatedButton
+                                         (
+                                            onPressed: _isSendEnabled.value==true 
+                                            ?() async {
+                                              final value = await SharedPreferences.getInstance();
+                                              final String? page = value.getString('page');
 
-                                          if (page == 'chat') {
-                                            sendMessage(_messageController.text);
-                                          } else {
-                                            send_ticket_Message(_messageController.text);
-                                          }
-                                          _messageController.clear();
-                                          Navigator.of(context).pop();
+                                              if (page == 'chat') {
+                                                sendMessage(_messageController.text);
+                                              } else {
+                                                send_ticket_Message(_messageController.text);
+                                              }
+                                              _messageController.clear();
+                                              Navigator.of(context).pop();
+                                            }
+                                            :null,
+                                            style: ElevatedButton.styleFrom(
+                                              backgroundColor: Colors.white,
+                                              elevation: 0,
+                                              shadowColor: Colors.transparent,
+                                              minimumSize: const Size(double.infinity, 58),
+                                            ),
+                                            child: const Text(
+                                              'Send',
+                                              style: TextStyle(
+                                                fontSize: 16,
+                                                fontWeight: FontWeight.w600,
+                                                color: Colors.blue,
+                                              ),
+                                            ),
+                                          );
                                         },
-                                        style: ElevatedButton.styleFrom(
-                                          backgroundColor: Colors.white,
-                                          elevation: 0,
-                                          shadowColor: Colors.transparent,
-                                          minimumSize: const Size(double.infinity, 58),
-                                        ),
-                                        child: const Text(
-                                          'Send',
-                                          style: TextStyle(
-                                            fontSize: 16,
-                                            fontWeight: FontWeight.w600,
-                                            color: Colors.blue,
-                                          ),
-                                        ),
                                       ),
                                     ),
                                   ),
@@ -614,6 +634,7 @@ class _ChatUITextFieldState extends State<ChatUITextField> {
       },
     ).whenComplete(() {
       _messageController.clear();
+      _isSendEnabled.value = false;
     });
   } 
   

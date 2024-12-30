@@ -98,6 +98,7 @@ class SendMessageWidgetState extends State<SendMessageWidget> {
   ChatUser? currentUser;
 
   final ScrollController _scrollController = ScrollController();
+  final ValueNotifier<bool> _isSendEnabled = ValueNotifier<bool>(false);
 
 
    @override
@@ -111,6 +112,7 @@ class SendMessageWidgetState extends State<SendMessageWidget> {
             TextPosition(offset: _messageController.text.length),
           );
         });
+        _isSendEnabled.value = true;
         _scrollToBottom();
       },
       source: 'chat',
@@ -267,10 +269,13 @@ class SendMessageWidgetState extends State<SendMessageWidget> {
     bool _isEditing = false;
     bool _isExpanded = false; 
     _messageController.clear();
+    _isSendEnabled.value = false;
     call_ai_assist(context,reply_message_id,reply_message).then((response) {
         _messageController.text = response; 
+         _isSendEnabled.value = response.isNotEmpty;
       }).catchError((error) {
         _messageController.text = "";
+        _isSendEnabled.value = false;
       });
     showModalBottomSheet(
       context: context,
@@ -421,6 +426,11 @@ class SendMessageWidgetState extends State<SendMessageWidget> {
                                     style: TextStyle(
                                       color:Colors.black, 
                                     ),
+                                    onChanged:(text){
+                                      setState(() {
+                                        _isSendEnabled.value = text.trim().isNotEmpty;
+                                      });
+                                    }
                                   ),
                                 ],
                               ),
@@ -443,33 +453,41 @@ class SendMessageWidgetState extends State<SendMessageWidget> {
                                     width: double.infinity,
                                     child: Padding(
                                       padding: const EdgeInsets.symmetric(horizontal: 16),
-                                      child: ElevatedButton(
-                                        onPressed: () async {
-                                          final value = await SharedPreferences.getInstance();
-                                          final String? page = value.getString('page');
+                                      child: ValueListenableBuilder<bool>
+                                      (
+                                        valueListenable: _isSendEnabled,
+                                        builder: (context, isSendEnabled, child) {
+                                         return ElevatedButton(
+                                            onPressed: _isSendEnabled.value==true
+                                            ?() async {
+                                                final value = await SharedPreferences.getInstance();
+                                                final String? page = value.getString('page');
 
-                                          if (page == 'chat') {
-                                            sendMessage(_messageController.text);
-                                          } else {
-                                            send_ticket_Message(_messageController.text);
-                                          }
-                                          _messageController.clear();
-                                          Navigator.of(context).pop();
+                                                if (page == 'chat') {
+                                                  sendMessage(_messageController.text);
+                                                } else {
+                                                  send_ticket_Message(_messageController.text);
+                                                }
+                                                _messageController.clear();
+                                                Navigator.of(context).pop();
+                                              }
+                                            : null,
+                                            style: ElevatedButton.styleFrom(
+                                              backgroundColor: Colors.white,
+                                              elevation: 0,
+                                              shadowColor: Colors.transparent,
+                                              minimumSize: const Size(double.infinity, 58),
+                                            ),
+                                            child: const Text(
+                                              'Send',
+                                              style: TextStyle(
+                                                fontSize: 16,
+                                                fontWeight: FontWeight.w600,
+                                                color: Colors.blue,
+                                              ),
+                                            ),
+                                          );
                                         },
-                                        style: ElevatedButton.styleFrom(
-                                          backgroundColor: Colors.white,
-                                          elevation: 0,
-                                          shadowColor: Colors.transparent,
-                                          minimumSize: const Size(double.infinity, 58),
-                                        ),
-                                        child: const Text(
-                                          'Send',
-                                          style: TextStyle(
-                                            fontSize: 16,
-                                            fontWeight: FontWeight.w600,
-                                            color: Colors.blue,
-                                          ),
-                                        ),
                                       ),
                                     ),
                                   ),
@@ -490,6 +508,7 @@ class SendMessageWidgetState extends State<SendMessageWidget> {
       },
     ).whenComplete(() {
       _messageController.clear();
+      _isSendEnabled.value = false;
     });
   }
   @override
