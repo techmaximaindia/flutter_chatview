@@ -967,10 +967,10 @@ class _ChatUITextFieldState extends State<ChatUITextField> {
                                             if (sendMessageConfig?.enableCameraImagePicker ?? true)
                                               IconButton(
                                                 constraints: const BoxConstraints(),
-                                                onPressed: () => _onIconPressed(
+                                                onPressed: () => /* _onIconPressed(
                                                   ImageSource.camera,
                                                   config: sendMessageConfig?.imagePickerConfiguration,
-                                                ),
+                                                ), */{},
                                                 icon: imagePickerIconsConfig?.cameraImagePickerIcon ?? Icon(
                                                   Icons.camera_alt_outlined,
                                                   color: imagePickerIconsConfig?.cameraIconColor,
