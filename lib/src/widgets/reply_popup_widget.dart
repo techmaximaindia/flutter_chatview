@@ -28,6 +28,8 @@ import '../values/typedefs.dart';
 import '../utils/constants/constants.dart';
 import '../models/message.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 
 class ReplyPopupWidget extends StatelessWidget {
   const ReplyPopupWidget({
@@ -65,12 +67,73 @@ class ReplyPopupWidget extends StatelessWidget {
 
   final Message message;
 
-
+ 
   @override
   Widget build(BuildContext context) {
-    final textStyle =
-        buttonTextStyle ?? const TextStyle(fontSize: 14, color: Colors.black);
+    final textStyle = buttonTextStyle ?? const TextStyle(fontSize: 14, color: Colors.black);
     final deviceWidth = MediaQuery.of(context).size.width;
+
+    Future<void> translate(BuildContext context) async 
+    {
+      final prefs = await SharedPreferences.getInstance();
+      final String? uuid = prefs.getString('uuid');
+
+      if (uuid == null) {
+        print("UUID is null. Please check the stored value.");
+        return;
+      }
+
+      final url = base_url + 'api/translate/';
+      var headers = {
+        'Authorization': uuid,
+        'Content-Type': 'application/json',
+      };
+      var request = http.Request('POST', Uri.parse(url));
+      request.body = json.encode({
+        "source": "mobileapp",
+        "message_id": message.message_id,
+      });
+      request.headers.addAll(headers);
+
+      http.StreamedResponse response = await request.send();
+
+      if (response.statusCode == 200) {
+        /* final responseBody = await response.stream.bytesToString();
+         final jsonResponse = json.decode(responseBody); */
+        var responseBody = await response.stream.bytesToString();
+        var jsonResponse = json.decode(responseBody);
+        print(responseBody);
+        if (jsonResponse['success'] == "true") {
+          final source_language = jsonResponse['source_language'];
+          final translated_message = jsonResponse['translated_message_text'];
+
+          showDialog(
+            context: context,
+            builder: (context) => AlertDialog(
+              title: Text('Translation from $source_language',
+                          style:TextStyle(color: Colors.white,
+                          fontSize: 18,
+                          fontWeight: FontWeight.w600,
+                        ),
+              content: Text(translated_message),
+              actions: [
+                TextButton(
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                  },
+                  child: const Text('OK'),
+                ),
+              ],
+            ),
+          );
+        } else {
+          print("Translation failed: ${jsonResponse['message']}");
+        }
+      } else {
+        print(response.reasonPhrase);
+      }
+    }
+
     return Container(
       height: deviceWidth > 600 ? deviceWidth * 0.05 : deviceWidth * 0.16,
       decoration: BoxDecoration(
@@ -111,6 +174,24 @@ class ReplyPopupWidget extends StatelessWidget {
                   const SizedBox(width: 4),
                   Text(
                     'Copy',
+                    style: TextStyle(color: Colors.white),
+                  ),
+                ],
+              ),
+            ),
+            InkWell(
+              onTap: () =>{translate(context),
+               },
+              child:  Row(
+                children: [
+                  Icon(
+                    Icons.copy, 
+                    size: 15,
+                    color: Colors.white,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    'Translate',
                     style: TextStyle(color: Colors.white),
                   ),
                 ],
