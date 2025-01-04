@@ -102,7 +102,6 @@ class ReplyPopupWidget extends StatelessWidget {
          final jsonResponse = json.decode(responseBody); */
         var responseBody = await response.stream.bytesToString();
         var jsonResponse = json.decode(responseBody);
-        print(responseBody);
         if (jsonResponse['success'] == "true") {
           final source_language = jsonResponse['source_language'];
           final translated_message = jsonResponse['translated_message_text'];
@@ -110,12 +109,28 @@ class ReplyPopupWidget extends StatelessWidget {
           showDialog(
             context: context,
             builder: (context) => AlertDialog(
-              title: Text('Translation from $source_language',
-                          style:TextStyle(color: Colors.white,
-                          fontSize: 18,
-                          fontWeight: FontWeight.w600,
-                        ),
-              content: Text(translated_message),
+              title: Text(
+                'Translation from $source_language',
+                style: TextStyle(
+                  color: Colors.black,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              content: ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxHeight: MediaQuery.of(context).size.height * 0.5,
+                ),
+                child: SingleChildScrollView(
+                  child: Text(
+                    translated_message,
+                    style: TextStyle(
+                      fontSize: 16,
+                      color: Colors.black87,
+                    ),
+                  ),
+                ),
+              ),
               actions: [
                 TextButton(
                   onPressed: () {
@@ -180,12 +195,13 @@ class ReplyPopupWidget extends StatelessWidget {
               ),
             ),
             InkWell(
-              onTap: () =>{translate(context),
+              onTap: () =>{
+                translate(context),
                },
               child:  Row(
                 children: [
                   Icon(
-                    Icons.copy, 
+                    Icons.translate, 
                     size: 15,
                     color: Colors.white,
                   ),
