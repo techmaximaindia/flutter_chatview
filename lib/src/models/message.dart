@@ -60,6 +60,7 @@ class Message {
   final String profilename;
   final String chatmaximatype;
   final String chatmaxima_profile_image;
+  final String message_id;
 
   final String image_text_message;
   Message({
@@ -75,6 +76,7 @@ class Message {
     this.messageType = MessageType.text,
     this.voiceMessageDuration,
     this.image_text_message='',
+    this.message_id='',
     MessageStatus status = MessageStatus.pending,
   })  : reaction = reaction ?? Reaction(reactions: [], reactedUserIds: []),
         key = GlobalKey(),
@@ -112,6 +114,7 @@ class Message {
       messageType: json["message_type"],
       voiceMessageDuration: json["voice_message_duration"],
       image_text_message: json["image_text_message"],
+      message_id: json["message_id"],
       status: json['status']);
 
   Map<String, dynamic> toJson() => {
@@ -124,6 +127,7 @@ class Message {
         'message_type': messageType,
         'voice_message_duration': voiceMessageDuration,
         'image_text_message':image_text_message,
+        'message_id':message_id,
         'status': status.name
       };
 }
