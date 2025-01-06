@@ -63,6 +63,8 @@ class Message {
   final String message_id;
 
   final String image_text_message;
+  String? translate_title;
+  String? translate_content;
   Message({
     this.id = '',
     required this.message,
@@ -77,6 +79,8 @@ class Message {
     this.voiceMessageDuration,
     this.image_text_message='',
     this.message_id='',
+    this.translate_title,
+    this.translate_content,
     MessageStatus status = MessageStatus.pending,
   })  : reaction = reaction ?? Reaction(reactions: [], reactedUserIds: []),
         key = GlobalKey(),
@@ -115,7 +119,10 @@ class Message {
       voiceMessageDuration: json["voice_message_duration"],
       image_text_message: json["image_text_message"],
       message_id: json["message_id"],
-      status: json['status']);
+      translate_title: json["translate_title"],
+      translate_content: json["translate_content"],
+      status: json['status'],
+    );
 
   Map<String, dynamic> toJson() => {
         'id': id,
@@ -128,6 +135,8 @@ class Message {
         'voice_message_duration': voiceMessageDuration,
         'image_text_message':image_text_message,
         'message_id':message_id,
+        'translate_title':translate_title,
+        'translate_content':translate_content,
         'status': status.name
       };
 }
