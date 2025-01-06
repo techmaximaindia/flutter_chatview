@@ -73,6 +73,199 @@ class ReplyPopupWidget extends StatelessWidget {
     final textStyle = buttonTextStyle ?? const TextStyle(fontSize: 14, color: Colors.black);
     final deviceWidth = MediaQuery.of(context).size.width;
 
+   void _show_dialog_fetch_response(BuildContext context, String translatedMessage, String sourceLanguage){
+  
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (BuildContext context) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return SafeArea(
+              child: ClipRRect(
+                borderRadius: BorderRadius.only(
+                  topLeft: Radius.circular(20.0),
+                  topRight: Radius.circular(20.0),
+              ),
+              child: Container(
+                height:MediaQuery.of(context).size.height * 0.8,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [Color(0xFF0059FC), Color(0xFF820AFF)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                ),
+                child: Column(
+                  children: [
+                    Container(
+                      height: 60,
+                      padding: EdgeInsets.symmetric(horizontal: 16.0),
+                      child: Stack(
+                        alignment: Alignment.center,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Row(
+                                children: [
+                                 
+                                ],
+                              ),
+                              TextButton(
+                                onPressed: () {
+                                  translatedMessage='';
+                                  sourceLanguage='';
+                                  Navigator.of(context).pop();
+                                },
+                                child: const Text(
+                                  'Cancel',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          Row
+                            (
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: 
+                              [
+                                RichText(
+                                  text: TextSpan(
+                                    children: [
+                                      WidgetSpan(
+                                        child: FaIcon(
+                                          FontAwesomeIcons.language,
+                                          color: Colors.white,
+                                          size: 16,
+                                        ),
+                                        alignment: PlaceholderAlignment.middle,
+                                      ),
+                                      WidgetSpan(
+                                        child: SizedBox(width: 5),
+                                      ),
+                                      TextSpan(
+                                        text: "Translate",
+                                        style: TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 18,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                        ],
+                      ),
+                    ),
+                    /* Divider(color: Colors.white54, thickness: 1), */
+                    Expanded
+                    (
+                      child: Padding
+                      (
+                        padding: const EdgeInsets.all(16.0),
+                        child: SingleChildScrollView
+                        (
+                          child: Card
+                          (
+                            color: Color(0xFF90CAF9), 
+                            shape: RoundedRectangleBorder
+                            (
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            elevation: 5,
+                            child: Padding
+                            (
+                              padding: const EdgeInsets.all(16.0),
+                              child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      "Translation From $sourceLanguage",
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.black,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      translatedMessage,
+                                      style: TextStyle(
+                                        color: Colors.black87,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    Column(
+                      children: [
+                        Container(
+                          height: 60,
+                          padding: EdgeInsets.only(left: 8.0, right: 8.0, bottom: 20.0),
+                          child: Center(
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Expanded(
+                                  child: SizedBox(
+                                    width: double.infinity,
+                                    child: Padding(
+                                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                                      child:ElevatedButton
+                                        (
+                                          onPressed: 
+                                          () async {
+                                            
+                                            message.translate_content=translatedMessage;
+                                            message.translate_title=sourceLanguage;
+                                            Navigator.of(context).pop();
+                                          },
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor: Colors.white,
+                                            elevation: 0,
+                                            shadowColor: Colors.transparent,
+                                            minimumSize: const Size(double.infinity, 58),
+                                          ),
+                                          child: const Text(
+                                            'Ok',
+                                            style: TextStyle(
+                                              fontSize: 16,
+                                              fontWeight: FontWeight.w600,
+                                              color: Colors.blue,
+                                            ),
+                                          ),
+                                        ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            );
+          },
+        );
+      },
+    ).whenComplete(() {
+      translatedMessage='';
+      sourceLanguage='';
+    });
+  }
     Future<void> translate(BuildContext context) async 
     {
       final prefs = await SharedPreferences.getInstance();
@@ -98,15 +291,16 @@ class ReplyPopupWidget extends StatelessWidget {
       http.StreamedResponse response = await request.send();
 
       if (response.statusCode == 200) {
-        /* final responseBody = await response.stream.bytesToString();
-         final jsonResponse = json.decode(responseBody); */
-        var responseBody = await response.stream.bytesToString();
-        var jsonResponse = json.decode(responseBody);
-        if (jsonResponse['success'] == "true") {
-          final source_language = jsonResponse['source_language'];
-          final translated_message = jsonResponse['translated_message_text'];
+        var response_body = await response.stream.bytesToString();
+        var json_response = json.decode(response_body);
+        if (json_response['success'] == "true") {
 
-          showDialog(
+          final source_language = json_response['source_language'];
+          final translated_message = json_response['translated_message_text'];
+
+         message.translate_title = source_language;
+          message.translate_content = translated_message;
+          /* showDialog(
             context: context,
             builder: (context) => AlertDialog(
               title: Text(
@@ -135,20 +329,25 @@ class ReplyPopupWidget extends StatelessWidget {
                 TextButton(
                   onPressed: () {
                     Navigator.of(context).pop();
+                    message.translate_title=source_language;
+                    message.translate_content=translated_message;
                   },
                   child: const Text('OK'),
                 ),
               ],
             ),
-          );
+          ); */
+          _show_dialog_fetch_response(context, translated_message, source_language);
         } else {
-          print("Translation failed: ${jsonResponse['message']}");
+          message.translate_content='';
+          message.translate_title='';
+          print("Translation failed: ${json_response['message']}");
         }
       } else {
         print(response.reasonPhrase);
       }
     }
-
+   
     return Container(
       height: deviceWidth > 600 ? deviceWidth * 0.05 : deviceWidth * 0.16,
       decoration: BoxDecoration(

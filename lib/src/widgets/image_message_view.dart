@@ -82,6 +82,8 @@ class ImageMessageView extends StatelessWidget {
 Widget build(BuildContext context) {
   String formattedTime = DateFormat('hh:mm a').format(message.createdAt);
   String image_text_message=message.image_text_message;
+  String translated_title = message.translate_title??'';
+  String translated_content = message.translate_content??'';
   return Row(
     mainAxisSize: MainAxisSize.min,
     mainAxisAlignment:
@@ -157,14 +159,22 @@ Widget build(BuildContext context) {
                 ), */
             ],
           ),
-          if (image_text_message!='')
+          if (image_text_message!='' && image_text_message!=null)
+            Padding(
+              padding: const EdgeInsets.only(top: 6.0),
+              child: TextMessageView(
+                message:Message(message:message.image_text_message, createdAt: message.createdAt, sendBy: message.sendBy,translate_content:translated_content,translate_title: translated_title),
+                isMessageBySender: isMessageBySender,
+              ),
+            ),
+          /* else 
             Padding(
               padding: const EdgeInsets.only(top: 6.0),
               child: TextMessageView(
                 message:Message(message:message.image_text_message, createdAt: message.createdAt, sendBy: message.sendBy),
                 isMessageBySender: isMessageBySender,
               ),
-            ),
+            ) */
           if (image_text_message.isEmpty)  
             Row(
               mainAxisSize: MainAxisSize.min,

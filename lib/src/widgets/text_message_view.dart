@@ -27,10 +27,18 @@ import 'package:chatview/src/models/chat_user.dart';
 import 'package:flutter_html/flutter_html.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:html/parser.dart' as html_parser;
+import '../models/models.dart';
 import '../utils/constants/constants.dart';
+import '../values/typedefs.dart';
 import 'link_preview.dart';
 import 'reaction_widget.dart';
 import 'package:intl/intl.dart';
+import 'reply_popup_widget.dart';
+import 'reply_message_widget.dart';
+import 'package:flutter/services.dart';
+import 'chat_list_widget.dart';
+import 'send_message_widget.dart';
+import 'swipe_to_reply.dart';
 
 class TextMessageView extends StatelessWidget {
   const TextMessageView({
@@ -44,6 +52,9 @@ class TextMessageView extends StatelessWidget {
     this.highlightMessage = false,
     this.highlightColor,
     this.currentUser,
+    
+/*     this.replyPopupConfig,
+    this.repliedMessageConfig, */
   }) : super(key: key);
 
   /// Represents current message is sent by current user.
@@ -72,6 +83,11 @@ class TextMessageView extends StatelessWidget {
 
   /// Represents the current user.
   final ChatUser? currentUser;
+  /* final ReplyMessageCallBack? onReplyTap; */
+/* 
+  final RepliedMessageConfiguration? repliedMessageConfig;
+
+  final ReplyPopupConfiguration? replyPopupConfig; */
 
   @override
   Widget build(BuildContext context) {
@@ -125,7 +141,8 @@ class TextMessageView extends StatelessWidget {
               ),
           ],
         ),
-        SizedBox(height: 3), // Add some space between bubble and time
+        
+        SizedBox(height: 3),
          if (isMessageBySender) ...[
           Row(
             mainAxisSize: MainAxisSize.min,
@@ -196,11 +213,46 @@ class TextMessageView extends StatelessWidget {
       ],
     );
   }
-  Widget _buildMessageContent(String textMessage, TextTheme textTheme) {
+  Widget _buildMessageContent(String textMessage, TextTheme textTheme) 
+  {
     final document = html_parser.parse(textMessage);
     final String parsedString = document.body?.text ?? '';
+    final String translated_title = message.translate_title??'';
+    final String translated_content = message.translate_content??'';
 
-    if (parsedString.isNotEmpty && parsedString != textMessage) {
+    if (translated_title != '' && translated_content != '') 
+    {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            textMessage,
+            style: _textStyle ??
+              textTheme.bodyMedium!.copyWith(
+                color: Colors.black,
+                fontSize: 16,
+              ),
+          ),
+          SizedBox(height:4),
+          Text(
+            "Translation From $translated_title",
+            style: textTheme.bodyLarge?.copyWith(
+              fontWeight: FontWeight.bold,
+              color: Colors.black,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            translated_content,
+            style: textTheme.bodyMedium?.copyWith(
+              color: Colors.black87,
+            ),
+          ),
+        ],
+      );
+    }
+    else if (parsedString.isNotEmpty && parsedString != textMessage) 
+    {
       return Html(
         data: textMessage,
         style: {
@@ -218,7 +270,9 @@ class TextMessageView extends StatelessWidget {
           }
         },
       );
-    } else {
+    } 
+    else 
+    {
       return Text(
         textMessage,
         style: _textStyle ??
