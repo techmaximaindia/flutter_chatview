@@ -72,9 +72,10 @@ class ReplyPopupWidget extends StatelessWidget {
   Widget build(BuildContext context) {
     final textStyle = buttonTextStyle ?? const TextStyle(fontSize: 14, color: Colors.black);
     final deviceWidth = MediaQuery.of(context).size.width;
-
+    bool _isDialogOpen = false;
    void _show_dialog_fetch_response(BuildContext context, String translatedMessage, String sourceLanguage){
-  
+    if (_isDialogOpen) return; // Prevent multiple dialogs
+    _isDialogOpen = true;
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -117,6 +118,7 @@ class ReplyPopupWidget extends StatelessWidget {
                                 onPressed: () {
                                   translatedMessage='';
                                   sourceLanguage='';
+                                  _isDialogOpen = false;
                                   Navigator.of(context).pop();
                                 },
                                 child: const Text(
@@ -227,6 +229,7 @@ class ReplyPopupWidget extends StatelessWidget {
                                             
                                             message.translate_content=translatedMessage;
                                             message.translate_title=sourceLanguage;
+                                            _isDialogOpen = false;
                                             Navigator.of(context).pop();
                                           },
                                           style: ElevatedButton.styleFrom(
@@ -264,10 +267,12 @@ class ReplyPopupWidget extends StatelessWidget {
     ).whenComplete(() {
       translatedMessage='';
       sourceLanguage='';
+      _isDialogOpen = false;
     });
   }
     Future<void> translate(BuildContext context) async 
     {
+      if (_isDialogOpen) return; 
       final prefs = await SharedPreferences.getInstance();
       final String? uuid = prefs.getString('uuid');
 
@@ -298,45 +303,9 @@ class ReplyPopupWidget extends StatelessWidget {
           final source_language = json_response['source_language'];
           final translated_message = json_response['translated_message_text'];
 
-         message.translate_title = source_language;
+          message.translate_title = source_language;
           message.translate_content = translated_message;
-          /* showDialog(
-            context: context,
-            builder: (context) => AlertDialog(
-              title: Text(
-                'Translation from $source_language',
-                style: TextStyle(
-                  color: Colors.black,
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              content: ConstrainedBox(
-                constraints: BoxConstraints(
-                  maxHeight: MediaQuery.of(context).size.height * 0.5,
-                ),
-                child: SingleChildScrollView(
-                  child: Text(
-                    translated_message,
-                    style: TextStyle(
-                      fontSize: 16,
-                      color: Colors.black87,
-                    ),
-                  ),
-                ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () {
-                    Navigator.of(context).pop();
-                    message.translate_title=source_language;
-                    message.translate_content=translated_message;
-                  },
-                  child: const Text('OK'),
-                ),
-              ],
-            ),
-          ); */
+         
           _show_dialog_fetch_response(context, translated_message, source_language);
         } else {
           message.translate_content='';
