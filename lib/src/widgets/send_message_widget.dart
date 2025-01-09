@@ -29,6 +29,7 @@ import 'package:chatview/src/widgets/chatui_textfield.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 
+import '../../chatview.dart';
 import '../utils/constants/constants.dart';
 
 import 'package:socket_io_client/socket_io_client.dart' as IO;
@@ -37,6 +38,7 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'chatui_textfield.dart';
 import 'socket_manager.dart';
 
 class SendMessageWidget extends StatefulWidget {
@@ -71,7 +73,7 @@ class SendMessageWidget extends StatefulWidget {
 
   /// Provides controller for accessing few function for running chat.
   final ChatController chatController;
-  
+
 
   @override
   State<SendMessageWidget> createState() => SendMessageWidgetState();
@@ -79,7 +81,8 @@ class SendMessageWidget extends StatefulWidget {
 
 class SendMessageWidgetState extends State<SendMessageWidget> {
   final _textEditingController = TextEditingController();
-   final TextEditingController _messageController = TextEditingController(text: "");
+  final TextEditingController _messageController = TextEditingController(text: "");
+  final _ai_message_edit = TextEditingController(text:"");
   final ValueNotifier<ReplyMessage> _replyMessage =
       ValueNotifier(const ReplyMessage());
 
@@ -464,7 +467,12 @@ class SendMessageWidgetState extends State<SendMessageWidget> {
                                                 final String? page = value.getString('page');
 
                                                 if (page == 'chat') {
-                                                  sendMessage(_messageController.text);
+                                                 /*  sendMessage(_messageController.text); */
+                                                  widget.onSendTap.call(
+                                                    _messageController.text,
+                                                    ReplyMessage(),
+                                                    MessageType.text,
+                                                  );
                                                 } else {
                                                   send_ticket_Message(_messageController.text);
                                                 }
@@ -652,6 +660,17 @@ class SendMessageWidgetState extends State<SendMessageWidget> {
                           onAIPressed: () {
                             print("onAI Pressed");
                               _show_dialog_fetch_response(context,_replyMessage.value.message,_replyMessage.value.messageId);
+                              /* print(_replyMessage.value.message);
+                              print(_replyMessage.value.messageId);
+                              print(_textEditingController.text) */
+                          },
+                          messageController: _ai_message_edit,
+                          ai_send_pressed: () {
+                            widget.onSendTap.call(
+                              _ai_message_edit.text,
+                              ReplyMessage(),
+                              MessageType.text,
+                            );
                           },
                         ),
                       ],

@@ -44,6 +44,7 @@ import 'package:path/path.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:socket_io_client/socket_io_client.dart' as IO;
 import 'socket_manager.dart';
+import 'send_message_widget.dart';
 
 
 class ChatUITextField extends StatefulWidget {
@@ -57,6 +58,8 @@ class ChatUITextField extends StatefulWidget {
     required this.onRecordingComplete,
     required this.onImageSelected,
     required this.onAIPressed,
+    required this.messageController,
+    required this.ai_send_pressed,
     /* this.reply_message_id,
     this.reply_messages, */
   }) : super(key: key);
@@ -82,6 +85,10 @@ class ChatUITextField extends StatefulWidget {
   final bool autofocus;
   
   final VoidCallBack onAIPressed;
+
+  final TextEditingController messageController;
+
+  final VoidCallBack ai_send_pressed;
 /* 
   final String? reply_message_id;
   
@@ -94,7 +101,7 @@ class ChatUITextField extends StatefulWidget {
 
 class _ChatUITextFieldState extends State<ChatUITextField> {
  
-  final TextEditingController _messageController = TextEditingController(text: "");
+  /* final TextEditingController _messageController = TextEditingController(text: ""); */
 
   final ValueNotifier<String> _inputText = ValueNotifier('');
 
@@ -148,9 +155,13 @@ class _ChatUITextFieldState extends State<ChatUITextField> {
     SocketManager().connectSocket(
       onMessageReceived: (incomingText) {
         setState(() {
-          _messageController.text += incomingText;
+          /* _messageController.text += incomingText;
           _messageController.selection = TextSelection.fromPosition(
             TextPosition(offset: _messageController.text.length),
+          ); */
+          widget.messageController.text += incomingText;
+          widget.messageController.selection = TextSelection.fromPosition(
+            TextPosition(offset: widget.messageController.text.length),
           );
         });
         _isSendEnabled.value = true;
@@ -390,14 +401,14 @@ class _ChatUITextFieldState extends State<ChatUITextField> {
     bool _isEditing = false;
     bool _isExpanded = false; 
      
-    _messageController.clear();
+    widget.messageController.clear();
     _isSendEnabled.value = false;
 
     call_ai_assist(context,message).then((response) {
-        _messageController.text = response; 
+        widget.messageController.text = response; 
          _isSendEnabled.value = response.isNotEmpty;
       }).catchError((error) {
-        _messageController.text = "Failed to fetch response.";
+        widget.messageController.text = "Failed to fetch response.";
         _isSendEnabled.value = false;
       });
 
@@ -466,7 +477,7 @@ class _ChatUITextFieldState extends State<ChatUITextField> {
                               ),
                               TextButton(
                                 onPressed: () {
-                                  _messageController.clear();
+                                  widget.messageController.clear();
                                   Navigator.of(context).pop();
                                 },
                                 child: const Text(
@@ -540,7 +551,7 @@ class _ChatUITextFieldState extends State<ChatUITextField> {
                                 [
                                   TextField
                                   (
-                                    controller: _messageController,
+                                    controller: widget.messageController,
                                     maxLines: null,
                                     decoration: const InputDecoration
                                     (
@@ -590,11 +601,14 @@ class _ChatUITextFieldState extends State<ChatUITextField> {
                                               final String? page = value.getString('page');
 
                                               if (page == 'chat') {
-                                                sendMessage(_messageController.text);
+                                                /* widget.onPressed(); */
+                                                widget.ai_send_pressed();
+                                                /* sendMessage(_messageController.text); */
                                               } else {
-                                                send_ticket_Message(_messageController.text);
+                                                /* send_ticket_Message(_messageController.text); */
                                               }
-                                              _messageController.clear();
+                                              /* _messageController.clear(); */
+                                              widget.messageController.clear();
                                               Navigator.of(context).pop();
                                             }
                                             :null,
@@ -633,7 +647,8 @@ class _ChatUITextFieldState extends State<ChatUITextField> {
         );
       },
     ).whenComplete(() {
-      _messageController.clear();
+      /* _messageController.clear(); */
+      widget.messageController.clear();
       _isSendEnabled.value = false;
     });
   } 
