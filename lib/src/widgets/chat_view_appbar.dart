@@ -27,6 +27,8 @@ import 'package:flutter/material.dart';
 import '../values/typedefs.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
+import 'package:http/http.dart' as http;
+
 class ChatViewAppBar extends StatelessWidget {
   const ChatViewAppBar({
     Key? key,
@@ -89,6 +91,23 @@ class ChatViewAppBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Future<bool> image_url_valid(String url) async {              
+      try {
+        final response = await http.get(Uri.parse(url));
+        if(response.statusCode==200){
+          return true;
+        } 
+        else if(response.statusCode==404){
+          return false;
+        }
+        else {
+          return false;
+        }
+      } 
+      catch (e) {
+        return false;
+      }
+    }
     return Material(
       elevation: elevation ?? 1,
       child: Container(
@@ -119,10 +138,36 @@ class ChatViewAppBar extends StatelessWidget {
                       child: Stack(
                         children: [
                           if (profilePicture != null&& profilePicture!='')
-                            CircleAvatar(
-                              backgroundColor: Color.fromRGBO(108, 117, 125,2),
-                              backgroundImage: NetworkImage(profilePicture!),
-                            )
+                            if(platform=='facebook')
+                              FutureBuilder<bool>(
+                                future: image_url_valid(profilePicture!),
+                                builder: (context, snapshot) {
+                                  final isValidImage = snapshot.data ?? false;
+                                  if (isValidImage) {
+                                    return CircleAvatar(
+
+                                      backgroundColor: Color.fromRGBO(108, 117, 125,2),
+                                      backgroundImage: NetworkImage(profilePicture!),
+                                    );
+                                  } else {
+                                    return CircleAvatar(
+                                      backgroundColor: Color.fromRGBO(108, 117, 125,2),
+                                      child: Text(
+                                        chatTitle[0].toUpperCase(),
+                                        style: TextStyle(
+                                          color: Colors.white,
+                                          /* fontWeight: FontWeight.bold, */
+                                        ),
+                                      ),
+                                    );
+                                  }
+                                },
+                              )
+                            else  
+                              CircleAvatar(
+                                backgroundColor: Color.fromRGBO(108, 117, 125,2),
+                                backgroundImage: NetworkImage(profilePicture!),
+                              )
                           else if(chatTitle!=null&& chatTitle!='')
                             CircleAvatar(
                               backgroundColor: Color.fromRGBO(108, 117, 125,2),
