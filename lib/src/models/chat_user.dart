@@ -30,12 +30,15 @@ class ChatUser {
   final String? profilePhoto;
   
   final String? chatmaxima_user_name; 
+  final String? platform;
+
 
   ChatUser({
     required this.id,
     required this.name,
     this.profilePhoto,
     required this.chatmaxima_user_name,
+    this.platform,
   });
 
   factory ChatUser.fromJson(Map<String, dynamic> json) => ChatUser(
@@ -43,12 +46,14 @@ class ChatUser {
         name: json["name"],
         profilePhoto: json["profilePhoto"],
         chatmaxima_user_name: json["chatmaxima_user_name"],
+        platform: json["platform"],
       );
 
   Map<String, dynamic> toJson() => {
         'id': id,
         'name': name,
         'profilePhoto': profilePhoto,
-        'chatmaxima_user_name':chatmaxima_user_name
+        'chatmaxima_user_name':chatmaxima_user_name,
+        'platform':platform
       };
 }
