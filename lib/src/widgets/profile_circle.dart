@@ -24,6 +24,8 @@ import 'package:chatview/src/utils/constants/constants.dart';
 import 'package:chatview/src/models/models.dart';
 import 'package:chatview/src/models/chat_user.dart';
 import 'chat_view_appbar.dart';
+import 'package:http/http.dart' as http;
+import 'chat_view_appbar.dart';
 
 class ProfileCircle extends StatelessWidget {
   const ProfileCircle({
@@ -35,6 +37,7 @@ class ProfileCircle extends StatelessWidget {
     this.circleRadius,
     this.onTap,
     this.onLongPress,
+    this.platform,
   }) : super(key: key);
 
   /// Allow users to give  default bottom padding according to user case.
@@ -55,16 +58,18 @@ class ProfileCircle extends StatelessWidget {
   /// Allow user to do operation when user long press on profile circle.
   final VoidCallback? onLongPress;
   final String? user_names;
+  final String? platform;
 
   @override
   Widget build(BuildContext context) {
+
     return Padding(
       padding: profileCirclePadding ??
           EdgeInsets.only(left: 6.0, right: 4, bottom: bottomPadding),
       child: InkWell(
         onLongPress: onLongPress,
         onTap: onTap,
-        child: imageUrl != null && imageUrl !=''
+        child:imageUrl != null && imageUrl !=''
             ? CircleAvatar(
                 backgroundColor: Color.fromRGBO(108, 117, 125,2),
                 radius: circleRadius ?? 16,

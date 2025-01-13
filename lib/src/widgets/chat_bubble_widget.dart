@@ -19,18 +19,26 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
+import 'dart:convert';
+
 import 'package:chatview/src/extensions/extensions.dart';
 import 'package:chatview/src/utils/constants/constants.dart';
 import 'package:chatview/src/widgets/chat_view_inherited_widget.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../chatview.dart';
+import 'chatui_textfield.dart';
 import 'message_time_widget.dart';
 import 'message_view.dart';
 import 'profile_circle.dart';
 import 'reply_message_widget.dart';
 import 'swipe_to_reply.dart';
 import 'package:intl/intl.dart';
+import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:io';
+import 'package:flutter/services.dart';
 
 class ChatBubbleWidget extends StatefulWidget {
   const ChatBubbleWidget({
@@ -121,9 +129,9 @@ class _ChatBubbleWidgetState extends State<ChatBubbleWidget> {
       currentUser = provide!.currentUser;
     }
   }
-
   @override
   Widget build(BuildContext context) {
+
     // Get user from id.
     final messagedUser = chatController?.getUserFromId(widget.message.sendBy);
     return Stack(
@@ -152,8 +160,31 @@ class _ChatBubbleWidgetState extends State<ChatBubbleWidget> {
       ],
     );
   }
+  Future<String> _getValidatedImageUrl(ChatUser? messagedUser) async {
+    if (messagedUser == null) return '';
+
+    String constructedUrl;
+    if (messagedUser.platform == "facebook") {
+      constructedUrl = messagedUser.profilePhoto??'';
+    } else {
+      constructedUrl = messagedUser.profilePhoto ?? '';
+    }
+
+    // Validate the URL
+    try {
+      final response = await http.get(Uri.parse(constructedUrl));
+      if (response.statusCode == 200) {
+        return constructedUrl; // Return the valid URL
+      } else {
+        return ''; // Return empty string for invalid URLs
+      }
+    } catch (e) {
+      return ''; // Return empty string if an error occurs
+    }
+  }
 
   Widget _chatBubbleWidget(ChatUser? messagedUser) {
+  
     return Container(
       padding:
           widget.chatBubbleConfig?.padding ?? const EdgeInsets.only(left: 5.0),
@@ -167,40 +198,80 @@ class _ChatBubbleWidgetState extends State<ChatBubbleWidget> {
         children: [
           if (!isMessageBySender &&
               (featureActiveConfig?.enableOtherUserProfileAvatar ?? true))
-            ProfileCircle(
+              FutureBuilder<String>(
+                future: _getValidatedImageUrl(messagedUser),
+                builder: (context, snapshot) {
+                  if (snapshot.hasData && snapshot.data != null && snapshot.data!.isNotEmpty) {
+                    return ProfileCircle(
+                      bottomPadding: widget.message.reaction.reactions.isNotEmpty
+                          ? profileCircleConfig?.bottomPadding ?? 15
+                          : profileCircleConfig?.bottomPadding ?? 2,
+                      profileCirclePadding: profileCircleConfig?.padding,
+                      imageUrl: snapshot.data!,
+                      user_names: messagedUser?.chatmaxima_user_name ?? '',
+                      platform: messagedUser?.platform,
+                      circleRadius: profileCircleConfig?.circleRadius,
+                      onTap: () => _onAvatarTap(messagedUser),
+                      onLongPress: () => _onAvatarLongPress(messagedUser),
+                    );
+                  } else {
+                    return ProfileCircle(
+                      bottomPadding: widget.message.reaction.reactions.isNotEmpty
+                          ? profileCircleConfig?.bottomPadding ?? 15
+                          : profileCircleConfig?.bottomPadding ?? 2,
+                      profileCirclePadding: profileCircleConfig?.padding,
+                      imageUrl: '', // Use a placeholder image URL here
+                      user_names: messagedUser?.chatmaxima_user_name ?? '',
+                      platform: messagedUser?.platform,
+                      circleRadius: profileCircleConfig?.circleRadius,
+                      onTap: () => _onAvatarTap(messagedUser),
+                      onLongPress: () => _onAvatarLongPress(messagedUser),
+                    );
+                  }
+                },
+              ),
+            /* ProfileCircle(
               bottomPadding: widget.message.reaction.reactions.isNotEmpty
                   ? profileCircleConfig?.bottomPadding ?? 15
                   : profileCircleConfig?.bottomPadding ?? 2,
               profileCirclePadding: profileCircleConfig?.padding,
               imageUrl: messagedUser?.profilePhoto??'',
               user_names: messagedUser?.chatmaxima_user_name??'',
+              platform: messagedUser?.platform,
               circleRadius: profileCircleConfig?.circleRadius,
               onTap: () => _onAvatarTap(messagedUser),
               onLongPress: () => _onAvatarLongPress(messagedUser),
-            ),
+            ),  */        
           Expanded(
             child: isMessageBySender
                 ? SwipeToReply(
-                    onLeftSwipe: featureActiveConfig?.enableSwipeToReply ?? true
-                        ? () {
-                            if (maxDuration != null) {
-                              widget.message.voiceMessageDuration =
-                                  Duration(milliseconds: maxDuration!);
+                      onLeftSwipe: featureActiveConfig?.enableSwipeToReply ?? true
+                          ? () {
+                              if (maxDuration != null) {
+                                widget.message.voiceMessageDuration =
+                                    Duration(milliseconds: maxDuration!);
+                              }
+                              if (widget.swipeToReplyConfig?.onLeftSwipe !=
+                                  null) {
+                                widget.swipeToReplyConfig?.onLeftSwipe!(
+                                    widget.message.message,
+                                    widget.message.sendBy);
+                              }
+                              widget.onSwipe(widget.message);
                             }
-                            if (widget.swipeToReplyConfig?.onLeftSwipe !=
-                                null) {
-                              widget.swipeToReplyConfig?.onLeftSwipe!(
-                                  widget.message.message,
-                                  widget.message.sendBy);
-                            }
-                            widget.onSwipe(widget.message);
-                          }
-                        : null,
-                    replyIconColor: widget.swipeToReplyConfig?.replyIconColor,
-                    swipeToReplyAnimationDuration:
-                        widget.swipeToReplyConfig?.animationDuration,
-                    child: _messagesWidgetColumn(messagedUser),
-                  )
+                          : null,
+                      replyIconColor: widget.swipeToReplyConfig?.replyIconColor,
+                      swipeToReplyAnimationDuration:
+                          widget.swipeToReplyConfig?.animationDuration,
+                          /* child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                          children: [
+                           /*  _buildPopupMenu(),
+                            Expanded(child: _messagesWidgetColumn(messagedUser)), */
+                          ],
+                        ), */
+                      child: _messagesWidgetColumn(messagedUser),
+                    )
                 : SwipeToReply(
                     onRightSwipe:
                         featureActiveConfig?.enableSwipeToReply ?? true
@@ -223,8 +294,9 @@ class _ChatBubbleWidgetState extends State<ChatBubbleWidget> {
                         widget.swipeToReplyConfig?.animationDuration,
                     child: _messagesWidgetColumn(messagedUser),
                   ),
+                 
           ),
-          if (isMessageBySender) ...[getReciept()],
+          if (isMessageBySender) ...[getReciept(),],
           if (isMessageBySender &&
               (featureActiveConfig?.enableCurrentUserProfileAvatar ?? true))
             ProfileCircle(
@@ -242,7 +314,7 @@ class _ChatBubbleWidgetState extends State<ChatBubbleWidget> {
       ),
     );
   }
-
+  
   void _onAvatarTap(ChatUser? user) {
     if (profileCircleConfig?.onAvatarTap != null && user != null) {
       profileCircleConfig?.onAvatarTap!(user);
@@ -301,7 +373,7 @@ class _ChatBubbleWidgetState extends State<ChatBubbleWidget> {
     return Column(
       crossAxisAlignment:
           isMessageBySender ? CrossAxisAlignment.end : CrossAxisAlignment.start,
-      children: [
+      children: [ 
         if (replyMessage.isNotEmpty)
           widget.repliedMessageConfig?.repliedMessageWidgetBuilder != null
               ? widget.repliedMessageConfig!
@@ -347,94 +419,6 @@ class _ChatBubbleWidgetState extends State<ChatBubbleWidget> {
               1.1,
           onMaxDuration: _onMaxDuration,
         ),
-        /* if ((chatController?.chatUsers.length == 2) && isMessageBySender)
-        Padding(
-          padding:
-              widget.chatBubbleConfig?.outgoingChatBubbleConfig?.padding ??
-                  const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (currentUser?.name?.contains('Bot') ?? false)
-                Row(
-                  children: [
-                    Icon(
-                      Icons.smart_toy_outlined,
-                      size: 10,
-                      color: Colors.black54,
-                    ),
-                    SizedBox(width: 4,),
-                    Text(
-                      'Bot',
-                      style: TextStyle(fontSize: 10, color: Colors.black54)
-                    ),
-                    SizedBox(width: 4),
-                    Icon(Icons.access_time,size:10,color: Colors.black54,),
-                    SizedBox(width: 4),
-                    Text(
-                      formattedTime,
-                      style: TextStyle(
-                        fontSize: 10,
-                        color: Colors.black54,
-                      ),
-                    ),
-                  ],
-                )
-              else
-              Row(
-                children: 
-                [
-                  Icon
-                  (
-                    Icons.person,
-                    size: 10,
-                    color: Colors.black54,
-                  ),
-                  SizedBox(width: 4),
-                  Text(
-                    currentUser?.name ?? '',
-                    style: TextStyle(fontSize: 10, color: Colors.black54)
-                  ),
-                  SizedBox(width: 4,),
-                  Icon(Icons.access_time,size:10,color: Colors.black54,),
-                  SizedBox(width: 4),
-                  Text(
-                    formattedTime,
-                    style: TextStyle(
-                      fontSize: 10,
-                      color: Colors.black54,
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ) */
-        /* else if ((chatController?.chatUsers.length ?? 0) > 1 && !isMessageBySender)
-          Padding(
-            padding:
-                widget.chatBubbleConfig?.inComingChatBubbleConfig?.padding ??
-                    const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                /* Text(
-                  currentUser?.name ?? '',
-                  style: widget.chatBubbleConfig?.inComingChatBubbleConfig
-                      ?.senderNameTextStyle,
-                ),*/
-                Icon(Icons.access_time,size:10,color: Colors.black54,),
-                SizedBox(width: 4),
-                Text(
-                  formattedTime,
-                  style: TextStyle(
-                    fontSize: 10,
-                    color: Colors.black54,
-                  ),
-                ),
-              ],
-            ),
-          ), */
       ],
     );
   }
