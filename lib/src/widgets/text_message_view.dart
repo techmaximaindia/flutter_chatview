@@ -39,6 +39,7 @@ import 'package:flutter/services.dart';
 import 'chat_list_widget.dart';
 import 'send_message_widget.dart';
 import 'swipe_to_reply.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
 class TextMessageView extends StatelessWidget {
   const TextMessageView({
@@ -159,7 +160,23 @@ class TextMessageView extends StatelessWidget {
                   style: TextStyle(fontSize: 10, color: Colors.black54),
                 ),
                 SizedBox(width: 4),
-              ] else ...[
+              ] else if(message.profilename=='Summary') ...[
+                FaIcon(
+                  FontAwesomeIcons.magicWandSparkles,
+                  color: Colors.black,
+                  size: 10,
+                ),
+                SizedBox(width: 4),
+                Text(
+                  message.profilename ?? '',
+                  style: TextStyle(
+                    fontSize: 10,
+                    color: Colors.black54,
+                  ),
+                ),
+                SizedBox(width: 4),
+              ] 
+              else ...[
                 Icon(
                   Icons.person,
                   size: 10,
@@ -310,7 +327,16 @@ class TextMessageView extends StatelessWidget {
               ? BorderRadius.circular(17)
               : BorderRadius.circular(replyBorderRadius2));
 
-  Color get _color => isMessageBySender
+  /* Color get _color => isMessageBySender
       ? outgoingChatBubbleConfig?.color ?? Colors.purple
-      : inComingChatBubbleConfig?.color ?? Colors.white;
+      : inComingChatBubbleConfig?.color ?? Colors.white; */
+    Color get _color {
+      if (message.profilename == 'Summary') {
+        return Color.fromRGBO(255, 193, 7, 1.0);
+      }
+      return isMessageBySender
+          ? outgoingChatBubbleConfig?.color ?? Colors.purple
+          : inComingChatBubbleConfig?.color ?? Colors.white;
+    }
+
 }
