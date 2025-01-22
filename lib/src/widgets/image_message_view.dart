@@ -160,10 +160,19 @@ Widget build(BuildContext context) {
             ],
           ),
           if (image_text_message!='' && image_text_message!=null)
-            Padding(
+            Padding
+            (
               padding: const EdgeInsets.only(top: 6.0),
-              child: TextMessageView(
-                message:Message(message:message.image_text_message, createdAt: message.createdAt, sendBy: message.sendBy,translate_content:translated_content,translate_title: translated_title),
+              child: TextMessageView
+              (
+                message:Message
+                (
+                  message:message.image_text_message, 
+                  createdAt: message.createdAt, 
+                  sendBy: message.sendBy,
+                  translate_content:translated_content,
+                  translate_title: translated_title,
+                  profilename: message.profilename),
                 isMessageBySender: isMessageBySender,
               ),
             ),

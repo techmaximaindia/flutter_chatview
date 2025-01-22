@@ -335,7 +335,7 @@ class TextMessageView extends StatelessWidget {
         return Color.fromRGBO(255, 193, 7, 1.0);
       }
       return isMessageBySender
-          ? outgoingChatBubbleConfig?.color ?? Colors.purple
+          ? outgoingChatBubbleConfig?.color ?? Color(0xFF90CAF9)
           : inComingChatBubbleConfig?.color ?? Colors.white;
     }
 
