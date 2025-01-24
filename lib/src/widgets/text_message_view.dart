@@ -27,6 +27,7 @@ import 'package:chatview/src/models/chat_user.dart';
 import 'package:flutter_html/flutter_html.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:html/parser.dart' as html_parser;
+import '../extensions/extensions.dart';
 import '../models/models.dart';
 import '../utils/constants/constants.dart';
 import '../values/typedefs.dart';
@@ -237,6 +238,13 @@ class TextMessageView extends StatelessWidget {
     final String translated_title = message.translate_title??'';
     final String translated_content = message.translate_content??'';
 
+    final urlPattern = r'http[s]?://[^\s]+';
+    final urlRegExp = RegExp(urlPattern);
+
+    // Check for embedded iframe tags (extract the src URL)
+    final iframeTags = document.getElementsByTagName('iframe');
+    final iframeUrls = iframeTags.map((iframe) => iframe.attributes['src']).toList();
+    
     if (translated_title != '' && translated_content != '') 
     {
       return Column(
@@ -266,6 +274,31 @@ class TextMessageView extends StatelessWidget {
             ),
           ),
         ],
+      );
+    }
+    else if (iframeUrls.isNotEmpty) 
+    {
+      return Column(
+        children: iframeUrls.map((url) {
+          if (url != null) {
+            final uri = Uri.parse(url);
+            return GestureDetector(
+              onTap: () async {
+                if (await canLaunchUrl(uri)) {
+                    await launchUrl(uri);
+                }
+              },
+              child: Text(
+                uri.toString(),
+                style: textTheme.bodyMedium?.copyWith(
+                  color: Colors.blue,
+                  decoration: TextDecoration.underline,
+                ),
+              ),
+            );
+          }
+          return SizedBox.shrink();
+        }).toList(),
       );
     }
     else if (parsedString.isNotEmpty && parsedString != textMessage) 
