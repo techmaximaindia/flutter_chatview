@@ -58,6 +58,7 @@ class ReplyMessageWidget extends StatelessWidget {
     final messagedUser =
         chatController?.getUserFromId(message.replyMessage.replyBy);
     final replyBy = replyBySender ? PackageStrings.you : messagedUser?.name;
+    final reply_message_color=replyBySender ? repliedMessageConfig?.backgroundColor : Color.fromRGBO(199, 207, 215, 1);
     return GestureDetector(
       onTap: onTap,
       child: Container(
@@ -127,8 +128,8 @@ class ReplyMessageWidget extends StatelessWidget {
                                   replyMessage: replyMessage,
                                   replyBySender: replyBySender,
                                 ),
-                                color: repliedMessageConfig?.backgroundColor ??
-                                    Colors.grey.shade500,
+                                color: reply_message_color/* repliedMessageConfig?.backgroundColor ??
+                                    Colors.grey.shade500, */
                               ),
                               child: message.replyMessage.messageType.isVoice
                                   ? Row(
