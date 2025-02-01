@@ -38,6 +38,8 @@ class ReplyMessage {
   /// Id of message, it replies to.
   final String messageId;
 
+  final String image_text_message;
+
   const ReplyMessage({
     this.messageId = '',
     this.message = '',
@@ -45,6 +47,8 @@ class ReplyMessage {
     this.replyBy = '',
     this.messageType = MessageType.text,
     this.voiceMessageDuration,
+    this.image_text_message='',
+
   });
 
   factory ReplyMessage.fromJson(Map<String, dynamic> json) => ReplyMessage(
@@ -54,6 +58,7 @@ class ReplyMessage {
         messageType: json["message_type"],
         messageId: json["id"],
         voiceMessageDuration: json["voiceMessageDuration"],
+        image_text_message:  json["image_text_message"],
       );
 
   Map<String, dynamic> toJson() => {
@@ -63,5 +68,6 @@ class ReplyMessage {
         'message_type': messageType,
         'id': messageId,
         'voiceMessageDuration': voiceMessageDuration,
+        'image_text_message':image_text_message
       };
 }
