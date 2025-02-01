@@ -98,20 +98,55 @@ class ReplyMessageWidget extends StatelessWidget {
                       opacity: repliedMessageConfig?.opacity ?? 0.8,
                       child: message.replyMessage.messageType.isImage
                           ? Container(
-                              height: repliedMessageConfig
-                                      ?.repliedImageMessageHeight ??
-                                  100,
-                              width: repliedMessageConfig
-                                      ?.repliedImageMessageWidth ??
-                                  80,
+                              constraints: BoxConstraints(
+                                maxWidth: repliedMessageConfig?.maxWidth ?? 280,
+                              ),
+                              padding: repliedMessageConfig?.padding ??
+                                  const EdgeInsets.symmetric(
+                                    vertical: 8,
+                                    horizontal: 12,
+                                  ),
                               decoration: BoxDecoration(
-                                image: DecorationImage(
-                                  image: NetworkImage(replyMessage),
-                                  fit: BoxFit.fill,
+                                borderRadius: _borderRadius(
+                                  replyMessage: replyMessage,
+                                  replyBySender: replyBySender,
                                 ),
-                                borderRadius:
-                                    repliedMessageConfig?.borderRadius ??
-                                        BorderRadius.circular(14),
+                                color: reply_message_color,
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  // Image Display
+                                  Container(
+                                    height: repliedMessageConfig?.repliedImageMessageHeight ?? 200,
+                                    width: repliedMessageConfig?.repliedImageMessageWidth ?? 200,
+                                    decoration: BoxDecoration(
+                                      image: DecorationImage(
+                                        image: NetworkImage(replyMessage),
+                                        fit: BoxFit.cover,
+                                      ),
+                                      borderRadius: _borderRadius(
+                                        replyMessage: replyMessage,
+                                        replyBySender: replyBySender,
+                                      ),
+                                    ),
+                                  ),
+                                  // Display image_text_message if available
+                                  if (message.replyMessage.image_text_message != null &&
+                                      message.replyMessage.image_text_message!.isNotEmpty)
+                                    Padding(
+                                      padding: const EdgeInsets.only(top: 6),
+                                      child: Text(
+                                        message.replyMessage.image_text_message!.length > 25
+                                            ? "${message.replyMessage.image_text_message!.substring(0, 18)}..."
+                                            : message.replyMessage.image_text_message!,
+                                        style: repliedMessageConfig?.textStyle ??
+                                            textTheme.bodyMedium!
+                                                .copyWith(color: Colors.black),
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                ],
                               ),
                             )
                           : Container(
@@ -155,7 +190,7 @@ class ReplyMessageWidget extends StatelessWidget {
                                       ],
                                     )
                                   : Text(
-                                      replyMessage,
+                                       '${replyMessage} ${message.replyMessage.image_text_message ?? ''}',
                                       style: repliedMessageConfig?.textStyle ??
                                           textTheme.bodyMedium!
                                               .copyWith(color: Colors.black),
