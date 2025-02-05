@@ -950,7 +950,6 @@ class _ChatUITextFieldState extends State<ChatUITextField> {
                                       return Column(
                                         mainAxisAlignment: MainAxisAlignment.end,
                                         children: [
-                                          if(current_page!='ticket')
                                             IconButton(
                                               onPressed: () {
                                                 final inputText = widget.textEditingController.text;
@@ -1005,7 +1004,7 @@ class _ChatUITextFieldState extends State<ChatUITextField> {
                                                 ),
                                               ),
                                             
-                                            if(inputTextValue.isEmpty/*  && current_page!='ticket' */)  
+                                            if(inputTextValue.isEmpty)  
                                               IconButton(
                                                 onPressed: () {
                                                   widget.onAIPressed();
