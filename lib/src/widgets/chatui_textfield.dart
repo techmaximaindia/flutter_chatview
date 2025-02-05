@@ -167,7 +167,7 @@ class _ChatUITextFieldState extends State<ChatUITextField> {
         _isSendEnabled.value = true;
         _scrollToBottom();
       },
-      source: 'chat',
+      /* source: 'chat', */
     );
     _loadPreferences();
   }
@@ -321,9 +321,10 @@ class _ChatUITextFieldState extends State<ChatUITextField> {
           return decodedResponse['ai_error_message'];
         } else {
           var aiResponse = json.decode(decodedResponse['ai_response']);
-          return source == "ticket"
+          return aiResponse['answer'];
+         /*  return source == "ticket"
               ? json.decode(aiResponse['answer'])['body']
-              : aiResponse['answer'];
+              : aiResponse['answer']; */
 
         }
       } else {
@@ -600,13 +601,13 @@ class _ChatUITextFieldState extends State<ChatUITextField> {
                                               final value = await SharedPreferences.getInstance();
                                               final String? page = value.getString('page');
 
-                                              if (page == 'chat') {
+                                              /* if (page == 'chat') { */
                                                 /* widget.onPressed(); */
                                                 widget.ai_send_pressed();
                                                 /* sendMessage(_messageController.text); */
-                                              } else {
+                                              /* } else { */
                                                 /* send_ticket_Message(_messageController.text); */
-                                              }
+                                              /* } */
                                               /* _messageController.clear(); */
                                               widget.messageController.clear();
                                               Navigator.of(context).pop();
@@ -1004,7 +1005,7 @@ class _ChatUITextFieldState extends State<ChatUITextField> {
                                                 ),
                                               ),
                                             
-                                            if(inputTextValue.isEmpty && current_page!='ticket')  
+                                            if(inputTextValue.isEmpty/*  && current_page!='ticket' */)  
                                               IconButton(
                                                 onPressed: () {
                                                   widget.onAIPressed();

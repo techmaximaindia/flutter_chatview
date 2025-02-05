@@ -118,7 +118,7 @@ class SendMessageWidgetState extends State<SendMessageWidget> {
         _isSendEnabled.value = true;
         _scrollToBottom();
       },
-      source: 'chat',
+      /* source: 'chat' */
     );
    }
   @override
@@ -162,6 +162,9 @@ class SendMessageWidgetState extends State<SendMessageWidget> {
           alias = ticket_id;
           from_name = ticket_name;
         }
+        print(source);
+        print(alias);
+        print(from_name);
         var headers = 
         {
           'Content-Type': 'application/json',
@@ -191,9 +194,10 @@ class SendMessageWidgetState extends State<SendMessageWidget> {
             return decodedResponse['ai_error_message'];
           } else {
             var aiResponse = json.decode(decodedResponse['ai_response']);
-            return source == "ticket"
-                ? json.decode(aiResponse['answer'])['body']
-                : aiResponse['answer'];
+            return aiResponse['answer'];
+            /* return source == "ticket"
+                ? aiResponse['answer']//json.decode(aiResponse['answer'])['body']
+                : aiResponse['answer']; */
           }
         } else {
           throw "Failed to generate AI response";
@@ -201,35 +205,6 @@ class SendMessageWidgetState extends State<SendMessageWidget> {
       }
       catch (e) {
         return "";
-      }
-    }
-    Future<void> sendMessage(String message,) async {
-      final prefs = await SharedPreferences.getInstance();
-      final String? cb_lead_id = prefs.getString('cb_lead_id');
-      final String? platform = prefs.getString('platform');
-      final String? conversation_id = prefs.getString('conversation_id');
-      Map<String, dynamic> data = {
-        "cb_lead_id": cb_lead_id,
-        "platform": platform,
-        "message_body": message,
-        "conversation_id":conversation_id,
-        "cb_message_source": 'android',
-        "reply_message_id": '', 
-      };
-      String jsonData = json.encode(data);
-      final String? uuid = prefs.getString('uuid');
-      String url = base_url + 'api/send_message/';
-      var response = await http.post(
-        Uri.parse(url),
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": "$uuid",
-        },
-        body: jsonData,
-      );
-      if (response.statusCode == 200) {
-      } else {
-
       }
     }
 
@@ -466,16 +441,16 @@ class SendMessageWidgetState extends State<SendMessageWidget> {
                                                 final value = await SharedPreferences.getInstance();
                                                 final String? page = value.getString('page');
 
-                                                if (page == 'chat') {
+                                                /* if (page == 'chat') { */
                                                  /*  sendMessage(_messageController.text); */
                                                   widget.onSendTap.call(
                                                     _messageController.text,
                                                     ReplyMessage(),
                                                     MessageType.text,
                                                   );
-                                                } else {
+                                                /* } else {
                                                   send_ticket_Message(_messageController.text);
-                                                }
+                                                } */
                                                 _messageController.clear();
                                                 Navigator.of(context).pop();
                                               }
@@ -660,9 +635,7 @@ class SendMessageWidgetState extends State<SendMessageWidget> {
                           onAIPressed: () {
                             print("onAI Pressed");
                               _show_dialog_fetch_response(context,_replyMessage.value.message,_replyMessage.value.messageId);
-                              /* print(_replyMessage.value.message);
-                              print(_replyMessage.value.messageId);
-                              print(_textEditingController.text) */
+                              /* print(_textEditingController.text); */
                           },
                           messageController: _ai_message_edit,
                           ai_send_pressed: () {
@@ -747,7 +720,6 @@ class SendMessageWidgetState extends State<SendMessageWidget> {
   }
 
   void _onImageSelected(String imagePath, String error) {
-    debugPrint('Call in Send Message Widget');
     if (imagePath.isNotEmpty) {
       widget.onSendTap.call(imagePath, replyMessage, MessageType.image);
       _assignRepliedMessage();
@@ -770,6 +742,8 @@ class SendMessageWidgetState extends State<SendMessageWidget> {
       replyMessage,
       MessageType.text,
     );
+    print(replyMessage.messageId);
+    print(replyMessage.message);
     _assignRepliedMessage();
   }
 
