@@ -65,6 +65,11 @@ class Message {
   final String image_text_message;
   String? translate_title;
   String? translate_content;
+  String? bubble_message_options;
+  String? bubble_header_text;
+  String? bubble_footer_text;
+  final Map<String, dynamic>? cb_message_options_full;
+
   Message({
     this.id = '',
     required this.message,
@@ -81,6 +86,10 @@ class Message {
     this.message_id='',
     this.translate_title,
     this.translate_content,
+    this.bubble_message_options,
+    this.bubble_header_text,
+    this.bubble_footer_text,
+    this.cb_message_options_full,
     MessageStatus status = MessageStatus.pending,
   })  : reaction = reaction ?? Reaction(reactions: [], reactedUserIds: []),
         key = GlobalKey(),
@@ -121,6 +130,10 @@ class Message {
       message_id: json["message_id"],
       translate_title: json["translate_title"],
       translate_content: json["translate_content"],
+      bubble_message_options: json["bubble_message_options"],
+      bubble_header_text: json["bubble_header_text"],
+      bubble_footer_text: json["bubble_footer_text"],
+      cb_message_options_full: json["cb_message_options_full"],
       status: json['status'],
     );
 
@@ -137,6 +150,10 @@ class Message {
         'message_id':message_id,
         'translate_title':translate_title,
         'translate_content':translate_content,
+        'bubble_message_options':bubble_message_options,
+        'bubble_header_text':bubble_header_text,
+        'bubble_footer_text':bubble_footer_text,
+        'cb_message_options_full':cb_message_options_full,
         'status': status.name
       };
 }
