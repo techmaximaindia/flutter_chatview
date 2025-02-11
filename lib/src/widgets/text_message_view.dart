@@ -125,7 +125,7 @@ class TextMessageView extends StatelessWidget {
                           linkPreviewConfig: _linkPreviewConfig,
                           url: textMessage,
                         )
-                      : _buildMessageContent(textMessage, textTheme),/* Text(
+                      : _buildMessageContent(context,textMessage, textTheme),/* Text(
                           textMessage,
                           style: _textStyle ??
                             textTheme.bodyMedium!.copyWith(
@@ -231,7 +231,346 @@ class TextMessageView extends StatelessWidget {
       ],
     );
   }
-  Widget _buildMessageContent(String textMessage, TextTheme textTheme) 
+  Widget _buildMessageContent(context,String textMessage, TextTheme textTheme) {
+  final document = html_parser.parse(textMessage);
+  final String parsedString = document.body?.text ?? '';
+  final String translated_title = message.translate_title ?? '';
+  final String translated_content = message.translate_content ?? '';
+
+  final urlPattern = r'http[s]?://[^\s]+';
+  final urlRegExp = RegExp(urlPattern);
+
+  // Check for embedded iframe tags (extract the src URL)
+  final iframeTags = document.getElementsByTagName('iframe');
+  final iframeUrls = iframeTags.map((iframe) => iframe.attributes['src']).toList();
+
+  var message_options_full = message.cb_message_options_full;
+    String? type = message_options_full?['type'];
+    /* List<String> buttonValues = List<String>.from(message_options_full?['button_values'] ?? []); */
+    List<String> buttonValues = (message_options_full?['button_values'] as List<dynamic>?)
+    ?.map((e) => e.toString())
+    .toList() ?? [];
+
+    
+    /* List<String> listDesc = List<String>.from(message_options_full?['list_desc'] ?? []); */
+    List<String> listDesc = (message_options_full?['list_desc'] as List<dynamic>?)
+    ?.map((e) => e.toString())
+    .toList() ?? [];
+
+    String? list_menu_header=message_options_full?['list_menu_header']??'';
+    String? list_header=message_options_full?['list_header']??'';
+    String? header=message_options_full?['header']??'';
+    String? footer=message_options_full?['footer']??'';
+    
+
+  if (translated_title.isNotEmpty && translated_content.isNotEmpty) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          textMessage,
+          style: _textStyle ??
+              textTheme.bodyMedium!.copyWith(
+                color: Colors.black,
+                fontSize: 16,
+              ),
+        ),
+        SizedBox(height: 4),
+        Text(
+          "Translation From $translated_title",
+          style: textTheme.bodyLarge?.copyWith(
+            fontWeight: FontWeight.bold,
+            color: Colors.black,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          translated_content,
+          style: textTheme.bodyMedium?.copyWith(
+            color: Colors.black87,
+          ),
+        ),
+      ],
+    );
+  } else if (iframeUrls.isNotEmpty) {
+    return Column(
+      children: iframeUrls.map((url) {
+        if (url != null) {
+          final uri = Uri.parse(url);
+          return GestureDetector(
+            onTap: () async {
+              if (await canLaunchUrl(uri)) {
+                await launchUrl(uri);
+              }
+            },
+            child: Text(
+              uri.toString(),
+              style: textTheme.bodyMedium?.copyWith(
+                color: Colors.blue,
+                decoration: TextDecoration.underline,
+              ),
+            ),
+          );
+        }
+        return SizedBox.shrink();
+      }).toList(),
+    );
+  } else if (parsedString.isNotEmpty && parsedString != textMessage) {
+    return Html(
+      data: textMessage,
+      style: {
+        'body': Style(
+          fontSize: FontSize(16),
+          color: Colors.black,
+        ),
+      },
+      onLinkTap: (url, _, __) async {
+        if (url != null && url.isNotEmpty) {
+          final uri = Uri.parse(url);
+          if (await canLaunchUrl(uri)) {
+            await launchUrl(uri);
+          }
+        }
+      },
+    );
+  } else if (message.cb_message_options_full != null && type == "button") {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            header??'',
+            style: textTheme.bodyMedium?.copyWith(
+              fontWeight: FontWeight.bold,
+              color: Colors.black,
+            ),
+          ),
+          Text(
+            textMessage,
+            style: textTheme.bodyMedium!.copyWith(
+              color: Colors.black,
+              fontSize: 14,
+            ),
+          ),
+          Text(
+            footer??'',
+            style: textTheme.bodyLarge?.copyWith(
+              fontSize: 13,
+              color: Color.fromARGB(255, 52, 58, 64),
+            ),
+          ),
+          const SizedBox(height: 8),
+
+          if (buttonValues.isNotEmpty && buttonValues!=[] && buttonValues!=null) 
+            ...buttonValues.map((option) {
+              return Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4.0),
+                child: ElevatedButton(
+                  onPressed: () {
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    minimumSize: const Size(double.infinity, 48),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const FaIcon(
+                        FontAwesomeIcons.list,
+                        color: Colors.blue,
+                        size: 10, 
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        option.trim(),
+                        style: textTheme.bodyMedium?.copyWith(
+                          color: Colors.blue,
+                          fontWeight: FontWeight.bold,
+                          fontSize:12
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            }).toList(),
+        ],
+      );
+    } 
+     else if (message.cb_message_options_full != null && type == "list") {
+    
+     void showCustomDialog(BuildContext buildcontext, String title ,List<String> button, List<String> list) {
+      showDialog(
+        context: buildcontext,
+        barrierDismissible: true,
+        builder: (BuildContext context) {
+          return StatefulBuilder(
+            builder: (BuildContext context, StateSetter setState) {
+              return AlertDialog(
+                backgroundColor: Colors.white,
+                title: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        title,
+                        style: const TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.black,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                        maxLines: 1,
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close, color: Colors.black),
+                      onPressed: () {
+                        Navigator.of(context).pop();
+                      },
+                    ),
+                  ],
+                ),
+                contentPadding: const EdgeInsets.all(10),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10.0),
+                ),
+                content: Container(
+                  height: 300,
+                  width: 200,
+                  child: SingleChildScrollView(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: List.generate(button.length, (index) {
+                        return Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 8.0),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Align(
+                                alignment: Alignment.centerLeft,
+                                child: Padding(
+                                  padding: const EdgeInsets.only(left: 12.0),
+                                  child: Text(
+                                    button[index],
+                                    style: const TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.black,
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
+                                    maxLines: 2,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              
+                              Align(
+                                alignment: Alignment.centerLeft,
+                                child: Padding(
+                                  padding: const EdgeInsets.only(left: 12.0),
+                                  child:Text(
+                                    list.isNotEmpty && index < list.length ? list[index] : "",
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.grey,
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
+                                    maxLines: 6,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      }),
+                    ),
+                  ),
+                ),
+              );
+            },
+          );
+        },
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          header?? '',
+          style: textTheme.bodyMedium?.copyWith(
+            fontWeight: FontWeight.bold,
+            color: Colors.black,
+          ),
+        ),
+        Text(
+          textMessage,
+          style: textTheme.bodyMedium!.copyWith(
+            color: Colors.black,
+            fontSize: 14,
+          ),
+        ),
+        Text(
+          footer?? '',
+          style: textTheme.bodyLarge?.copyWith(
+            fontSize: 13,
+            color: Color.fromARGB(255, 52, 58, 64),
+          ),
+        ),
+        const SizedBox(height: 8),
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 4.0),
+          child: ElevatedButton(
+            onPressed: () {
+              showCustomDialog(context, list_header!, buttonValues, listDesc);
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              minimumSize: const Size(double.infinity, 48),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min, 
+              children: [
+                const FaIcon(
+                  FontAwesomeIcons.list,
+                  color: Colors.blue,
+                  size: 10,
+                ),
+                const SizedBox(width: 4), 
+                Text(
+                  list_menu_header ?? '',
+                  style: textTheme.bodyMedium?.copyWith(
+                    color: Colors.blue,
+                    fontWeight: FontWeight.bold,
+                    fontSize:12
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+  else{
+    return Text(
+      textMessage,
+      style: _textStyle ??
+          textTheme.bodyMedium!.copyWith(
+            color: Colors.black,
+            fontSize: 14,
+          ),
+    );
+  }
+}
+
+  /* Widget _buildMessageContent(String textMessage, TextTheme textTheme) 
   {
     final document = html_parser.parse(textMessage);
     final String parsedString = document.body?.text ?? '';
@@ -244,6 +583,7 @@ class TextMessageView extends StatelessWidget {
     // Check for embedded iframe tags (extract the src URL)
     final iframeTags = document.getElementsByTagName('iframe');
     final iframeUrls = iframeTags.map((iframe) => iframe.attributes['src']).toList();
+  
     
     if (translated_title != '' && translated_content != '') 
     {
@@ -320,7 +660,232 @@ class TextMessageView extends StatelessWidget {
           }
         },
       );
+    } else if (message.cb_message_options_full != null && type == "button") {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            header??'',
+            style: textTheme.bodyMedium?.copyWith(
+              fontWeight: FontWeight.bold,
+              color: Colors.black,
+            ),
+          ),
+          Text(
+            textMessage,
+            style: textTheme.bodyMedium!.copyWith(
+              color: Colors.black,
+              fontSize: 14,
+            ),
+          ),
+          Text(
+            footer??'',
+            style: textTheme.bodyLarge?.copyWith(
+              fontSize: 13,
+              color: Color.fromARGB(255, 52, 58, 64),
+            ),
+          ),
+          const SizedBox(height: 8),
+
+          if (buttonValues.isNotEmpty && buttonValues!=[] && buttonValues!=null) 
+            ...buttonValues.map((option) {
+              return Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4.0),
+                child: ElevatedButton(
+                  onPressed: () {
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    minimumSize: const Size(double.infinity, 48),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const FaIcon(
+                        FontAwesomeIcons.list,
+                        color: Colors.blue,
+                        size: 10, 
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        option.trim(),
+                        style: textTheme.bodyMedium?.copyWith(
+                          color: Colors.blue,
+                          fontWeight: FontWeight.bold,
+                          fontSize:12
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            }).toList(),
+        ],
+      );
     } 
+     else if (message.cb_message_options_full != null && type == "list") {
+    
+     void showCustomDialog(BuildContext buildcontext, String title ,List<String> button, List<String> list) {
+      showDialog(
+        context: buildcontext,
+        barrierDismissible: true,
+        builder: (BuildContext context) {
+          return StatefulBuilder(
+            builder: (BuildContext context, StateSetter setState) {
+              return AlertDialog(
+                backgroundColor: Colors.white,
+                title: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        title,
+                        style: const TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.black,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                        maxLines: 1,
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close, color: Colors.black),
+                      onPressed: () {
+                        Navigator.of(context).pop();
+                      },
+                    ),
+                  ],
+                ),
+                contentPadding: const EdgeInsets.all(10),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10.0),
+                ),
+                content: Container(
+                  height: 300,
+                  width: 200,
+                  child: SingleChildScrollView(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: List.generate(button.length, (index) {
+                        return Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 8.0),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Align(
+                                alignment: Alignment.centerLeft,
+                                child: Padding(
+                                  padding: const EdgeInsets.only(left: 12.0),
+                                  child: Text(
+                                    button[index],
+                                    style: const TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.black,
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
+                                    maxLines: 2,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              
+                              Align(
+                                alignment: Alignment.centerLeft,
+                                child: Padding(
+                                  padding: const EdgeInsets.only(left: 12.0),
+                                  child:Text(
+                                    list.isNotEmpty && index < list.length ? list[index] : "",
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.grey,
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
+                                    maxLines: 6,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      }),
+                    ),
+                  ),
+                ),
+              );
+            },
+          );
+        },
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          header?? '',
+          style: textTheme.bodyMedium?.copyWith(
+            fontWeight: FontWeight.bold,
+            color: Colors.black,
+          ),
+        ),
+        Text(
+          textMessage,
+          style: textTheme.bodyMedium!.copyWith(
+            color: Colors.black,
+            fontSize: 14,
+          ),
+        ),
+        Text(
+          footer?? '',
+          style: textTheme.bodyLarge?.copyWith(
+            fontSize: 13,
+            color: Color.fromARGB(255, 52, 58, 64),
+          ),
+        ),
+        const SizedBox(height: 8),
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 4.0),
+          child: ElevatedButton(
+            onPressed: () {
+              showCustomDialog(context, list_header!, buttonValues, listDesc);
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              minimumSize: const Size(double.infinity, 48),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min, 
+              children: [
+                const FaIcon(
+                  FontAwesomeIcons.list,
+                  color: Colors.blue,
+                  size: 10,
+                ),
+                const SizedBox(width: 4), 
+                Text(
+                  list_menu_header ?? '',
+                  style: textTheme.bodyMedium?.copyWith(
+                    color: Colors.blue,
+                    fontWeight: FontWeight.bold,
+                    fontSize:12
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+    
     else 
     {
       return Text(
@@ -328,11 +893,11 @@ class TextMessageView extends StatelessWidget {
         style: _textStyle ??
             textTheme.bodyMedium!.copyWith(
               color: Colors.black,
-              fontSize: 16,
+              fontSize: 14,
             ),
       );
     }
-  }
+  } */
 
   EdgeInsetsGeometry? get _padding => isMessageBySender
       ? outgoingChatBubbleConfig?.padding
