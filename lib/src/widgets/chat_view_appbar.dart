@@ -26,8 +26,10 @@ import 'package:flutter/material.dart';
 
 import '../values/typedefs.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:http/http.dart' as http;
+import 'profile_page.dart';
 
 class ChatViewAppBar extends StatelessWidget {
   const ChatViewAppBar({
@@ -45,7 +47,10 @@ class ChatViewAppBar extends StatelessWidget {
     this.padding,
     this.leading,
     this.showLeading = true,
-    this.platform
+    this.platform,
+    this.mobile_number,
+    this.email_id,
+    this.lead_id,
   }) : super(key: key);
 
   /// Allow user to change colour of appbar.
@@ -89,6 +94,12 @@ class ChatViewAppBar extends StatelessWidget {
 
   final String? platform;
 
+  final String? mobile_number;
+
+  final String? email_id;
+
+  final String? lead_id;
+
   @override
   Widget build(BuildContext context) {
     Future<bool> image_url_valid(String url) async {              
@@ -108,8 +119,38 @@ class ChatViewAppBar extends StatelessWidget {
         return false;
       }
     }
+    String truncate_lead_name(String lead_name) 
+    {
+      if (lead_name != null && lead_name.isNotEmpty) 
+      {
+        if (lead_name.length > 10) 
+        {
+          return lead_name.substring(0, 10)+ "...";
+        } 
+        else 
+        {
+          return lead_name;
+        }
+      }
+      else{
+        return 'Anonymous';
+      } 
+    }
     return Material(
       elevation: elevation ?? 1,
+      child: InkWell( // Add InkWell for tap effect
+        onTap: () async {
+          final prefs = await SharedPreferences.getInstance();
+          String? current_page = prefs.getString('page') ?? '';
+          if (current_page == 'chat') {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => profilepage(chatTitle: chatTitle,profilePicture: profilePicture,platform: platform,mobile: mobile_number,profile_email: email_id,lead_id: lead_id),
+              ),
+            );
+          }
+        },
       child: Container(
         padding: padding ??
             EdgeInsets.only(
@@ -122,7 +163,11 @@ class ChatViewAppBar extends StatelessWidget {
             if (showLeading)
               leading ??
                   IconButton(
-                    onPressed: onBackPress ?? () => Navigator.pop(context),
+                    onPressed: onBackPress ?? () async{ 
+                      final prefs = await SharedPreferences.getInstance();
+                      await prefs.remove('page'); 
+                      Navigator.pop(context);
+                    },
                     icon: Icon(
                       (!kIsWeb && Platform.isIOS)
                           ? Icons.arrow_back_ios
@@ -200,7 +245,7 @@ class ChatViewAppBar extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        chatTitle,
+                        truncate_lead_name(chatTitle),
                         style: chatTitleTextStyle ??
                             const TextStyle(
                               fontSize: 18,
@@ -221,6 +266,7 @@ class ChatViewAppBar extends StatelessWidget {
             if (actions != null) ...actions!,
           ],
         ),
+      ),
       ),
     );
   }
