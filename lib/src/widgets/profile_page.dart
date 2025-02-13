@@ -3,6 +3,7 @@ import 'dart:io' if (kIsWeb) 'dart:html';
 import 'package:flutter/foundation.dart' show kIsWeb;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../utils/constants/constants.dart';
 import '../values/typedefs.dart';
@@ -263,11 +264,27 @@ class _profilestate extends State<profilepage>
             SizedBox(
               height: 10,
             ),
-            Text
+           GestureDetector(
+            onLongPress: () {
+              if (widget.mobile != null && widget.mobile!.isNotEmpty) {
+                Clipboard.setData(ClipboardData(text: widget.mobile!));
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Copied to clipboard')),
+                );
+              }
+            },
+            child: Text(
+              widget.mobile ?? '',
+              style: TextStyle(fontSize: 16, color: Colors.black),
+            ),
+          ),
+
+
+            /* Text
             (
               widget.mobile??'',
               style: TextStyle(fontSize: 16, color: Colors.black),
-            ),
+            ), */
             SizedBox(
               height: 10,
             ),

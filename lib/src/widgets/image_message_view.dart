@@ -33,6 +33,9 @@ import 'share_icon.dart';
 import 'package:intl/intl.dart';
 import 'text_message_view.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:html/parser.dart' as html_parser;
+import 'package:flutter_html/flutter_html.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class ImageMessageView extends StatelessWidget {
   const ImageMessageView({
@@ -240,11 +243,19 @@ class ImageMessageView extends StatelessWidget {
     ],
   );
 }
- Widget _buildMessageContent(context,String textMessage, TextTheme textTheme) 
+Widget _buildMessageContent(context,String textMessage, TextTheme textTheme) 
   {
+    final document = html_parser.parse(textMessage);
+    final String parsedString = document.body?.text ?? '';
     final String translated_title = message.translate_title??'';
     final String translated_content = message.translate_content??'';
+
+    final urlPattern = r'http[s]?://[^\s]+';
+    final urlRegExp = RegExp(urlPattern);
     
+    final iframeTags = document.getElementsByTagName('iframe');
+    final iframeUrls = iframeTags.map((iframe) => iframe.attributes['src']).toList();
+
     var message_options_full = message.cb_message_options_full;
     String? type = message_options_full?['type'];
     /* List<String> buttonValues = List<String>.from(message_options_full?['button_values'] ?? []); */
@@ -292,76 +303,133 @@ class ImageMessageView extends StatelessWidget {
           ),
         ],
       );
-    }
-    else if (message.cb_message_options_full != null && type == "button") {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            header??'',
-            style: textTheme.bodyMedium?.copyWith(
-              fontWeight: FontWeight.bold,
-              color: Colors.black,
+    }else if (iframeUrls.isNotEmpty) {
+    return Column(
+      children: iframeUrls.map((url) {
+        if (url != null) {
+          final uri = Uri.parse(url);
+          return GestureDetector(
+            onTap: () async {
+              if (await canLaunchUrl(uri)) {
+                await launchUrl(uri);
+              }
+            },
+            child: Text(
+              uri.toString(),
+              style: textTheme.bodyMedium?.copyWith(
+                color: Colors.blue,
+                decoration: TextDecoration.underline,
+              ),
             ),
+          );
+        }
+        return SizedBox.shrink();
+      }).toList(),
+    );
+  }
+  else if (parsedString.isNotEmpty && parsedString != textMessage && !urlRegExp.hasMatch(parsedString)) {
+    return Text(
+      parsedString, // Display stripped text
+      style: textTheme.bodyMedium?.copyWith(
+        color: Colors.black,
+        fontSize: 14,
+      ),
+    );
+  }  else if (parsedString != textMessage) {
+    final textStyle = textTheme.bodyMedium!.copyWith(
+    color: Colors.black,
+    fontSize: 14,
+  );
+    return Html(
+      data: textMessage,
+      style: {
+        'body': Style.fromTextStyle(textStyle),
+        'a': Style.fromTextStyle(
+          textStyle.copyWith(
+            color: Colors.blue,
+            decoration: TextDecoration.underline,
           ),
-          Text(
-            textMessage,
-            style: textTheme.bodyMedium!.copyWith(
-              color: Colors.black,
-              fontSize: 14,
-            ),
+        ),
+      },
+      onLinkTap: (url, _, __) async {
+        if (url != null && url.isNotEmpty) {
+          final uri = Uri.parse(url);
+          if (await canLaunchUrl(uri)) {
+            await launchUrl(uri);
+          }
+        }
+      },
+    );
+  }  
+  else if (message.cb_message_options_full != null && type == "button") {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          header??'',
+          style: textTheme.bodyMedium?.copyWith(
+            fontWeight: FontWeight.bold,
+            color: Colors.black,
           ),
-          Text(
-            footer??'',
-            style: textTheme.bodyLarge?.copyWith(
-              fontSize: 13,
-              color: Color.fromARGB(255, 52, 58, 64),
-            ),
+        ),
+        Text(
+          textMessage,
+          style: textTheme.bodyMedium!.copyWith(
+            color: Colors.black,
+            fontSize: 14,
           ),
-          const SizedBox(height: 8),
+        ),
+        Text(
+          footer??'',
+          style: textTheme.bodyLarge?.copyWith(
+            fontSize: 13,
+            color: Color.fromARGB(255, 52, 58, 64),
+          ),
+        ),
+        const SizedBox(height: 8),
 
-          if (buttonValues.isNotEmpty) 
-            ...buttonValues.map((option) {
-              return Padding(
-                padding: const EdgeInsets.symmetric(vertical: 4.0),
-                child: ElevatedButton(
-                  onPressed: () {
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    minimumSize: const Size(double.infinity, 48),
+        if (buttonValues.isNotEmpty) 
+          ...buttonValues.map((option) {
+            return Padding(
+              padding: const EdgeInsets.symmetric(vertical: 4.0),
+              child: ElevatedButton(
+                onPressed: () {
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
                   ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const FaIcon(
-                        FontAwesomeIcons.list,
-                        color: Colors.blue,
-                        size: 10, 
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        option.trim(),
-                        style: textTheme.bodyMedium?.copyWith(
-                          color: Colors.blue,
-                          fontWeight: FontWeight.bold,
-                          fontSize:12
-                        ),
-                      ),
-                    ],
-                  ),
+                  minimumSize: const Size(double.infinity, 48),
                 ),
-              );
-            }).toList(),
-        ],
-      );
-    } 
-     else if (message.cb_message_options_full != null && type == "list") {
-    
-     void showCustomDialog(BuildContext buildcontext, String title ,List<String> button, List<String> list) {
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const FaIcon(
+                      FontAwesomeIcons.list,
+                      color: Colors.blue,
+                      size: 10, 
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      option.trim(),
+                      style: textTheme.bodyMedium?.copyWith(
+                        color: Colors.blue,
+                        fontWeight: FontWeight.bold,
+                        fontSize:12
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }).toList(),
+      ],
+    );
+  } 
+  else if (message.cb_message_options_full != null && type == "list") 
+  {
+    void showCustomDialog(BuildContext buildcontext, String title ,List<String> button, List<String> list) {
       showDialog(
         context: buildcontext,
         barrierDismissible: true,
@@ -518,76 +586,18 @@ class ImageMessageView extends StatelessWidget {
       ],
     );
   }
-    /* else if (message.bubble_message_options != null &&
-      message.bubble_message_options!.contains('|') && (message.bubble_header_text!='' || message.bubble_header_text!=null) &&(message.bubble_footer_text!=''|| message.bubble_footer_text!=null)) {
-        List<String> bubbleOptions = message.bubble_message_options!.split('|');
-
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              message.bubble_header_text??'',
-              style:textTheme.bodyMedium?.copyWith(
-                fontWeight: FontWeight.bold,
-                color: Colors.black,
-              ),
-            ),
-            Text(
-              textMessage,
-              style: textTheme.bodyMedium!.copyWith(
-                color: Colors.black,
-                fontSize: 14,
-              ),
-            ),
-            Text(
-              message.bubble_footer_text??'',
-              style: textTheme.bodyLarge?.copyWith(
-                fontSize:13,
-                color: Color.fromARGB(255, 52, 58, 64)
-              ),
-            ),
-            const SizedBox(height: 8),
-            Column(
-            children: bubbleOptions.map((option) {
-              return Padding(
-                padding: const EdgeInsets.symmetric(vertical: 4.0),
-                child: ElevatedButton(
-                  onPressed: () {
-                    // Handle button click action here
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.blueAccent,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    minimumSize: Size(double.infinity, 48),
-                  ),
-                  child: Text(
-                    option.trim(),
-                    style: textTheme.bodyMedium?.copyWith(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              );
-            }).toList(),
+  else 
+  {
+    return Text(
+      textMessage,
+      style: _textStyle ??
+          textTheme.bodyMedium!.copyWith(
+            color: Colors.black,
+            fontSize: 14,
           ),
-          ],
-        );
-      }  */
-    else 
-    {
-      return Text(
-        textMessage,
-        style: _textStyle ??
-            textTheme.bodyMedium!.copyWith(
-              color: Colors.black,
-              fontSize: 14,
-            ),
-      );
-    }
+    );
   }
+}
   EdgeInsetsGeometry? get _margin => isMessageBySender
       ? outgoingChatBubbleConfig?.margin
       : inComingChatBubbleConfig?.margin;

@@ -191,12 +191,14 @@ class ChatViewAppBar extends StatelessWidget {
                                   if (isValidImage) {
                                     return CircleAvatar(
 
-                                      backgroundColor: Color.fromRGBO(108, 117, 125,2),
+                                      /* backgroundColor: Color.fromRGBO(108, 117, 125,2), */
+                                      backgroundColor:Color(0xFF6C757D),
                                       backgroundImage: NetworkImage(profilePicture!),
                                     );
                                   } else {
                                     return CircleAvatar(
-                                      backgroundColor: Color.fromRGBO(108, 117, 125,2),
+                                      /* backgroundColor: Color.fromRGBO(108, 117, 125,2), */
+                                      backgroundColor:Color(0xFF6C757D),
                                       child: Text(
                                         chatTitle[0].toUpperCase(),
                                         style: TextStyle(
@@ -210,12 +212,14 @@ class ChatViewAppBar extends StatelessWidget {
                               )
                             else  
                               CircleAvatar(
-                                backgroundColor: Color.fromRGBO(108, 117, 125,2),
+                                /* backgroundColor: Color.fromRGBO(108, 117, 125,2), */
+                                backgroundColor:Color(0xFF6C757D),
                                 backgroundImage: NetworkImage(profilePicture!),
                               )
                           else if(chatTitle!=null&& chatTitle!='')
                             CircleAvatar(
-                              backgroundColor: Color.fromRGBO(108, 117, 125,2),
+                             /*  backgroundColor: Color.fromRGBO(108, 117, 125,2), */
+                             backgroundColor:Color(0xFF6C757D),
                               child: Text(
                                 chatTitle[0].toUpperCase(),
                                 style: TextStyle(color: Colors.white),
@@ -223,7 +227,8 @@ class ChatViewAppBar extends StatelessWidget {
                             )
                           else
                             CircleAvatar(
-                              backgroundColor: Color.fromRGBO(108, 117, 125,2),
+                              /* backgroundColor: Color.fromRGBO(108, 117, 125,2), */
+                              backgroundColor:Color(0xFF6C757D),
                               child: Text('Anonymous'[0].toUpperCase(),style: TextStyle(color: Colors.white),),
                             ),
                           if(platform!=null && platform!='')

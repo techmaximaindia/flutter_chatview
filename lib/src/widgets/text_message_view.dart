@@ -315,13 +315,28 @@ class TextMessageView extends StatelessWidget {
         return SizedBox.shrink();
       }).toList(),
     );
-  } else if (parsedString.isNotEmpty && parsedString != textMessage) {
+  }else if (parsedString.isNotEmpty && parsedString != textMessage && !urlRegExp.hasMatch(parsedString)) {
+    return Text(
+      parsedString, // Display stripped text
+      style: textTheme.bodyMedium?.copyWith(
+        color: Colors.black,
+        fontSize: 14,
+      ),
+    );
+  } else if (parsedString != textMessage) {
+    final textStyle = textTheme.bodyMedium!.copyWith(
+    color: Colors.black,
+    fontSize: 14,
+  );
     return Html(
       data: textMessage,
       style: {
-        'body': Style(
-          fontSize: FontSize(16),
-          color: Colors.black,
+        'body': Style.fromTextStyle(textStyle),
+        'a': Style.fromTextStyle(
+          textStyle.copyWith(
+            color: Colors.blue,
+            decoration: TextDecoration.underline,
+          ),
         ),
       },
       onLinkTap: (url, _, __) async {
@@ -333,7 +348,8 @@ class TextMessageView extends StatelessWidget {
         }
       },
     );
-  } else if (message.cb_message_options_full != null && type == "button") {
+  }  
+ else if (message.cb_message_options_full != null && type == "button") {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -400,7 +416,6 @@ class TextMessageView extends StatelessWidget {
       );
     } 
      else if (message.cb_message_options_full != null && type == "list") {
-    
      void showCustomDialog(BuildContext buildcontext, String title ,List<String> button, List<String> list) {
       showDialog(
         context: buildcontext,
