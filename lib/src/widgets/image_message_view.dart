@@ -429,7 +429,8 @@ Widget _buildMessageContent(context,String textMessage, TextTheme textTheme)
   } 
   else if (message.cb_message_options_full != null && type == "list") 
   {
-    void showCustomDialog(BuildContext buildcontext, String title ,List<String> button, List<String> list) {
+    
+    void showCustomDialog(BuildContext buildcontext, String title, List<String> button, List<String> list) {
       showDialog(
         context: buildcontext,
         barrierDismissible: true,
@@ -438,92 +439,128 @@ Widget _buildMessageContent(context,String textMessage, TextTheme textTheme)
             builder: (BuildContext context, StateSetter setState) {
               return AlertDialog(
                 backgroundColor: Colors.white,
-                title: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Expanded(
-                      child: Text(
-                        title,
-                        style: const TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.black,
-                        ),
-                        overflow: TextOverflow.ellipsis,
-                        maxLines: 1,
-                      ),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.close, color: Colors.black),
-                      onPressed: () {
-                        Navigator.of(context).pop();
-                      },
-                    ),
-                  ],
-                ),
-                contentPadding: const EdgeInsets.all(10),
+                titlePadding: EdgeInsets.zero,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(10.0),
                 ),
-                content: Container(
-                  height: 300,
-                  width: 200,
-                  child: SingleChildScrollView(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: List.generate(button.length, (index) {
-                        return Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 8.0),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Align(
-                                alignment: Alignment.centerLeft,
-                                child: Padding(
-                                  padding: const EdgeInsets.only(left: 12.0),
-                                  child: Text(
-                                    button[index],
-                                    style: const TextStyle(
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.black,
-                                    ),
-                                    overflow: TextOverflow.ellipsis,
-                                    maxLines: 2,
-                                  ),
-                                ),
+                contentPadding: const EdgeInsets.all(5),
+                content: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Stack(
+                      children: [
+                        // Centered Title
+                        Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 10),
+                          child: Center(
+                            child: Text(
+                              title,
+                              style: const TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.black,
                               ),
-                              const SizedBox(height: 4),
-                              
-                              Align(
-                                alignment: Alignment.centerLeft,
-                                child: Padding(
-                                  padding: const EdgeInsets.only(left: 12.0),
-                                  child:Text(
-                                    list.isNotEmpty && index < list.length ? list[index] : "",
-                                    style: const TextStyle(
-                                      fontSize: 12,
-                                      color: Colors.grey,
-                                    ),
-                                    overflow: TextOverflow.ellipsis,
-                                    maxLines: 6,
-                                  ),
-                                ),
-                              ),
-                            ],
+                              overflow: TextOverflow.ellipsis,
+                              maxLines: 1,
+                              textAlign: TextAlign.center,
+                            ),
                           ),
-                        );
-                      }),
+                        ),
+                        Positioned(
+                          top: 3,
+                          right: 0,
+                          bottom: 1,
+                          child: IconButton(
+                            icon: const Icon(Icons.close, color: Colors.black, size: 18),
+                            onPressed: () {
+                              Navigator.of(context).pop();
+                            },
+                          ),
+                        ),
+                      ],
                     ),
-                  ),
+                    const SizedBox(height: 10),
+                    Container(
+                      height: 300,
+                      width: 250,
+                      child: SingleChildScrollView(
+                        child: Column(
+                          children: List.generate(button.length, (index) {
+                            return InkWell(
+                              onTap: () {},
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 10.0),
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(8.0),
+                                  color: Colors.grey[200],
+                                ),
+                                margin: const EdgeInsets.symmetric(vertical: 6),
+                                child: Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            button[index],
+                                            style: const TextStyle(
+                                              fontSize: 14,
+                                              fontWeight: FontWeight.bold,
+                                              color: Colors.black,
+                                            ),
+                                            overflow: TextOverflow.visible,
+                                            maxLines: null,
+                                          ),
+                                          const SizedBox(height: 4),
+                                          Text(
+                                            list.isNotEmpty && index < list.length ? list[index] : "",
+                                            style: const TextStyle(
+                                              fontSize: 12,
+                                              color: Colors.grey,
+                                            ),
+                                            overflow: TextOverflow.visible,
+                                            maxLines: null,
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    const SizedBox(width: 10),
+                                    Align(
+                                      alignment: Alignment.centerRight,
+                                      child: Radio(
+                                        value: index,
+                                        groupValue: null,
+                                        onChanged: (value) {},
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            );
+                          }),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
+                actions: [
+                  Container(
+                    alignment: Alignment.center,
+                    padding: const EdgeInsets.all(12.0),
+                    decoration: const BoxDecoration(
+                      color: Color(0xFFF9FAFB),
+                      borderRadius: BorderRadius.vertical(bottom: Radius.circular(10.0)),
+                    ),
+                    child: const Text("Tap to select an item", style: TextStyle(color: Colors.black)),
+                  ),
+                ],
               );
             },
           );
         },
       );
     }
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -553,7 +590,7 @@ Widget _buildMessageContent(context,String textMessage, TextTheme textTheme)
           padding: const EdgeInsets.symmetric(vertical: 4.0),
           child: ElevatedButton(
             onPressed: () {
-              showCustomDialog(context, list_header!, buttonValues, listDesc);
+              showCustomDialog(context, list_menu_header!, buttonValues, listDesc);
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.white,

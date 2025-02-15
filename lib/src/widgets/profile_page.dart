@@ -191,13 +191,13 @@ class _profilestate extends State<profilepage>
                                       if (isValidImage) {
                                         return CircleAvatar(
                                           radius: 50,
-                                          backgroundColor: Color.fromRGBO(108, 117, 125, 2),
+                                          backgroundColor: Color(0xFF6C757D),
                                           backgroundImage: NetworkImage(widget.profilePicture!),
                                         );
                                       } else {
                                         return CircleAvatar(
                                           radius: 50,
-                                          backgroundColor: Color.fromRGBO(108, 117, 125, 2),
+                                          backgroundColor: Color(0xFF6C757D),
                                           child: Text(
                                             widget.chatTitle.isNotEmpty
                                                 ? widget.chatTitle[0].toUpperCase()
@@ -210,12 +210,12 @@ class _profilestate extends State<profilepage>
                                   )
                                 : CircleAvatar(
                                   radius: 50,
-                                    backgroundColor: Color.fromRGBO(108, 117, 125, 2),
+                                    backgroundColor: Color(0xFF6C757D),
                                     backgroundImage: NetworkImage(widget.profilePicture!),
                                   ))
                             : CircleAvatar(
                               radius: 50,
-                                backgroundColor: Color.fromRGBO(108, 117, 125, 2),
+                                backgroundColor: Color(0xFF6C757D),
                                 child: Text(
                                   widget.chatTitle.isNotEmpty
                                       ? widget.chatTitle[0].toUpperCase()
