@@ -57,17 +57,37 @@ class EmojiPickerWidget extends StatelessWidget {
           ),
           Expanded(
             child: EmojiPicker(
+                onEmojiSelected: (Category? category, Emoji emoji) =>
+                  onSelected(emoji.emoji),
+                config: Config(
+                    height: 256,
+                    checkPlatformCompatibility: true,
+                    emojiViewConfig: EmojiViewConfig(
+                    emojiSizeMax: 32 * ((!kIsWeb && Platform.isIOS) ? 1.30 : 1.0),
+                    ),
+                    viewOrderConfig: const ViewOrderConfig(
+                        top: EmojiPickerItem.categoryBar,
+                        middle: EmojiPickerItem.emojiView,
+                        bottom: EmojiPickerItem.searchBar,
+                    ),
+                    skinToneConfig: const SkinToneConfig(),
+                    categoryViewConfig: const CategoryViewConfig(),
+                    bottomActionBarConfig: const BottomActionBarConfig(),
+                    searchViewConfig: const SearchViewConfig(),
+                ),
+            )/* EmojiPicker(
               onEmojiSelected: (Category? category, Emoji emoji) =>
                   onSelected(emoji.emoji),
               config: Config(
                 columns: 7,
                 emojiSizeMax: 32 * ((!kIsWeb && Platform.isIOS) ? 1.30 : 1.0),
                 initCategory: Category.RECENT,
+                //checkPlatformCompatibility:true
                 bgColor: Colors.white,
                 recentTabBehavior: RecentTabBehavior.NONE,
                 recentsLimit: 28,
               ),
-            ),
+            ), */
           ),
         ],
       ),
