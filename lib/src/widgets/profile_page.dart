@@ -143,12 +143,12 @@ class _profilestate extends State<profilepage>
       appBar: AppBar
       (
         title: Text('Profile',style: TextStyle(
-                color: Colors.white,
+                color: Colors.black,
                 fontSize: 24,
                 fontFamily: 'Work Sans',
                 fontWeight: FontWeight.w600,
               ),),
-        backgroundColor:Colors.blue,
+        backgroundColor:Colors.white,
         elevation: 0, 
         leading: IconButton
         (
@@ -156,7 +156,7 @@ class _profilestate extends State<profilepage>
               (!kIsWeb && Platform.isIOS)
                   ? Icons.arrow_back_ios
                   : Icons.arrow_back,
-              color: Colors.white,
+              color: Colors.black,
             ),
           onPressed: () 
           {
