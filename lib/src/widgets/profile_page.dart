@@ -353,6 +353,7 @@ class _profilestate extends State<profilepage>
             String imageUrl = conversation['cb_lead_image_url']??'';
             final conversation_id=conversation['conversation_id'];
             String mobilenumber=conversation['cb_lead_mobile']??'';
+            final label_name=conversation['cb_label_name']??'';
             return ListTile
             (
               shape: RoundedRectangleBorder
@@ -646,19 +647,20 @@ class _profilestate extends State<profilepage>
                                   ),
                                 ],
                               ),
-                              /* SizedBox(height: 5), */
-                              /* Wrap
+                              SizedBox(height: 5),
+                              Wrap
                               (
                                 crossAxisAlignment: WrapCrossAlignment.start,
                                 children: 
                                 [
-                                  build_text("$app_name"),
+                                  buildRichText(label_name),
+                                  /* build_text("$app_name"),
                                   if (agent_name != null && agent_name.isNotEmpty)
                                     build_text(" | $agent_name"),
                                   if (departname != null && departname.isNotEmpty)
-                                    build_text(" | $departname"),
+                                    build_text(" | $departname"), */
                                 ],
-                              ), */
+                              ),
                             ],
                           ),
                         ),
@@ -694,6 +696,34 @@ class _profilestate extends State<profilepage>
     },
   );
 }
+Widget buildRichText(String text) {
+    List<String> values = text.split(',').where((value) => value.trim().isNotEmpty).toList();
+
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Wrap(
+        spacing: 4,
+        runSpacing:4,
+        children: values.map((value) {
+          return Container(
+            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+            decoration: BoxDecoration(
+              color: const Color.fromARGB(37, 63, 140, 255),
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: Text(
+              value.trim(),
+              style: const TextStyle(
+                color: Color(0xFF3B7DDD), // #3b7ddd
+                fontSize: 10,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }  
 Widget _buildStatusBadge(String? status_name) {
   Color badgeColor;
   String statusText;
