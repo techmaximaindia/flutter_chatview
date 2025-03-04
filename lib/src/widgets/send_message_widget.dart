@@ -447,6 +447,7 @@ class SendMessageWidgetState extends State<SendMessageWidget> {
                                                     _messageController.text,
                                                     ReplyMessage(),
                                                     MessageType.text,
+                                                    '',
                                                   );
                                                 /* } else {
                                                   send_ticket_Message(_messageController.text);
@@ -643,6 +644,7 @@ class SendMessageWidgetState extends State<SendMessageWidget> {
                               _ai_message_edit.text,
                               ReplyMessage(),
                               MessageType.text,
+                              '',
                             );
                           },
                         ),
@@ -714,14 +716,14 @@ class SendMessageWidgetState extends State<SendMessageWidget> {
 
   void _onRecordingComplete(String? path) {
     if (path != null) {
-      widget.onSendTap.call(path, replyMessage, MessageType.voice);
+      widget.onSendTap.call(path, replyMessage, MessageType.voice,'');
       _assignRepliedMessage();
     }
   }
 
-  void _onImageSelected(String imagePath, String error) {
+  void _onImageSelected(String imagePath, String error,String? image_message) {
     if (imagePath.isNotEmpty) {
-      widget.onSendTap.call(imagePath, replyMessage, MessageType.image);
+      widget.onSendTap.call(imagePath, replyMessage, MessageType.image,image_message);
       _assignRepliedMessage();
     }
   }
@@ -741,6 +743,7 @@ class SendMessageWidgetState extends State<SendMessageWidget> {
       messageText.trim(),
       replyMessage,
       MessageType.text,
+      ''
     );
     print(replyMessage.messageId);
     print(replyMessage.message);

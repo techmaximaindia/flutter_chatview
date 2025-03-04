@@ -995,6 +995,7 @@ class _ChatUITextFieldState extends State<ChatUITextField> {
                                               IconButton(
                                                 constraints: const BoxConstraints(),
                                                 onPressed: () => _onIconPressed(
+                                                  context,
                                                   ImageSource.gallery,
                                                   config: sendMessageConfig?.imagePickerConfiguration,
                                                 ),
@@ -1056,7 +1057,7 @@ class _ChatUITextFieldState extends State<ChatUITextField> {
       widget.onRecordingComplete(path);
     }
   }
-  void _onIconPressed(
+  /* void _onIconPressed(
     ImageSource imageSource, {
     ImagePickerConfiguration? config,
   }) async {
@@ -1078,7 +1079,67 @@ class _ChatUITextFieldState extends State<ChatUITextField> {
     } catch (e) {
       widget.onImageSelected('', e.toString());
     }
+  } */
+/*  Future<void> _handleImageSelection(BuildContext context, String? imagePath) async {
+  final String? sentImagePath = await Navigator.push(
+    context,
+    MaterialPageRoute(
+      builder: (ctx) => ImageViewerPage(imagePath: imagePath ?? '',messageController: widget.textEditingController,),
+    ),
+  );
+
+  if (sentImagePath != null) {
+    widget.onImageSelected(sentImagePath, '');
   }
+} */
+
+void _onIconPressed(
+  BuildContext ctx, // Pass a valid context
+  ImageSource imageSource, {
+  ImagePickerConfiguration? config,
+}) async {
+  try {
+    final XFile? image = await _imagePicker.pickImage(
+      source: imageSource,
+      maxHeight: config?.maxHeight,
+      maxWidth: config?.maxWidth,
+      imageQuality: config?.imageQuality,
+      preferredCameraDevice: config?.preferredCameraDevice ?? CameraDevice.rear,
+    );
+
+    String? imagePath = image?.path;
+
+    // Allow custom processing of image path
+    if (config?.onImagePicked != null) {
+      String? updatedImagePath = await config?.onImagePicked!(imagePath);
+      if (updatedImagePath != null) imagePath = updatedImagePath;
+    }
+     if (imagePath != null && imagePath.isNotEmpty) {
+      Navigator.push(
+        ctx,
+        MaterialPageRoute(
+          builder: (context) => ImageViewerPage(
+            imagePath: imagePath??'',
+            onSend: (sentImagePath,message) {
+              widget.onImageSelected(sentImagePath,'', message??''); 
+            },
+            padding:EdgeInsets.fromLTRB(bottomPadding4,
+                      bottomPadding4,
+                      bottomPadding4,
+                      bottomPadding4),
+          ),
+        ),
+      );
+    }
+    /* if (imagePath != null && imagePath.isNotEmpty) {
+      await _handleImageSelection(ctx, imagePath??''); // Use the valid context
+    } */
+  } catch (e) {
+    widget.onImageSelected('', e.toString(),'');
+  }
+}
+
+
   
   void _onChanged(String inputText) async 
   {
@@ -1141,3 +1202,184 @@ class _ChatUITextFieldState extends State<ChatUITextField> {
     });
   }
 }
+
+
+class ImageViewerPage extends StatefulWidget {
+  final String? imagePath;
+  final Function(String, String?) onSend;
+  final EdgeInsetsGeometry padding;
+
+  const ImageViewerPage({Key? key, required this.imagePath, required this.onSend,required this.padding}) : super(key: key);
+
+  @override
+  _ImageViewerPageState createState() => _ImageViewerPageState();
+}
+
+class _ImageViewerPageState extends State<ImageViewerPage> {
+  final TextEditingController _messageController = TextEditingController();
+  /* bool _showSendButton = false; */
+
+  @override
+  void initState() {
+    super.initState();
+    /* _messageController.addListener(_toggleSendButton); */
+  }
+
+  @override
+  void dispose() {
+/*     _messageController.removeListener(_toggleSendButton); */
+    _messageController.dispose();
+    super.dispose();
+  }
+
+/*   void _toggleSendButton() {
+    setState(() {
+      _showSendButton = _messageController.text.trim().isNotEmpty;
+    });
+  } */
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      appBar: AppBar(
+        backgroundColor: Colors.black,
+        title: const Text('Image Preview', style: TextStyle(color: Colors.white)),
+        centerTitle: true,
+        iconTheme: const IconThemeData(color: Colors.white),
+      ),
+      body: Column(
+        children: [
+          Expanded(
+            child: Center(
+              child: widget.imagePath != null && widget.imagePath!.isNotEmpty
+                  ? ClipRRect(
+                      borderRadius: BorderRadius.circular(15),
+                      child: Image.file(File(widget.imagePath!), fit: BoxFit.contain),
+                    )
+                  : const Text('No image selected', style: TextStyle(color: Colors.white70)),
+            ),
+          ),
+          Container(
+            /* margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            padding: const EdgeInsets.symmetric(horizontal: 12), */
+            margin:const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            padding:widget.padding,
+            decoration: BoxDecoration(
+              color: Colors.grey[900],
+              borderRadius: BorderRadius.circular(15),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _messageController,
+                    style: const TextStyle(color: Colors.white),
+                    maxLines: 5,
+                    minLines: 1,
+                    decoration: const InputDecoration(
+                      hintText: "Add a caption...",
+                      hintStyle: TextStyle(color: Colors.white54),
+                      border: InputBorder.none,
+                    ),
+                  ),
+                ),
+                /* if (_showSendButton) */
+                  GestureDetector(
+                    onTap: () {
+                      widget.onSend(widget.imagePath ?? '', _messageController.text.trim());
+                      _messageController.clear();
+                      Navigator.pop(context);
+                    },
+                    child: const Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 8),
+                      child: Icon(Icons.send, color: Colors.blue, size: 24),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/* class ImageViewerPage extends StatefulWidget {
+  final String? imagePath;
+  final Function(String, String?) onSend; // Callback to send image with message
+
+  const ImageViewerPage({Key? key, required this.imagePath, required this.onSend}) : super(key: key);
+
+  @override
+  _ImageViewerPageState createState() => _ImageViewerPageState();
+}
+
+class _ImageViewerPageState extends State<ImageViewerPage> {
+  final TextEditingController _messageController = TextEditingController(); // Add controller
+
+  @override
+  void dispose() {
+    _messageController.dispose(); // Dispose the controller
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('View Image')),
+      body: Column(
+        children: [
+          Expanded(
+            child: Center(
+              child: widget.imagePath != null && widget.imagePath!.isNotEmpty
+                  ? Image.file(File(widget.imagePath!)) // Display selected image
+                  : const Text('No image selected'),
+            ),
+          ),
+          // Text Field for message input
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
+            child: TextField(
+              controller: _messageController,
+              style: const TextStyle(color: Colors.white),
+              decoration: InputDecoration(
+                hintText: "Enter message...",
+                hintStyle: const TextStyle(color: Colors.white54),
+                filled: true,
+                fillColor: Colors.grey[900],
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: BorderSide.none,
+                ),
+              ),
+            ),
+          ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: [
+              // ❌ Cancel Button
+              FloatingActionButton(
+                backgroundColor: Colors.grey,
+                onPressed: () {
+                  Navigator.pop(context); // Move back without sending
+                },
+                child: const Icon(Icons.close, color: Colors.white),
+              ),
+              // ✅ Send Button
+              FloatingActionButton(
+                backgroundColor: Colors.blue,
+                onPressed: () {
+                  widget.onSend(widget.imagePath ?? '', _messageController.text.trim()??'');
+                  Navigator.pop(context); // Close the viewer after sending
+                },
+                child: const Icon(Icons.send, color: Colors.white),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+        ],
+      ),
+    );
+  }
+} */

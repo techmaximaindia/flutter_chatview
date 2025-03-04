@@ -278,10 +278,11 @@ class _ChatViewState extends State<ChatView>
     String message,
     ReplyMessage replyMessage,
     MessageType messageType,
+    String? image_message,
   ) {
     if (widget.sendMessageBuilder == null) {
       if (widget.onSendTap != null) {
-        widget.onSendTap!(message, replyMessage, messageType);
+        widget.onSendTap!(message, replyMessage, messageType,image_message);
       }
       _assignReplyMessage();
     }
