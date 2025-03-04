@@ -274,6 +274,7 @@ class _ChatScreenState extends State<ChatScreen> {
     String message,
     ReplyMessage replyMessage,
     MessageType messageType,
+    String? image_message,
   ) {
     final id = int.parse(Data.messageList.last.id) + 1;
     _chatController.addMessage(
@@ -284,6 +285,7 @@ class _ChatScreenState extends State<ChatScreen> {
         sendBy: currentUser.id,
         replyMessage: replyMessage,
         messageType: messageType,
+        image_text_message:image_message
       ),
     );
     Future.delayed(const Duration(milliseconds: 300), () {
