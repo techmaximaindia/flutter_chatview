@@ -947,7 +947,7 @@ class _ChatUITextFieldState extends State<ChatUITextField> {
                                   valueListenable: _inputText,
                                   builder: (_, inputTextValue, child){
                                     if (inputTextValue.isNotEmpty) {
-                                      return Column(
+                                      return Row(
                                         mainAxisAlignment: MainAxisAlignment.end,
                                         children: [
                                             IconButton(
