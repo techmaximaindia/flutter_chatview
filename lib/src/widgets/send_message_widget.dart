@@ -183,6 +183,7 @@ class SendMessageWidgetState extends State<SendMessageWidget> {
               "message_id": replyMessageId,
               "query":query,
               "response_mode":'streaming',
+              "ref_element":"button"
             }
         });
         request.headers.addAll(headers);
@@ -194,10 +195,10 @@ class SendMessageWidgetState extends State<SendMessageWidget> {
             return decodedResponse['ai_error_message'];
           } else {
             var aiResponse = json.decode(decodedResponse['ai_response']);
-            return aiResponse['answer'];
-            /* return source == "ticket"
-                ? aiResponse['answer']//json.decode(aiResponse['answer'])['body']
-                : aiResponse['answer']; */
+            //return aiResponse['answer'];
+             return source == "ticket"
+                ? json.decode(aiResponse['answer'])['response']
+                : aiResponse['answer']; 
           }
         } else {
           throw "Failed to generate AI response";
