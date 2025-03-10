@@ -310,6 +310,7 @@ class _ChatUITextFieldState extends State<ChatUITextField> {
           "message_id": "",
           "query": "",
           "response_mode":'streaming',
+          "ref_element":"button"
         }
       });
       request.headers.addAll(headers);
@@ -321,10 +322,10 @@ class _ChatUITextFieldState extends State<ChatUITextField> {
           return decodedResponse['ai_error_message'];
         } else {
           var aiResponse = json.decode(decodedResponse['ai_response']);
-          return aiResponse['answer'];
-         /*  return source == "ticket"
+         // return aiResponse['answer'];
+           return source == "ticket"
               ? json.decode(aiResponse['answer'])['body']
-              : aiResponse['answer']; */
+              : aiResponse['answer']; 
 
         }
       } else {
