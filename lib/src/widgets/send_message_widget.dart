@@ -162,9 +162,6 @@ class SendMessageWidgetState extends State<SendMessageWidget> {
           alias = ticket_id;
           from_name = ticket_name;
         }
-        print(source);
-        print(alias);
-        print(from_name);
         var headers = 
         {
           'Content-Type': 'application/json',
