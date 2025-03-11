@@ -68,6 +68,7 @@ class _profilestate extends State<profilepage>
     final String? email = prefs.getString('email');
     final String? password = prefs.getString('password');
     final String? uuid = prefs.getString('uuid');
+    final String? team_alias= prefs.getString('team_alias');
     String url = base_url + 'api/chatbot_dashboard/';
     var response = await http.post
     (
@@ -76,7 +77,7 @@ class _profilestate extends State<profilepage>
       {
         "Content-Type": "application/json",
         "Accept": "application/json",
-        "Authorization": "$uuid",
+        "Authorization": "$uuid|$team_alias",
       },
       body: jsonEncode({'cb_lead_id':cb_lead_id,'page_no': page_no, 'per_page': 20}),
     );
