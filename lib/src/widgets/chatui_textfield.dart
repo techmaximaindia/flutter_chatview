@@ -210,9 +210,10 @@ class _ChatUITextFieldState extends State<ChatUITextField> {
     }
     final prefs = await SharedPreferences.getInstance();
     final String? uuid = prefs.getString('uuid');
+    final String? team_alias= prefs.getString('team_alias');
     final url = base_url+'api/canned_responses/';
     var headers = {
-      'Authorization': '$uuid',
+      'Authorization': '$uuid|$team_alias',
       'Content-Type': 'application/json',
     };
     var request = http.Request('POST', Uri.parse(url));
@@ -268,6 +269,7 @@ class _ChatUITextFieldState extends State<ChatUITextField> {
     try {
       final prefs = await SharedPreferences.getInstance();
       final String? uuid = prefs.getString('uuid');
+      final String? team_alias= prefs.getString('team_alias');
       final url = base_url + 'api/reply/';
       final String? cb_lead_id = prefs.getString('cb_lead_id');
       final String? platform = prefs.getString('platform');
@@ -295,7 +297,7 @@ class _ChatUITextFieldState extends State<ChatUITextField> {
 
       var headers = {
         'Content-Type': 'application/json',
-        'Authorization': '$uuid',
+        'Authorization': '$uuid|$team_alias',
       };
       var request = http.Request('POST', Uri.parse(url));
       request.body = json.encode({
@@ -351,12 +353,13 @@ class _ChatUITextFieldState extends State<ChatUITextField> {
     };
     String jsonData = json.encode(data);
     final String? uuid = prefs.getString('uuid');
+    final String? team_alias= prefs.getString('team_alias');
     String url = base_url + 'api/send_message/';
     var response = await http.post(
       Uri.parse(url),
       headers: {
         "Content-Type": "application/json",
-        "Authorization": "$uuid",
+        "Authorization": "$uuid|$team_alias",
       },
       body: jsonData,
     );
@@ -381,13 +384,14 @@ class _ChatUITextFieldState extends State<ChatUITextField> {
 
     String jsonData = json.encode(data);
     final String? uuid = prefs.getString('uuid');
+       final String? team_alias= prefs.getString('team_alias');
     String url = base_url + 'api/ticket/response/';
     var response = await http.post(
         Uri.parse(url),
         headers: 
         {
           "Content-Type": "application/json",
-          "Authorization": "$uuid"
+          "Authorization": "$uuid|$team_alias"
         },
         body: jsonData,
       );
@@ -830,11 +834,12 @@ class _ChatUITextFieldState extends State<ChatUITextField> {
                                         }
                                        final prefs = await SharedPreferences.getInstance();
                                         final String? uuid = prefs.getString('uuid');
+                                        final String? team_alias= prefs.getString('team_alias');
                                         final String? cb_lead_id = prefs.getString('cb_lead_id');
                                         final String? platform = prefs.getString('platform');
                                         final String? conversation_id = prefs.getString('conversation_id');
                                         String url = base_url+'api/send_image_message/';
-                                        Map<String, String> headers = {"Authorization": "$uuid"};
+                                        Map<String, String> headers = {"Authorization": "$uuid|$team_alias"};
                                         
                                         if (suggestion['media_url'] != '' ) 
                                         {
