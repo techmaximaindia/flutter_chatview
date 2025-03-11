@@ -138,6 +138,7 @@ class SendMessageWidgetState extends State<SendMessageWidget> {
     try{
       final prefs = await SharedPreferences.getInstance();
       final String? uuid = prefs.getString('uuid');
+      final String? team_alias= prefs.getString('team_alias');
       final url = base_url + 'api/reply/';
         final String? cb_lead_id = prefs.getString('cb_lead_id');
         final String? platform = prefs.getString('platform');
@@ -165,7 +166,7 @@ class SendMessageWidgetState extends State<SendMessageWidget> {
         var headers = 
         {
           'Content-Type': 'application/json',
-          'Authorization': '$uuid',
+          'Authorization': '$uuid|$team_alias',
         };
         var request = http.Request('POST', Uri.parse(url));
         request.body = json.encode({
@@ -221,13 +222,14 @@ class SendMessageWidgetState extends State<SendMessageWidget> {
 
       String jsonData = json.encode(data);
       final String? uuid = prefs.getString('uuid');
+      final String? team_alias= prefs.getString('team_alias');
       String url = base_url + 'api/ticket/response/';
       var response = await http.post(
           Uri.parse(url),
           headers: 
           {
             "Content-Type": "application/json",
-            "Authorization": "$uuid"
+            "Authorization": "$uuid|$team_alias"
           },
           body: jsonData,
         );
