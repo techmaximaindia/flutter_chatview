@@ -234,8 +234,8 @@ class TextMessageView extends StatelessWidget {
   Widget _buildMessageContent(context,String textMessage, TextTheme textTheme) {
   final document = html_parser.parse(textMessage);
   final String parsedString = document.body?.text ?? '';
-  final String translated_title = message.translate_title ?? '';
-  final String translated_content = message.translate_content ?? '';
+  String translated_title = message.translate_title ?? '';
+  String translated_content = message.translate_content ?? '';
 
   final urlPattern = r'http[s]?://[^\s]+';
   final urlRegExp = RegExp(urlPattern);
