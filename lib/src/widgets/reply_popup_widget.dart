@@ -275,6 +275,7 @@ class ReplyPopupWidget extends StatelessWidget {
       if (_isDialogOpen) return; 
       final prefs = await SharedPreferences.getInstance();
       final String? uuid = prefs.getString('uuid');
+      final String? team_alias= prefs.getString('team_alias');
 
       if (uuid == null) {
         print("UUID is null. Please check the stored value.");
@@ -283,7 +284,7 @@ class ReplyPopupWidget extends StatelessWidget {
 
       final url = base_url + 'api/translate/';
       var headers = {
-        'Authorization': uuid,
+        'Authorization': "$uuid|$team_alias",
         'Content-Type': 'application/json',
       };
       var request = http.Request('POST', Uri.parse(url));
