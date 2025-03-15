@@ -807,7 +807,11 @@ Widget account_icon(String accountPlatform)
   else if (accountPlatform == 'instagram') 
   {
     return FaIcon(FontAwesomeIcons.instagram,color: Color.fromARGB(255, 220, 142, 142),);
-  } 
+  }
+   else if (accountPlatform == "email") 
+  {
+    return FaIcon(FontAwesomeIcons.envelope,color: Colors.blue,);
+  }  
   else 
   {
     return SizedBox.shrink();
@@ -920,6 +924,15 @@ Widget build_text(String text)
         FontAwesomeIcons.instagram,
         size: 13, 
         color: Color.fromARGB(255, 220, 142, 142)
+      );
+    } 
+    else if (platform == "email") 
+    {
+      return Icon
+      (
+        FontAwesomeIcons.envelope,
+        size: 13, 
+        color: Colors.blue
       );
     } 
     else 
