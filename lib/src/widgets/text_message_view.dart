@@ -261,7 +261,7 @@ class TextMessageView extends StatelessWidget {
     String? list_header=message_options_full?['list_header']??'';
     String? header=message_options_full?['header']??'';
     String? footer=message_options_full?['footer']??'';
-    
+    final bool containsHtmlTags = RegExp(r'<[^>]+>').hasMatch(textMessage);
 
   if (translated_title.isNotEmpty && translated_content.isNotEmpty) {
     return Column(
@@ -315,7 +315,49 @@ class TextMessageView extends StatelessWidget {
         return SizedBox.shrink();
       }).toList(),
     );
-  }else if (parsedString.isNotEmpty && parsedString != textMessage && !urlRegExp.hasMatch(parsedString)) {
+  }else if (containsHtmlTags) {
+    return Html(
+      data: textMessage,
+      style: {
+        "a": Style(
+          color: Colors.blue,
+          textDecoration: TextDecoration.underline,
+        ),
+        "b": Style(fontWeight: FontWeight.bold),
+        "strong": Style(fontWeight: FontWeight.bold),
+        "p": Style(
+          fontSize: FontSize.medium,
+          color: Colors.black87,
+        ),
+        "span": Style(fontSize: FontSize.medium),
+        "img": Style(
+          width: Width.auto(), 
+          height: Height.auto(),
+        ),
+      },
+      extensions: [
+        TagExtension(
+          tagsToExtend: {"img"},
+          builder: (extensionContext) {
+            final src = extensionContext.attributes['src'] ?? ""; 
+            return Image.network(
+              src,
+              fit: BoxFit.cover,
+              errorBuilder: (context, error, stackTrace) {
+                return Icon(Icons.broken_image, size: 50, color: Colors.grey);
+              },
+            );
+          },
+        ),
+      ],
+      onLinkTap: (url, _, __) async {
+        if (url != null && await canLaunchUrl(Uri.parse(url))) {
+          await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+        }
+      },
+    );
+  }
+    else if (parsedString.isNotEmpty && parsedString != textMessage && !urlRegExp.hasMatch(parsedString)) {
     return Text(
       parsedString, // Display stripped text
       style: textTheme.bodyMedium?.copyWith(
