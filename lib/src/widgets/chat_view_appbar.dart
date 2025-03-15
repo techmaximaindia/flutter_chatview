@@ -340,6 +340,15 @@ class ChatViewAppBar extends StatelessWidget {
         color: Colors.blue
       );
     } 
+    else if (platform == "email") 
+    {
+      return Icon
+      (
+        FontAwesomeIcons.envelope, 
+        size: 13, 
+        color: Colors.blue
+      );
+    } 
     else if (platform == "instagram") 
     {
       return Icon
