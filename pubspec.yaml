@@ -1,6 +1,6 @@
 name: chatview
 description: A Flutter package that allows you to integrate Chat View with highly customization options.
-version: 1.7.5
+version: 1.7.6
 issue_tracker: https://github.com/SimformSolutionsPvtLtd/flutter_chatview/issues
 repository: https://github.com/SimformSolutionsPvtLtd/flutter_chatview
 
@@ -32,7 +32,8 @@ dependencies:
   audio_waveforms: ^1.0.1
   # For formatting time locale in message receipts
   timeago: ^3.4.0
-  flutter_html: ^3.0.0-beta.1
+  webview_flutter: ^4.9.0
+  flutter_html: ^3.0.0-beta.2
   path_provider: ^2.1.3
   font_awesome_flutter: ^10.4.0
 
