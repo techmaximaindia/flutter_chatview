@@ -41,6 +41,9 @@ import 'chat_list_widget.dart';
 import 'send_message_widget.dart';
 import 'swipe_to_reply.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:webview_flutter/webview_flutter.dart';
+import 'dart:convert';
+import 'WebViewExample.dart';
 
 class TextMessageView extends StatelessWidget {
   const TextMessageView({
@@ -316,45 +319,28 @@ class TextMessageView extends StatelessWidget {
       }).toList(),
     );
   }else if (containsHtmlTags) {
-    return Html(
-      data: textMessage,
-      style: {
-        "a": Style(
-          color: Colors.blue,
-          textDecoration: TextDecoration.underline,
+    return Stack(
+      children: [
+        SizedBox(
+          height: 300,
+          child: IgnorePointer( 
+            child: WebViewExample(htmlContent: textMessage),
+          ),
         ),
-        "b": Style(fontWeight: FontWeight.bold),
-        "strong": Style(fontWeight: FontWeight.bold),
-        "p": Style(
-          fontSize: FontSize.medium,
-          color: Colors.black87,
-        ),
-        "span": Style(fontSize: FontSize.medium),
-        "img": Style(
-          width: Width.auto(), 
-          height: Height.auto(),
-        ),
-      },
-      extensions: [
-        TagExtension(
-          tagsToExtend: {"img"},
-          builder: (extensionContext) {
-            final src = extensionContext.attributes['src'] ?? ""; 
-            return Image.network(
-              src,
-              fit: BoxFit.cover,
-              errorBuilder: (context, error, stackTrace) {
-                return Icon(Icons.broken_image, size: 50, color: Colors.grey);
-              },
-            );
-          },
+        Positioned.fill(
+          child: GestureDetector(
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => ExpandedWebView(htmlContent: textMessage),
+                ),
+              );
+            },
+            child: Container(color: Colors.transparent), 
+          ),
         ),
       ],
-      onLinkTap: (url, _, __) async {
-        if (url != null && await canLaunchUrl(Uri.parse(url))) {
-          await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
-        }
-      },
     );
   }
     else if (parsedString.isNotEmpty && parsedString != textMessage && !urlRegExp.hasMatch(parsedString)) {
