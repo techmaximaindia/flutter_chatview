@@ -961,6 +961,8 @@ class _ChatUITextFieldState extends State<ChatUITextField> {
                                                 final inputText = widget.textEditingController.text;
                                                 if (inputText.isNotEmpty) {
                                                   _show_dialog_fetch_response(context, inputText);
+                                                  widget.textEditingController.clear(); 
+                                                  _inputText.value = '';
                                                 } else {
                                                   _inputText.value = '';
                                                 }
