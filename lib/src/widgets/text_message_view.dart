@@ -318,7 +318,7 @@ class TextMessageView extends StatelessWidget {
         return SizedBox.shrink();
       }).toList(),
     );
-  }else if (containsHtmlTags) {
+  }/*else if (containsHtmlTags) {
     return Stack(
       children: [
         SizedBox(
@@ -342,7 +342,30 @@ class TextMessageView extends StatelessWidget {
         ),
       ],
     );
-  }
+  }*/
+   else if(containsHtmlTags){
+     return Html(
+        data: textMessage,
+        
+        onLinkTap: (url, _, __) async {
+          if (url != null && url.isNotEmpty) {
+            final uri = Uri.parse(url);
+            if (await canLaunchUrl(uri)) {
+              await launchUrl(uri);
+            }
+          }
+        },
+        style: {
+          "*": Style(
+            color: Colors.black, 
+          ),
+          "a": Style(
+            color: Colors.blue, 
+            textDecoration: TextDecoration.underline,
+          ),
+        },
+      );
+   }
     else if (parsedString.isNotEmpty && parsedString != textMessage && !urlRegExp.hasMatch(parsedString)) {
     return Text(
       parsedString, // Display stripped text
