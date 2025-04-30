@@ -42,6 +42,7 @@ import 'send_message_widget.dart';
 import 'swipe_to_reply.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:webview_flutter/webview_flutter.dart';
+import 'package:flutter_widget_from_html/flutter_widget_from_html.dart';
 import 'dart:convert';
 import 'WebViewExample.dart';
 
@@ -108,6 +109,25 @@ class TextMessageView extends StatelessWidget {
           clipBehavior: Clip.none,
           children: [
             Container(
+                constraints: BoxConstraints(
+                  maxWidth: chatBubbleMaxWidth ?? MediaQuery.of(context).size.width * 0.75,
+                ),
+                padding: _padding ?? const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                margin: _margin ?? EdgeInsets.fromLTRB(5, 0, 6, message.reaction.reactions.isNotEmpty ? 15 : 2),
+                decoration: BoxDecoration(
+                  color: highlightMessage ? highlightColor : _color,
+                  borderRadius: _borderRadius(textMessage),
+                ),
+                child: SingleChildScrollView(
+                  child: textMessage.isUrl
+                      ? LinkPreview(
+                          linkPreviewConfig: _linkPreviewConfig,
+                          url: textMessage,
+                        )
+                      : _buildMessageContent(context, textMessage, textTheme),
+                ),
+              ),
+           /* Container(
               constraints: BoxConstraints(
                   maxWidth: chatBubbleMaxWidth ??
                       MediaQuery.of(context).size.width * 0.75),
@@ -136,7 +156,7 @@ class TextMessageView extends StatelessWidget {
                               fontSize: 16,
                             ),
                         ), */
-            ),
+            ),*/
             if (message.reaction.reactions.isNotEmpty)
               ReactionWidget(
                 key: key,
@@ -343,29 +363,31 @@ class TextMessageView extends StatelessWidget {
       ],
     );
   }*/
-   else if(containsHtmlTags){
-     return Html(
-        data: textMessage,
-        
-        onLinkTap: (url, _, __) async {
-          if (url != null && url.isNotEmpty) {
-            final uri = Uri.parse(url);
-            if (await canLaunchUrl(uri)) {
-              await launchUrl(uri);
-            }
+    else if(containsHtmlTags){
+      print("HTML TAG");
+      return HtmlWidget(
+        textMessage,
+        textStyle: const TextStyle(
+          color: Colors.black, 
+        ),
+        customStylesBuilder: (element) {
+          if (element.localName == 'img') {
+            return {
+              'max-width': '100%',
+              'height': 'auto',
+              'display': 'block',
+            };
           }
-        },
-        style: {
-          "*": Style(
-            color: Colors.black, 
-          ),
-          "a": Style(
-            color: Colors.blue, 
-            textDecoration: TextDecoration.underline,
-          ),
+          if (element.localName == 'a') {
+            return {
+              'color': 'blue',
+              'text-decoration': 'underline',
+            };
+          }
+          return null;
         },
       );
-   }
+    }
     else if (parsedString.isNotEmpty && parsedString != textMessage && !urlRegExp.hasMatch(parsedString)) {
     return Text(
       parsedString, // Display stripped text
