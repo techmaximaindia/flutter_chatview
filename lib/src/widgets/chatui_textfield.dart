@@ -325,9 +325,16 @@ class _ChatUITextFieldState extends State<ChatUITextField> {
         } else {
           var aiResponse = json.decode(decodedResponse['ai_response']);
          // return aiResponse['answer'];
-           return source == "ticket"
+           /*return source == "ticket"
               ? json.decode(aiResponse['answer'])['body']
-              : aiResponse['answer']; 
+              : aiResponse['answer'];*/
+          try {
+            return source == "ticket"
+                ? json.decode(aiResponse['answer'])['body']
+                : aiResponse['answer'];
+          } catch (e) {
+            return aiResponse['answer'];
+          }
 
         }
       } else {
