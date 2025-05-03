@@ -69,6 +69,7 @@ class Message {
   String? bubble_header_text;
   String? bubble_footer_text;
   final Map<String, dynamic>? cb_message_options_full;
+  String? pagetype;
 
   Message({
     this.id = '',
@@ -90,6 +91,7 @@ class Message {
     this.bubble_header_text,
     this.bubble_footer_text,
     this.cb_message_options_full,
+    this.pagetype,
     MessageStatus status = MessageStatus.pending,
   })  : reaction = reaction ?? Reaction(reactions: [], reactedUserIds: []),
         key = GlobalKey(),
@@ -134,6 +136,7 @@ class Message {
       bubble_header_text: json["bubble_header_text"],
       bubble_footer_text: json["bubble_footer_text"],
       cb_message_options_full: json["cb_message_options_full"],
+      pagetype: json["pagetype"],
       status: json['status'],
     );
 
@@ -154,6 +157,7 @@ class Message {
         'bubble_header_text':bubble_header_text,
         'bubble_footer_text':bubble_footer_text,
         'cb_message_options_full':cb_message_options_full,
+        'pagetype':pagetype,
         'status': status.name
       };
 }
