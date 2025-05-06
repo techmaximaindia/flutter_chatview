@@ -235,6 +235,22 @@ class TextMessageView extends StatelessWidget {
           Row(
             mainAxisSize: MainAxisSize.min,
             children: [
+              if ((message.profilename ?? '').isNotEmpty) ...[
+                Icon(
+                  Icons.person,
+                  size: 10,
+                  color: Colors.black54,
+                ),
+                SizedBox(width: 4),
+                Text(
+                  message.profilename!,
+                  style: TextStyle(
+                    fontSize: 10,
+                    color: Colors.black54,
+                  ),
+                ),
+                SizedBox(width: 4),
+              ],
               Icon(
                 Icons.access_time,
                 size: 10,
