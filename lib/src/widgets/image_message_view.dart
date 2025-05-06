@@ -189,10 +189,11 @@ class ImageMessageView extends StatelessWidget {
                 ],
               ),
           ),
-            Row(
-              mainAxisSize: MainAxisSize.max,
-              children: [
-                if (isMessageBySender) ...[
+            SizedBox(height: 3),
+            if (isMessageBySender) ...[
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
                   if (message.profilename == 'Bot') ...[
                     Icon(
                       Icons.smart_toy_outlined,
@@ -205,7 +206,23 @@ class ImageMessageView extends StatelessWidget {
                       style: TextStyle(fontSize: 10, color: Colors.black54),
                     ),
                     SizedBox(width: 4),
-                  ] else ...[
+                  ] else if(message.profilename=='Summary') ...[
+                    FaIcon(
+                      FontAwesomeIcons.magicWandSparkles,
+                      color: Colors.black,
+                      size: 10,
+                    ),
+                    SizedBox(width: 4),
+                    Text(
+                      message.profilename ?? '',
+                      style: TextStyle(
+                        fontSize: 10,
+                        color: Colors.black54,
+                      ),
+                    ),
+                    SizedBox(width: 4),
+                  ] 
+                  else ...[
                     Icon(
                       Icons.person,
                       size: 10,
@@ -221,23 +238,57 @@ class ImageMessageView extends StatelessWidget {
                     ),
                     SizedBox(width: 4),
                   ],
-                ],
-                SizedBox(width: 5),
-                Icon(
-                  Icons.access_time,
-                  size: 10,
-                  color: Colors.black54,
-                ),
-                SizedBox(width: 4),
-                Text(
-                  formattedTime,
-                  style: TextStyle(
-                    fontSize: 10,
+                  Icon(
+                    Icons.access_time,
+                    size: 10,
                     color: Colors.black54,
                   ),
-                ),
-              ],
-            ),
+                  SizedBox(width: 4),
+                  Text(
+                    formattedTime,
+                    style: TextStyle(
+                      fontSize: 10,
+                      color: Colors.black54,
+                    ),
+                  ),
+                ],
+              ),
+            ] else ...[
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if ((message.profilename ?? '').isNotEmpty) ...[
+                    Icon(
+                      Icons.person,
+                      size: 10,
+                      color: Colors.black54,
+                    ),
+                    SizedBox(width: 4),
+                    Text(
+                      message.profilename!,
+                      style: TextStyle(
+                        fontSize: 10,
+                        color: Colors.black54,
+                      ),
+                    ),
+                    SizedBox(width: 4),
+                  ],
+                  Icon(
+                    Icons.access_time,
+                    size: 10,
+                    color: Colors.black54,
+                  ),
+                  SizedBox(width: 4),
+                  Text(
+                    formattedTime,
+                    style: TextStyle(
+                      fontSize: 10,
+                      color: Colors.black54,
+                    ),
+                  ),
+                ],
+              ),
+            ],
         ],
       ),
     ],
