@@ -77,7 +77,14 @@ class SocketManager {
     final prefs = await SharedPreferences.getInstance();
     final String? conversationId = prefs.getString('conversation_id');
     final String? ticketId = prefs.getString('ticket_id');
-    final String? session_Id = conversationId ?? ticketId; 
+    String? session_Id; 
+    String? page =prefs.getString('page');
+    if(page=='ticket'){
+      session_Id=ticketId;
+    } 
+    else{
+      session_Id=conversationId;
+    }
 
      IO.Socket _socket = IO.io(socket_url, <String, dynamic>{
       'autoConnect': false,
