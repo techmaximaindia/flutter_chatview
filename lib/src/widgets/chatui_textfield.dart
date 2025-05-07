@@ -181,17 +181,24 @@ class _ChatUITextFieldState extends State<ChatUITextField> {
     }
   }
   @override
-  Future<void> dispose() async {
+  void dispose() async {
     debouncer.dispose();
     composingStatus.dispose();
     isRecording.dispose();
     _inputText.dispose();
     _suggestionOverlay?.remove();
-    SocketManager().disconnectSocket();
-    final prefs = await SharedPreferences.getInstance();
-    prefs.remove('conversation_id');
-    prefs.remove('ticket_id');
-    _loadPreferences();
+    try {
+      SocketManager().disconnectSocket();
+    } catch (e) {
+      print('Socket disconnection error: $e');
+    }
+
+    // Fire and forget any async operations
+    SharedPreferences.getInstance().then((prefs) {
+      prefs.remove('conversation_id');
+      prefs.remove('ticket_id');
+      _loadPreferences(); // if this is async, consider moving it elsewhere
+    });
     super.dispose();
   }
   void attachListeners() {
@@ -329,9 +336,16 @@ class _ChatUITextFieldState extends State<ChatUITextField> {
               ? json.decode(aiResponse['answer'])['body']
               : aiResponse['answer'];*/
           try {
-            return source == "ticket"
-                ? json.decode(aiResponse['answer'])['body']
-                : aiResponse['answer'];
+            if (source == "ticket") {
+              var decodedAnswer = json.decode(aiResponse['answer']);
+              if (decodedAnswer is Map && decodedAnswer.containsKey('response')) {
+                return decodedAnswer['response'];
+              } else {
+                return aiResponse['answer'];
+              }
+            } else {
+              return aiResponse['answer'];
+            }
           } catch (e) {
             return aiResponse['answer'];
           }
