@@ -197,13 +197,21 @@ class SendMessageWidgetState extends State<SendMessageWidget> {
              /*return source == "ticket"
                 ? json.decode(aiResponse['answer'])['response']
                 : aiResponse['answer'];*/
-              try {
-                return source == "ticket"
-                    ? json.decode(aiResponse['answer'])['body']
-                    : aiResponse['answer'];
-              } catch (e) {
-                return aiResponse['answer'];
-              } 
+               try {
+                  if (source == "ticket") {
+                    var decodedAnswer = json.decode(aiResponse['answer']);
+                    if (decodedAnswer is Map && decodedAnswer.containsKey('response')) {
+                      // ✅ Only return the inner value of "response"
+                      return decodedAnswer['response'];
+                    } else {
+                      return aiResponse['answer'];
+                    }
+                  } else {
+                    return aiResponse['answer'];
+                  }
+                } catch (e) {
+                  return aiResponse['answer'];
+                } 
           }
         } else {
           throw "Failed to generate AI response";
@@ -786,14 +794,20 @@ class SendMessageWidgetState extends State<SendMessageWidget> {
       : bottomPadding3;
 
   @override
-  Future<void> dispose() async {
+  void dispose() async {
     _textEditingController.dispose();
     /* _focusNode.dispose(); */
     _replyMessage.dispose();
-    SocketManager().disconnectSocket();
-    final prefs = await SharedPreferences.getInstance();
-    prefs.remove('conversation_id');
-    prefs.remove('ticket_id');
+    try {
+      SocketManager().disconnectSocket();
+    } catch (e) {
+      print('Socket disconnection error: $e');
+    }
+    SharedPreferences.getInstance().then((prefs) {
+      prefs.remove('conversation_id');
+      prefs.remove('ticket_id');
+      prefs.remove('page');
+    });
     super.dispose();
   }
 }
