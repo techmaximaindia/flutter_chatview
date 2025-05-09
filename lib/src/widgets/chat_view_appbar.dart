@@ -150,6 +150,14 @@ class ChatViewAppBar extends StatelessWidget {
               ),
             );
           }
+          else if(current_page=='ticket'){
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => profilepage(chatTitle: chatTitle,profilePicture: profilePicture,platform: '',mobile: '',profile_email:email_id,lead_id: '',page: current_page,),
+              ),
+            );
+          }
         },
       child: Container(
         padding: padding ??
