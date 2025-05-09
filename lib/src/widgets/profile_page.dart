@@ -24,6 +24,7 @@ class profilepage extends StatefulWidget{
   final String? profile_email;
   final String? mobile;
   final String?lead_id;
+  final String?page;
   
   const profilepage({
     Key? key,
@@ -32,7 +33,8 @@ class profilepage extends StatefulWidget{
     this.platform,
     this.mobile,
     this.profile_email,
-    this.lead_id
+    this.lead_id,
+    this.page,
   }) : super(key: key);
    @override
   State<profilepage> createState() => _profilestate();
@@ -165,6 +167,7 @@ class _profilestate extends State<profilepage>
           },
         ),
       ),
+       backgroundColor: Colors.white,
       body: SingleChildScrollView(
         child: Column(
           children: [
@@ -200,7 +203,7 @@ class _profilestate extends State<profilepage>
                                           radius: 50,
                                           backgroundColor: Color(0xFF6C757D),
                                           child: Text(
-                                            widget.chatTitle.isNotEmpty
+                                             widget.chatTitle.isNotEmpty
                                                 ? widget.chatTitle[0].toUpperCase()
                                                 : 'A',
                                             style: TextStyle(color: Colors.white, fontSize: 45),
@@ -218,7 +221,7 @@ class _profilestate extends State<profilepage>
                               radius: 50,
                                 backgroundColor: Color(0xFF6C757D),
                                 child: Text(
-                                  widget.chatTitle.isNotEmpty
+                                   widget.chatTitle.isNotEmpty
                                       ? widget.chatTitle[0].toUpperCase()
                                       : 'A',
                                   style: TextStyle(color: Colors.white, fontSize: 45),
@@ -234,7 +237,7 @@ class _profilestate extends State<profilepage>
             ),
             Center(
               child: Text(
-                 widget.chatTitle ?? '',
+                widget.chatTitle??'',
                 style: TextStyle(
                   fontSize: 24,
                   color: Colors.black,
@@ -293,33 +296,35 @@ class _profilestate extends State<profilepage>
             SizedBox(
               height: 25,
             ),
-            if(conversations!=[])
-            Padding(
-              padding: EdgeInsets.symmetric(horizontal: 24),
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: conversations.isNotEmpty 
-                  ? Text(
-                      "Conversations",
-                      style:TextStyle(
-                          fontSize: 18,
-                          color: Colors.black,
-                          fontWeight: FontWeight.w600,
-                        ),
-                    )
-                  : SizedBox.shrink()
+            if(widget.page !='ticket')...[
+              if(conversations!=[])
+              Padding(
+                padding: EdgeInsets.symmetric(horizontal: 24),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: conversations.isNotEmpty 
+                    ? Text(
+                        "Conversations",
+                        style:TextStyle(
+                            fontSize: 18,
+                            color: Colors.black,
+                            fontWeight: FontWeight.w600,
+                          ),
+                      )
+                    : SizedBox.shrink()
+                ),
               ),
-            ),
-            SizedBox(
-              height: 14,
-            ),
-            Card
-            (  
-              color: Colors.white,
-              elevation: 0,
-              child: _body(conversations),
-            ),
-            if (_isLoading) CircularProgressIndicator(),
+              SizedBox(
+                height: 14,
+              ),
+              Card
+              (  
+                color: Colors.white,
+                elevation: 0,
+                child: _body(conversations),
+              ),
+              if (_isLoading) CircularProgressIndicator(),
+            ],
           ],
         )
       ),
@@ -724,7 +729,7 @@ Widget buildRichText(String text) {
         }).toList(),
       ),
     );
-  }  
+  }
 Widget _buildStatusBadge(String? status_name) {
   Color badgeColor;
   String statusText;
@@ -808,7 +813,7 @@ Widget account_icon(String accountPlatform)
   {
     return FaIcon(FontAwesomeIcons.instagram,color: Color.fromARGB(255, 220, 142, 142),);
   }
-   else if (accountPlatform == "email") 
+  else if (accountPlatform == "email") 
   {
     return FaIcon(FontAwesomeIcons.envelope,color: Colors.blue,);
   }  
@@ -927,14 +932,14 @@ Widget build_text(String text)
       );
     } 
     else if (platform == "email") 
-    {
-      return Icon
-      (
-        FontAwesomeIcons.envelope,
-        size: 13, 
-        color: Colors.blue
-      );
-    } 
+  {
+    return Icon
+    (
+      FontAwesomeIcons.envelope,
+      size: 13, 
+      color: Colors.blue
+    );
+  } 
     else 
     {
       return SizedBox.shrink();
