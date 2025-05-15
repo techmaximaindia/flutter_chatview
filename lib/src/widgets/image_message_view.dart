@@ -34,8 +34,9 @@ import 'package:intl/intl.dart';
 import 'text_message_view.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:html/parser.dart' as html_parser;
-import 'package:flutter_html/flutter_html.dart';
+//import 'package:flutter_html/flutter_html.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:flutter_widget_from_html/flutter_widget_from_html.dart';
 
 class ImageMessageView extends StatelessWidget {
   const ImageMessageView({
@@ -391,7 +392,29 @@ Widget _buildMessageContent(context,String textMessage, TextTheme textTheme)
     color: Colors.black,
     fontSize: 14,
   );
-    return Html(
+    return HtmlWidget(
+        textMessage,
+        textStyle: const TextStyle(
+          color: Colors.black, 
+        ),
+        customStylesBuilder: (element) {
+          if (element.localName == 'img') {
+            return {
+              'max-width': '100%',
+              'height': 'auto',
+              'display': 'block',
+            };
+          }
+          if (element.localName == 'a') {
+            return {
+              'color': 'blue',
+              'text-decoration': 'underline',
+            };
+          }
+          return null;
+        },
+      );
+    /*return Html(
       data: textMessage,
       style: {
         'body': Style.fromTextStyle(textStyle),
@@ -410,7 +433,7 @@ Widget _buildMessageContent(context,String textMessage, TextTheme textTheme)
           }
         }
       },
-    );
+    );*/
   }  
   else if (message.cb_message_options_full != null && type == "button") {
     return Column(
