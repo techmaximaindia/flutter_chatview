@@ -32,7 +32,6 @@ dependencies:
   audio_waveforms: ^1.0.1
   # For formatting time locale in message receipts
   timeago: ^3.4.0
-  flutter_widget_from_html: ^0.16.0
   path_provider: ^2.1.3
   font_awesome_flutter: ^10.4.0
 
