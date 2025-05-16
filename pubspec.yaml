@@ -33,7 +33,9 @@ dependencies:
   # For formatting time locale in message receipts
   timeago: ^3.4.0
   path_provider: ^2.1.3
-  flutter_widget_from_html: ^0.16.0
+  webview_flutter: ^4.9.0
+  #flutter_widget_from_html: ^0.16.0
+  flutter_widget_from_html_core: ^0.16.0
   font_awesome_flutter: ^10.4.0
 
 dev_dependencies:
