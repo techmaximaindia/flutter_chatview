@@ -42,7 +42,8 @@ import 'send_message_widget.dart';
 import 'swipe_to_reply.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 //import 'package:webview_flutter/webview_flutter.dart';
-import 'package:flutter_widget_from_html/flutter_widget_from_html.dart';
+//import 'package:flutter_widget_from_html/flutter_widget_from_html.dart';
+import 'package:flutter_widget_from_html_core/flutter_widget_from_html_core.dart';
 import 'dart:convert';
 import 'WebViewExample.dart';
 
