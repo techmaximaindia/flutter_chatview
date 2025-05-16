@@ -36,8 +36,8 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:html/parser.dart' as html_parser;
 //import 'package:flutter_html/flutter_html.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:flutter_widget_from_html/flutter_widget_from_html.dart';
-
+//import 'package:flutter_widget_from_html/flutter_widget_from_html.dart';
+import 'package:flutter_widget_from_html_core/flutter_widget_from_html_core.dart';
 class ImageMessageView extends StatelessWidget {
   const ImageMessageView({
     Key? key,
