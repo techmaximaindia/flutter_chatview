@@ -405,7 +405,7 @@ class TextMessageView extends StatelessWidget {
         },
       );
     }
-    else if (parsedString.isNotEmpty && parsedString != textMessage && !urlRegExp.hasMatch(parsedString)) {
+    /*else if (parsedString.isNotEmpty && parsedString != textMessage && !urlRegExp.hasMatch(parsedString)) {
     return Text(
       parsedString, // Display stripped text
       style: textTheme.bodyMedium?.copyWith(
@@ -438,7 +438,7 @@ class TextMessageView extends StatelessWidget {
         }
       },
     );
-  }  
+  }*/
  else if (message.cb_message_options_full != null && type == "button") {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
