@@ -125,7 +125,7 @@ class ChatViewAppBar extends StatelessWidget {
       {
         if (lead_name.length > 20) 
         {
-          return lead_name.substring(0, 24)+ "...";
+          return lead_name.substring(0, 20)+ "...";
         } 
         else 
         {
