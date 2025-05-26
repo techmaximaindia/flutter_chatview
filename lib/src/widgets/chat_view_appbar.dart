@@ -51,6 +51,7 @@ class ChatViewAppBar extends StatelessWidget {
     this.mobile_number,
     this.email_id,
     this.lead_id,
+    this.ticket_title
   }) : super(key: key);
 
   /// Allow user to change colour of appbar.
@@ -100,6 +101,8 @@ class ChatViewAppBar extends StatelessWidget {
 
   final String? lead_id;
 
+  final String? ticket_title;
+
   @override
   Widget build(BuildContext context) {
     Future<bool> image_url_valid(String url) async {              
@@ -136,151 +139,210 @@ class ChatViewAppBar extends StatelessWidget {
         return 'Anonymous';
       } 
     }
-    return Material(
-      elevation: elevation ?? 1,
-      child: InkWell( // Add InkWell for tap effect
-        onTap: () async {
-          final prefs = await SharedPreferences.getInstance();
-          String? current_page = prefs.getString('page') ?? '';
-          if (current_page == 'chat') {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => profilepage(chatTitle: chatTitle,profilePicture: profilePicture,platform: platform,mobile: mobile_number,profile_email: email_id,lead_id: lead_id),
-              ),
-            );
-          }
-          else if(current_page=='ticket'){
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => profilepage(chatTitle: chatTitle,profilePicture: profilePicture,platform: '',mobile: '',profile_email:email_id,lead_id: '',page: current_page,),
-              ),
-            );
-          }
-        },
-      child: Container(
-        padding: padding ??
-            EdgeInsets.only(
-              top: MediaQuery.of(context).padding.top,
-              bottom: 4,
-            ),
-        color: backGroundColor ?? Colors.white,
-        child: Row(
-          children: [
-            if (showLeading)
-              leading ??
-                  IconButton(
-                    onPressed: onBackPress ?? () async{ 
-                      final prefs = await SharedPreferences.getInstance();
-                      await prefs.remove('page'); 
-                      Navigator.pop(context);
-                    },
-                    icon: Icon(
-                      (!kIsWeb && Platform.isIOS)
-                          ? Icons.arrow_back_ios
-                          : Icons.arrow_back,
-                      color: backArrowColor,
+    return Column(
+      mainAxisSize:MainAxisSize.min,
+      children:[
+          Material(
+            elevation: elevation ?? 1,
+            child: InkWell( // Add InkWell for tap effect
+              onTap: () async {
+                final prefs = await SharedPreferences.getInstance();
+                String? current_page = prefs.getString('page') ?? '';
+                if (current_page == 'chat') {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => profilepage(chatTitle: chatTitle,profilePicture: profilePicture,platform: platform,mobile: mobile_number,profile_email: email_id,lead_id: lead_id),
                     ),
+                  );
+                }
+                else if(current_page=='ticket'){
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => profilepage(chatTitle: chatTitle,profilePicture: profilePicture,platform: '',mobile: '',profile_email:email_id,lead_id: '',page: current_page,),
+                    ),
+                  );
+                }
+              },
+            child: Container(
+              padding: padding ??
+                  EdgeInsets.only(
+                    top: MediaQuery.of(context).padding.top,
+                    bottom: 4,
                   ),
-            Expanded(
+              color: backGroundColor ?? Colors.white,
               child: Row(
                 children: [
-                    Padding(
-                      padding: const EdgeInsets.only(right: 8.0),
-                      child: Stack(
-                        children: [
-                          if (profilePicture != null&& profilePicture!='')
-                            if(platform=='facebook')
-                              FutureBuilder<bool>(
-                                future: image_url_valid(profilePicture!),
-                                builder: (context, snapshot) {
-                                  final isValidImage = snapshot.data ?? false;
-                                  if (isValidImage) {
-                                    return CircleAvatar(
+                  if (showLeading)
+                    leading ??
+                        IconButton(
+                          onPressed: onBackPress ?? () async{ 
+                            final prefs = await SharedPreferences.getInstance();
+                            await prefs.remove('page'); 
+                            Navigator.pop(context);
+                          },
+                          icon: Icon(
+                            (!kIsWeb && Platform.isIOS)
+                                ? Icons.arrow_back_ios
+                                : Icons.arrow_back,
+                            color: backArrowColor,
+                          ),
+                        ),
+                  Expanded(
+                    child: Row(
+                      children: [
+                          Padding(
+                            padding: const EdgeInsets.only(right: 8.0),
+                            child: Stack(
+                              children: [
+                                if (profilePicture != null&& profilePicture!='')
+                                  if(platform=='facebook')
+                                    FutureBuilder<bool>(
+                                      future: image_url_valid(profilePicture!),
+                                      builder: (context, snapshot) {
+                                        final isValidImage = snapshot.data ?? false;
+                                        if (isValidImage) {
+                                          return CircleAvatar(
 
+                                            /* backgroundColor: Color.fromRGBO(108, 117, 125,2), */
+                                            backgroundColor:Color(0xFF6C757D),
+                                            backgroundImage: NetworkImage(profilePicture!),
+                                          );
+                                        } else {
+                                          return CircleAvatar(
+                                            /* backgroundColor: Color.fromRGBO(108, 117, 125,2), */
+                                            backgroundColor:Color(0xFF6C757D),
+                                            child: Text(
+                                              chatTitle[0].toUpperCase(),
+                                              style: TextStyle(
+                                                color: Colors.white,
+                                                /* fontWeight: FontWeight.bold, */
+                                              ),
+                                            ),
+                                          );
+                                        }
+                                      },
+                                    )
+                                  else  
+                                    CircleAvatar(
                                       /* backgroundColor: Color.fromRGBO(108, 117, 125,2), */
                                       backgroundColor:Color(0xFF6C757D),
                                       backgroundImage: NetworkImage(profilePicture!),
-                                    );
-                                  } else {
-                                    return CircleAvatar(
-                                      /* backgroundColor: Color.fromRGBO(108, 117, 125,2), */
-                                      backgroundColor:Color(0xFF6C757D),
-                                      child: Text(
-                                        chatTitle[0].toUpperCase(),
-                                        style: TextStyle(
-                                          color: Colors.white,
-                                          /* fontWeight: FontWeight.bold, */
-                                        ),
-                                      ),
-                                    );
-                                  }
-                                },
-                              )
-                            else  
-                              CircleAvatar(
-                                /* backgroundColor: Color.fromRGBO(108, 117, 125,2), */
-                                backgroundColor:Color(0xFF6C757D),
-                                backgroundImage: NetworkImage(profilePicture!),
-                              )
-                          else if(chatTitle!=null&& chatTitle!='')
-                            CircleAvatar(
-                             /*  backgroundColor: Color.fromRGBO(108, 117, 125,2), */
-                             backgroundColor:Color(0xFF6C757D),
-                              child: Text(
-                                chatTitle[0].toUpperCase(),
-                                style: TextStyle(color: Colors.white),
-                              ),
-                            )
-                          else
-                            CircleAvatar(
-                              /* backgroundColor: Color.fromRGBO(108, 117, 125,2), */
-                              backgroundColor:Color(0xFF6C757D),
-                              child: Text('Anonymous'[0].toUpperCase(),style: TextStyle(color: Colors.white),),
-                            ),
-                          if(platform!=null && platform!='')
-                          Positioned(
-                            bottom: 0,
-                            right: 0,
-                            child: ClipOval(
-                              child: CircleAvatar(
-                                backgroundColor: Colors.white,
-                                radius: 9,
-                                child: get_platform_widget(platform),
-                              ),
+                                    )
+                                else if(chatTitle!=null&& chatTitle!='')
+                                  CircleAvatar(
+                                  /*  backgroundColor: Color.fromRGBO(108, 117, 125,2), */
+                                  backgroundColor:Color(0xFF6C757D),
+                                    child: Text(
+                                      chatTitle[0].toUpperCase(),
+                                      style: TextStyle(color: Colors.white),
+                                    ),
+                                  )
+                                else
+                                  CircleAvatar(
+                                    /* backgroundColor: Color.fromRGBO(108, 117, 125,2), */
+                                    backgroundColor:Color(0xFF6C757D),
+                                    child: Text('Anonymous'[0].toUpperCase(),style: TextStyle(color: Colors.white),),
+                                  ),
+                                if(platform!=null && platform!='')
+                                Positioned(
+                                  bottom: 0,
+                                  right: 0,
+                                  child: ClipOval(
+                                    child: CircleAvatar(
+                                      backgroundColor: Colors.white,
+                                      radius: 9,
+                                      child: get_platform_widget(platform),
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
-                        ],
-                      ),
-                    ),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        truncate_lead_name(chatTitle),
-                        style: chatTitleTextStyle ??
-                            const TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                              letterSpacing: 0.25,
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              truncate_lead_name(chatTitle),
+                              style: chatTitleTextStyle ??
+                                  const TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                    letterSpacing: 0.25,
+                                  ),
                             ),
-                      ),
-                      if (userStatus != null)
-                        Text(
-                          userStatus!,
-                          style: userStatusTextStyle,
+                            if (userStatus != null)
+                              Text(
+                                userStatus!,
+                                style: userStatusTextStyle,
+                              ),
+                          ],
                         ),
-                    ],
+                      ],
+                    ),
                   ),
+                  if (actions != null) ...actions!,
                 ],
               ),
             ),
-            if (actions != null) ...actions!,
-          ],
-        ),
-      ),
-      ),
+            ),
+          ),
+          SizedBox(height: (ticket_title != null && ticket_title!.trim().isNotEmpty) ? 38 : 0),
+          if (ticket_title != null && ticket_title != ''&&ticket_title!.trim().isNotEmpty)
+          Container(
+            width: double.infinity,
+            margin: EdgeInsets.symmetric(
+              horizontal: MediaQuery.of(context).size.width * 0.03,
+              vertical: MediaQuery.of(context).size.height * 0.01,
+            ),
+            padding: EdgeInsets.symmetric(
+              horizontal: MediaQuery.of(context).size.width * 0.04,
+              vertical: MediaQuery.of(context).size.height * 0.015,
+            ),
+            //margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            //padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            decoration: BoxDecoration(
+              color:const Color(0xFF1F1F1F),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: Theme.of(context).dividerColor,
+              ),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.deepPurple.shade50,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    'Ticket',
+                    style: TextStyle(
+                      color: Colors.deepPurple.shade700,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 12,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    ticket_title!,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          fontSize: 14.5,
+                          height: 1.4,
+                          fontWeight: FontWeight.w500,
+                          color:Colors.white
+                        ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+      ],
     );
   }
   get_platform_widget(platform) 
