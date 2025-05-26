@@ -171,10 +171,17 @@ class _ChatListWidgetState extends State<ChatListWidget>
             if (isNextPageLoading &&
                 (featureActiveConfig?.enablePagination ?? false)) {
               return SizedBox(
-                height: Scaffold.of(context).appBarMaxHeight,
+                //height: Scaffold.of(context).appBarMaxHeight,
+                height: 50,
                 child: Center(
-                  child:
-                      widget.loadingWidget ?? const CircularProgressIndicator(),
+                  child: SizedBox(
+                    height: 24,
+                    width: 24,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2.5,
+                      valueColor: AlwaysStoppedAnimation<Color>(Colors.blue),
+                    ),
+                  ),
                 ),
               );
             } else {
