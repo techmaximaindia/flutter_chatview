@@ -51,7 +51,8 @@ class ChatViewAppBar extends StatelessWidget {
     this.mobile_number,
     this.email_id,
     this.lead_id,
-    this.ticket_title
+    this.ticket_title,
+    this.message_date
   }) : super(key: key);
 
   /// Allow user to change colour of appbar.
@@ -102,6 +103,7 @@ class ChatViewAppBar extends StatelessWidget {
   final String? lead_id;
 
   final String? ticket_title;
+  final String? message_date;
 
   @override
   Widget build(BuildContext context) {
@@ -288,60 +290,78 @@ class ChatViewAppBar extends StatelessWidget {
             ),
             ),
           ),
-          SizedBox(height: (ticket_title != null && ticket_title!.trim().isNotEmpty) ? 38 : 0),
+         // SizedBox(height: (ticket_title != null && ticket_title!.trim().isNotEmpty) ? 38 : 0),
           if (ticket_title != null && ticket_title != ''&&ticket_title!.trim().isNotEmpty)
           Container(
-            width: double.infinity,
-            margin: EdgeInsets.symmetric(
-              horizontal: MediaQuery.of(context).size.width * 0.03,
-              vertical: MediaQuery.of(context).size.height * 0.01,
-            ),
-            padding: EdgeInsets.symmetric(
-              horizontal: MediaQuery.of(context).size.width * 0.04,
-              vertical: MediaQuery.of(context).size.height * 0.015,
-            ),
-            //margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            //padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-            decoration: BoxDecoration(
-              color:const Color(0xFF1F1F1F),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: Theme.of(context).dividerColor,
+              width: double.infinity,
+              margin: EdgeInsets.symmetric(
+                horizontal: MediaQuery.of(context).size.width * 0.03,
+                vertical: MediaQuery.of(context).size.height * 0.01,
               ),
-            ),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: Colors.deepPurple.shade50,
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Text(
-                    'Ticket',
-                    style: TextStyle(
-                      color: Colors.deepPurple.shade700,
-                      fontWeight: FontWeight.w600,
-                      fontSize: 12,
+              padding: EdgeInsets.symmetric(
+                horizontal: MediaQuery.of(context).size.width * 0.04,
+                vertical: MediaQuery.of(context).size.height * 0.015,
+              ),
+              decoration:  BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: Colors.grey.shade200),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black12,
+                      blurRadius: 8,
+                      offset: const Offset(0, 4),
                     ),
-                  ),
+                  ],
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    ticket_title!,
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          fontSize: 14.5,
-                          height: 1.4,
-                          fontWeight: FontWeight.w500,
-                          color:Colors.white
+              child:Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFE3F2FD), // Light blue background
+                            borderRadius: BorderRadius.circular(50),
+                          ),
+                          child: const Text(
+                            'TICKET',
+                            style: TextStyle(
+                              color: Color(0xFF1E88E5), // Blue 600
+                              fontWeight: FontWeight.w600,
+                              fontSize: 12.5,
+                              letterSpacing: 0.6,
+                            ),
+                          ),
                         ),
-                  ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            ticket_title!,
+                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                              fontSize: 14.5,
+                              height: 1.4,
+                              fontWeight: FontWeight.w500,
+                              color: Colors.black,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    Center(
+                      child: Text(
+                        message_date!,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          fontSize: 12,
+                          color: Colors.grey[600],
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-              ],
-            ),
-          ),
       ],
     );
   }
