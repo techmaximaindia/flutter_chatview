@@ -941,6 +941,7 @@ class _ChatUITextFieldState extends State<ChatUITextField> {
                                   Expanded(
                                     child: TextField(
                                       /* focusNode: widget.focusNode, */
+                                      cursorColor: Colors.black,    
                                       autofocus: widget.autofocus,
                                       controller: widget.textEditingController,
                                       style: textFieldConfig?.textStyle ?? const TextStyle(color: Colors.white),
