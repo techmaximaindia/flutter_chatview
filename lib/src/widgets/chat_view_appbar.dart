@@ -52,7 +52,8 @@ class ChatViewAppBar extends StatelessWidget {
     this.email_id,
     this.lead_id,
     this.ticket_title,
-    this.message_date
+    this.message_date,
+    this.alias_to_use,
   }) : super(key: key);
 
   /// Allow user to change colour of appbar.
@@ -104,6 +105,7 @@ class ChatViewAppBar extends StatelessWidget {
 
   final String? ticket_title;
   final String? message_date;
+  final String? alias_to_use;
 
   @override
   Widget build(BuildContext context) {
@@ -154,7 +156,7 @@ class ChatViewAppBar extends StatelessWidget {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (context) => profilepage(chatTitle: chatTitle,profilePicture: profilePicture,platform: platform,mobile: mobile_number,profile_email: email_id,lead_id: lead_id),
+                      builder: (context) => profilepage(chatTitle: chatTitle,profilePicture: profilePicture,platform: platform,mobile: mobile_number,profile_email: email_id,lead_id: lead_id,aliasuse: alias_to_use),
                     ),
                   );
                 }
@@ -162,7 +164,7 @@ class ChatViewAppBar extends StatelessWidget {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (context) => profilepage(chatTitle: chatTitle,profilePicture: profilePicture,platform: '',mobile: '',profile_email:email_id,lead_id: '',page: current_page,),
+                      builder: (context) => profilepage(chatTitle: chatTitle,profilePicture: profilePicture,platform: '',mobile: '',profile_email:email_id,lead_id: '',page: current_page,aliasuse: ''),
                     ),
                   );
                 }
