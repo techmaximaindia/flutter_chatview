@@ -25,6 +25,7 @@ class profilepage extends StatefulWidget{
   final String? mobile;
   final String?lead_id;
   final String?page;
+  final String? aliasuse;
   
   const profilepage({
     Key? key,
@@ -35,6 +36,7 @@ class profilepage extends StatefulWidget{
     this.profile_email,
     this.lead_id,
     this.page,
+    this.aliasuse
   }) : super(key: key);
    @override
   State<profilepage> createState() => _profilestate();
@@ -46,11 +48,14 @@ class _profilestate extends State<profilepage>
   int page_no=1;
   ScrollController _scrollController = ScrollController();
   bool _isLoading = false;
+  bool hasMoreData = true;
+  bool activity=false;
+  List<Map<String, dynamic>> activityItems = [];
   @override
   void initState() 
   {
     super.initState();
-    fetchConversations(widget.lead_id??'');
+    /* fetchConversations(widget.lead_id??'');
      _scrollController.addListener(() 
      {
       if (_scrollController.position.pixels == _scrollController.position.maxScrollExtent) 
@@ -60,6 +65,16 @@ class _profilestate extends State<profilepage>
           _isLoading = true;
           fetchConversations(widget.lead_id??'');
         }
+      }
+    }); */
+    fetch_Activities();
+     _scrollController.addListener(() 
+     {
+      if (_scrollController.position.pixels >=
+              _scrollController.position.maxScrollExtent - 200 &&
+          !activity &&
+          hasMoreData) {
+        fetch_Activities(loadMore: true);
       }
     });
   }
@@ -106,8 +121,121 @@ class _profilestate extends State<profilepage>
       return false;
     }
   }
+  Future<bool> fetch_Activities({bool loadMore = false}) async 
+  {
+     if (activity || !hasMoreData) return false;
+
+      setState(() {
+        activity = true;
+      });
+    final prefs = await SharedPreferences.getInstance();
+    final String? email = prefs.getString('email');
+    final String? password = prefs.getString('password');
+    final String? uuid = prefs.getString('uuid');
+    final String? team_alias= prefs.getString('team_alias');
+
+    /* final String aliasToUse = (widget.distinct_alias == null && widget.distinct_alias.isEmpty && widget.distinct_alias == 'null')
+      ? widget.lead_alias
+      : widget.distinct_alias;
+     */String url = base_url + 'api/get_contacts/';
+    var response = await http.post
+    (
+      Uri.parse(url),
+      headers: 
+      {
+        "Content-Type": "application/json",
+        "Accept": "application/json",
+        "Authorization": "$uuid",
+      },
+      body: jsonEncode({
+        'page_no': page_no, 
+        'per_page': 5,
+        'type':'activity',
+        'cb_lead_alias':widget.aliasuse,
+        'source':'mobileapp'
+
+        }),
+    );
+    if (response.statusCode == 200) 
+    {
+      print(widget.aliasuse);
+      final data = jsonDecode(response.body);
+      final conversationsRaw = data['conversations'];
+      List<Map<String, dynamic>> parsedItems = [];
+      if (conversationsRaw is Map<String, dynamic>) {
+        for (var convList in conversationsRaw.values) {
+          if (convList is List) {
+            for (var conv in convList) {
+              if (conv is Map<String, dynamic>) {
+                parsedItems.add(conv);
+              }
+            }
+          }
+        }
+      } else if (conversationsRaw is List) {
+        for (var conv in conversationsRaw) {
+          if (conv is Map<String, dynamic>) {
+            parsedItems.add(conv);
+          }
+        }
+      } else {
+        print("Unexpected 'conversations' type: ${conversationsRaw.runtimeType}");
+      }
+      setState(() {
+        if (loadMore) {
+          activityItems.addAll(parsedItems);
+        } else {
+          activityItems = parsedItems;
+        }
+
+        hasMoreData = parsedItems.length == 5;
+        if (hasMoreData) page_no++;
+        activity = false;
+      });
+      return true; 
+    } 
+    else 
+    {
+      setState(() {
+        activity = false;
+      });
+      print('Request failed with status: ${response.statusCode}.');
+      return false;
+    }
+  }
   @override
   Widget build(BuildContext context) {
+    Widget? getStatusWidget(String status, String type) 
+    {
+      if (type == 'outgoing') 
+      {
+        switch (status) 
+        {
+          case 'sent':
+            return Icon(
+              Icons.done,
+              color: Colors.grey,
+              size: 12,
+            );
+          case 'delivered':
+            return Icon(
+              Icons.done_all,
+              color: Colors.grey,
+              size: 12,
+            );
+          case 'read':
+            return Icon(Icons.done_all, color: Colors.green, size: 12);
+          case 'failed':
+            return Icon(Icons.error, color: Colors.red, size: 12);
+          default:
+            return null;
+        }
+      } 
+      else 
+      {
+        return null;
+      }
+    }
      Future<bool> image_url_valid(String url) async {              
       try {
         final response = await http.get(Uri.parse(url));
@@ -296,6 +424,338 @@ class _profilestate extends State<profilepage>
             SizedBox(
               height: 25,
             ),
+            SizedBox(
+              height: 25,
+            ),
+            if(widget.page=='chat')...[
+              Padding(
+                padding: const EdgeInsets.all(10),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: activityItems.isNotEmpty 
+                    ?  Text(
+                        "Activity",
+                        style:TextStyle(
+                            fontSize: 18,
+                            color: Colors.black,
+                            fontWeight: FontWeight.w600,
+                          ),
+                      )
+                    : SizedBox.shrink()
+                ),
+              ),
+               Padding(
+                  padding: const EdgeInsets.all(5),
+                  child:Card(
+                  color:Colors.white,
+                  elevation: 0,
+                  child: Container(
+                    height: 400,
+                    child:  activity && activityItems.isEmpty
+                        ? Center(
+                            child: SizedBox(
+                              height: 24.0,
+                              width: 24.0,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2.5,
+                                valueColor: AlwaysStoppedAnimation<Color>(Colors.blue),
+                              ),
+                            ),
+                          )
+                        :activityItems.isEmpty
+                                    ? Center(child:Text("No activities yet",style: TextStyle(color:Colors.black),))
+                                    : Stack(
+                                      children: [
+                                        ListView.separated
+                        (
+                          physics: AlwaysScrollableScrollPhysics(),
+                          shrinkWrap: true,
+                          controller: _scrollController,
+                          itemCount: activityItems.length + (hasMoreData ? 1 : 0),
+                          itemBuilder: (BuildContext context, int index) 
+                          {
+                            if (index < activityItems.length) 
+                            {
+                              final activity = activityItems[index];
+                              final title = activity['cb_category'] ?? 'Activity';
+                              final message = activity['cb_message_text'] ?? '';
+                              final date = activity['cb_message_datetime'] ?? '';
+                              final lead_image=activity['cb_lead_image_url']??'';
+                              final lead_name=activity['cb_lead_name']??'';
+                              final lead_email=activity['cb_lead_email']??'';
+                              final date_time= activity['cb_message_datetime']??'';
+                              final lead_mobile =activity['cb_lead_mobile']??'';
+                              final platform =activity['platform']??'';
+                              final cb_message_text=activity['cb_message_text']??'';
+                              dynamic laststatus_name=activity['last_status_name']??'';
+                              final last_status_name_color=activity['last_message_status_color_code'];
+                              final status=activity['cb_message_status']??'';
+                              final message_type = activity['cb_message_type'] ?? '';
+                              Widget? statusWidget = getStatusWidget(status,message_type);
+                              final source_from=activity['source_from']??'';
+                              final conversation_id=activity['conversation_id']??'';
+                              final ticket_alis=activity['cb_ticket_alias']??'';
+                              final message_date_time=activity['cb_message_datetime']??'';
+                              final department_name=activity['cb_department_name']??'';
+                              final assigned_agent_name=activity['assigned_agent']??'';
+                              final agent_id=activity['cb_agent_id']??'';
+                              final conversation_created_by=activity['conversation_created_by']??'';
+                                        
+
+                              return Column
+                              (
+                                children: [
+
+                                ListTile
+                                (
+                                  /* contentPadding: EdgeInsets.only(left:20,right: 10), */
+                                  contentPadding: EdgeInsets.all(10),
+                                  /* onTap: () 
+                                  {
+                                    if(platform=='ticket'){
+                                      Navigator.push
+                                      (
+                                        context,
+                                        MaterialPageRoute
+                                        (
+                                          builder: (context) => Ticketsdetails
+                                          (
+                                            ticket_id: conversation_id, 
+                                            time: message_date_time, 
+                                            ticket_name: lead_name, 
+                                            ticket_status_id: '', 
+                                            ticket_department_name: department_name, 
+                                            ticket_agent_name: assigned_agent_name, 
+                                            status_name: laststatus_name, 
+                                            agent_id: agent_id, 
+                                            conversation_created_by: conversation_created_by, 
+                                            profile_image: lead_image
+                                          )
+                                        ),
+                                      );
+                                    }
+                                    else{
+                                      Navigator.push
+                                      (
+                                        context,
+                                        MaterialPageRoute
+                                        (
+                                          builder: (context) => ChatPage
+                                          (
+                                            cb_lead_name: activity['cb_lead_name'],
+                                            img: activity['cb_lead_image_url']??'',
+                                            cb_lead_id: activity['cb_lead_id'],
+                                            cb_message_datetime: activity['cb_message_datetime'],
+                                            to_mobile: activity['to_mobile'],
+                                            platform: activity['platform'],
+                                            conversation_id: conversation_id,
+                                            departname:activity['cb_department_name']??'',
+                                            agent_name:activity['last_agent_name']??'',
+                                            status:laststatus_name,
+                                            appname: '',
+                                            agent_id: activity['cb_last_agent_id']??'',
+                                            email_id: activity['cb_lead_email']??'',
+                                            mobile_number: activity['cb_lead_mobile']??'',
+                                            cb_lead_alias: '',
+                                          ),
+                                        ),
+                                      );
+                                    }
+                                  }, */
+                                  title: 
+                                  Row(
+                                    children: [
+                                      GestureDetector(
+                                            /* onTap: () {
+                                              Navigator.of(context).push(
+                                                MaterialPageRoute(
+                                                  builder: (context) => PickView(
+                                                    image: lead_image,
+                                                    title: lead_name,
+                                                    to_mobile:lead_mobile,
+                                                  ),
+                                                ),
+                                              );
+                                            }, */
+                                            child: Container
+                                            (
+                                              margin: EdgeInsets.only(left: 3),
+                                              width: 55,
+                                              child: Stack
+                                              (
+                                                alignment: Alignment.centerLeft,
+                                                children: 
+                                                [
+                                                  (() 
+                                                  {
+                                                    if (lead_image =='') 
+                                                    {
+                                                      if (lead_name =='') 
+                                                      {
+                                                        return CircleAvatar
+                                                        (
+                                                          radius: 24,
+                                                          backgroundColor:Colors.grey,
+                                                          child: Text('Anonymous'[0].toUpperCase(),style:TextStyle(
+                                                            fontSize: 22,
+                                                            color: Colors.white,
+                                                            fontWeight: FontWeight.bold,
+                                                          ),),
+                                                        );
+                                                      } 
+                                                      else 
+                                                      {
+                                                        return CircleAvatar
+                                                        (
+                                                          radius: 24,
+                                                          backgroundColor:Colors.grey,
+                                                          child: Text
+                                                          (
+                                                            lead_name[0].toUpperCase(),style:TextStyle(
+                                                            /* fontSize: 17.sp, */
+                                                            color: Colors.white,
+                                                            /* fontWeight: FontWeight.bold, */
+                                                          ),
+                                                          ),
+                                                        );
+                                                      }
+                                                    } 
+                                                    else 
+                                                    {
+                                                      
+                                                        try 
+                                                        {
+                                                          return CircleAvatar
+                                                          (
+                                                            radius: 24,
+                                                            backgroundColor:Colors.grey,
+                                                            backgroundImage: NetworkImage(lead_image),
+                                                          );
+                                                        } 
+                                                        catch (e) 
+                                                        {
+                                                          return CircleAvatar
+                                                          (
+                                                            radius: 24,
+                                                            backgroundColor:Colors.grey,
+                                                            child: Text
+                                                            (
+                                                              lead_name.isNotEmpty ? lead_name[0].toUpperCase() : 'A',
+                                                              style:TextStyle(
+                                                                fontSize: 17,
+                                                                color: Colors.white,
+                                                                /* fontWeight: FontWeight.bold, */
+                                                              ),
+                                                            ),
+                                                          );
+                                                        }
+                                                      
+                                                    }
+                                                  }()),
+                                                  SizedBox(height: 5),
+                                                  Positioned(
+                                                    bottom: 0,
+                                                    left: 0,
+                                                    child: ClipOval(
+                                                      child: CircleAvatar(
+                                                        backgroundColor: Colors.white,
+                                                        radius: 9,
+                                                        child: get_platform_widget(platform),
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                          ),
+                                      SizedBox(width: 8),
+                                      Expanded(
+                                        child: Column(
+                                          mainAxisAlignment: MainAxisAlignment.center,
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              (lead_name != null && lead_name.isNotEmpty)
+                                                  ? lead_name
+                                                  : lead_email,
+                                              style: TextStyle(
+                                                fontSize:14,
+                                                fontFamily: 'Work Sans',
+                                                fontWeight: FontWeight.w600,
+                                                color: Colors.black,
+                                              ),
+                                              overflow: TextOverflow.ellipsis,
+                                              maxLines: 1,
+                                            ),
+                                            SizedBox(height: 4),
+                                            Text(
+                                              date_time,
+                                              style: TextStyle(
+                                                fontSize: 12,
+                                                fontFamily: 'Work Sans',
+                                                fontWeight: FontWeight.w400,
+                                                color: Colors.black,
+                                              ),
+                                            ),
+                                            SizedBox(height: 4),
+                                            SizedBox(height: 4),
+                                              Row(
+                                                children: [
+                                                  if (statusWidget != null) statusWidget!,
+                                                  if (statusWidget != null) SizedBox(width: 2),
+                                                  Expanded(
+                                                    child: Text(
+                                                      cb_message_text,
+                                                      style: TextStyle(
+                                                        color: Colors.grey,
+                                                        fontSize: 12,
+                                                        fontFamily: 'Work Sans',
+                                                        fontWeight: FontWeight.w400,
+                                                      ),
+                                                      overflow: TextOverflow.ellipsis,
+                                                      maxLines: 3,
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                          ],
+                                        ),
+                                      ),
+                                    ], 
+                                  ),
+                                  trailing: Column(
+                                    mainAxisSize: MainAxisSize.max, 
+                                    crossAxisAlignment: CrossAxisAlignment.end, 
+                                    children: [
+                                      SizedBox(height: 20),
+                                      _buildStatus(laststatus_name,last_status_name_color),
+                                    ]
+                                  ),
+                                ),
+                                ],
+                              );
+                            } 
+                            else 
+                            {
+                              return const SizedBox.shrink();
+                            }
+                          },
+                          separatorBuilder: (context, index) => Container(
+                            margin: EdgeInsets.only(left: MediaQuery.of(context).size.width * 0.16),
+                            child: const Divider(
+                              height: 10,
+                              color: Color.fromARGB(255, 150, 150, 150),/* Color(0xFFD0D0D0), */
+                            ),
+                          ),
+                        ),
+                        if (activity && activityItems.isEmpty)
+                              Center(child: CircularProgressIndicator()),
+                      ],
+                    ),
+                  ),
+                ), 
+                ),
+            ],
             if(widget.page !='ticket')...[
               if(conversations!=[])
               Padding(
@@ -779,6 +1239,64 @@ Widget _buildStatusBadge(String? status_name) {
     ),
   );
 }
+
+Widget _buildStatus(String? status_name,String? status_color) {
+    Color badgeColor;
+    String statusText;
+    
+    Color _parseColor(String hexColor) {
+      final buffer = StringBuffer();
+      if (hexColor.length == 7) buffer.write('ff'); // Add 100% opacity
+      buffer.write(hexColor.replaceFirst('#', ''));
+      return Color(int.parse(buffer.toString(), radix: 16));
+    }
+
+    if (status_name == null || status_name.isEmpty || status_name == 'New') 
+    {
+      badgeColor = Color(0xFF17A2B8);
+      statusText = 'New';
+    } else if (status_name == 'Open') {
+      badgeColor = Color(0xFF3B7DDD);
+      statusText =status_name;
+    } else if (status_name == 'Pending') {
+      badgeColor = Color(0xFFFCB92C);
+      statusText = status_name;
+    } else if (status_name == 'Resolved') {
+      badgeColor = Color(0xFF1CBB8C);
+      statusText = status_name;
+    } else if (status_name == 'Reopen' ||status_name == 'Unassigned' ||status_name == 'Incomplete' ||status_name == 'Spam' ||status_name == 'In Progress' ||status_name == 'Cancelled') {
+      badgeColor = Color(0xFFDC3545);
+      statusText = status_name;
+    } else if (status_name == 'Promotions') {
+      badgeColor = Color(0xFFFCB92C);
+      statusText = status_name;
+    } else if (status_name == 'Social' || status_name == 'Primary' || status_name == 'Updates') {
+      badgeColor = Color(0xFF17A2B8);
+      statusText = status_name;
+    } else {
+      badgeColor=status_color != null && status_color.isNotEmpty
+          ? _parseColor(status_color)
+          : Colors.green; 
+      statusText=status_name;
+    }
+
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: badgeColor,
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Padding(
+        padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        child: Text(
+          statusText,
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 12,
+          ),
+        ),
+      ),
+    );
+  }
 Widget account_icon(String accountPlatform) 
 {
   if (accountPlatform == 'fb_whatsapp') 
@@ -938,6 +1456,24 @@ Widget build_text(String text)
       FontAwesomeIcons.envelope,
       size: 13, 
       color: Colors.blue
+    );
+  } 
+  else if (platform == "google_bm") 
+  {
+    return Icon
+    (
+      FontAwesomeIcons.google,
+      size: 13, 
+      color: Colors.white
+    );
+  } 
+  else if (platform == "ticket") 
+  {
+    return Icon
+    (
+      FontAwesomeIcons.ticket,
+      size: 13, 
+      color: Colors.green
     );
   } 
     else 
