@@ -679,8 +679,323 @@ class _ChatUITextFieldState extends State<ChatUITextField> {
       _isSendEnabled.value = false;
     });
   } 
-  
   @override
+  Widget build(BuildContext context) {
+    final outlineBorder = _outLineBorder;
+    return IntrinsicHeight(
+      child: Align(
+        alignment: Alignment.bottomCenter,
+        child: SizedBox(
+          width: MediaQuery.of(context).size.width,
+          child: SafeArea(
+            bottom: true,
+            left: false,
+            right: false,
+            top: false,
+            child: Stack(
+              children: [
+                Stack(
+                  alignment: Alignment.bottomCenter,
+                  children: [
+                    if (suggestions.isNotEmpty)
+                      Container(
+                        decoration: BoxDecoration(
+                          color: widget.sendMessageConfig?.textFieldBackgroundColor ?? Colors.white,
+                          borderRadius: const BorderRadius.vertical(top: Radius.circular(14)),
+                        ),
+                        margin: const EdgeInsets.only(bottom: 17, right: 0.4, left: 0.4),
+                        padding: const EdgeInsets.fromLTRB(leftPadding, leftPadding, leftPadding, 30),
+                        child: Container(
+                          margin: const EdgeInsets.only(bottom: 2),
+                          padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 6),
+                          decoration: BoxDecoration(
+                            color: Colors.grey.shade200,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: ConstrainedBox(
+                            constraints: BoxConstraints(maxHeight: 150),
+                            child: SingleChildScrollView(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisSize: MainAxisSize.min,
+                                children: suggestions.map((suggestion) {
+                                  Widget mediaWidget;
+                                  switch (suggestion['media_type']) {
+                                    case 'image':
+                                      mediaWidget = Image.network(
+                                        suggestion['media_url'] ?? '',
+                                        width: 50,
+                                        height: 50,
+                                        fit: BoxFit.cover,
+                                      );
+                                      break;
+                                    case 'video':
+                                      mediaWidget = Icon(Icons.video_call, color: Colors.grey);
+                                      break;
+                                    case 'audio':
+                                      mediaWidget = Icon(Icons.audiotrack, color: Colors.grey);
+                                      break;
+                                    case 'file':
+                                      mediaWidget = Icon(Icons.file_copy_outlined, color: Colors.grey);
+                                      break;
+                                    default:
+                                      mediaWidget = Text(
+                                        suggestion['content'] ?? '',
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: TextStyle(color: Colors.black, fontSize: 14),
+                                      );
+                                      break;
+                                  }
+                                  return ListTile(
+                                    contentPadding: EdgeInsets.symmetric(vertical: 0, horizontal: 10),
+                                    dense: true,
+                                    visualDensity: VisualDensity(horizontal: 0, vertical: -3),
+                                    title: Row(
+                                      children: [
+                                        Flexible(
+                                          child: Text(
+                                            '${suggestion['short_code'] ?? 'No Shortcode'} - ',
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: TextStyle(
+                                              color: Colors.black,
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 14,
+                                            ),
+                                          ),
+                                        ),
+                                        SizedBox(width: 5),
+                                        Flexible(child: mediaWidget),
+                                      ],
+                                    ),
+                                    onTap: () async {
+                                      if (suggestion['media_url'] != '') {
+                                        Future<File> _fileFromImageUrl(image_url) async {
+                                          final fileName = image_url.split('/').last;
+                                          final response = await http.get(Uri.parse(image_url));
+                                          final documentDirectory = await getApplicationDocumentsDirectory();
+                                          final file = File(join(documentDirectory.path, fileName));
+                                          file.writeAsBytesSync(response.bodyBytes);
+                                          return file;
+                                        }
+
+                                        String getFileExtension(String fileName) {
+                                          return ".${fileName.split('.').last}".toLowerCase();
+                                        }
+
+                                        final prefs = await SharedPreferences.getInstance();
+                                        final String? uuid = prefs.getString('uuid');
+                                        final String? team_alias = prefs.getString('team_alias');
+                                        final String? cb_lead_id = prefs.getString('cb_lead_id');
+                                        final String? platform = prefs.getString('platform');
+                                        final String? conversation_id = prefs.getString('conversation_id');
+                                        String url = base_url + 'api/send_image_message/';
+                                        Map<String, String> headers = {"Authorization": "$uuid|$team_alias"};
+
+                                        var postUri = Uri.parse(url);
+                                        var request = http.MultipartRequest("POST", postUri);
+                                        request.fields['cb_lead_id'] = "$cb_lead_id";
+                                        request.fields['platform'] = "$platform";
+                                        request.fields['message_body'] = '';
+                                        request.fields['conversation_id'] = "$conversation_id";
+                                        request.fields['cb_message_source'] = 'android';
+                                        request.headers.addAll(headers);
+                                        String extension = getFileExtension("${suggestion['media_url']}");
+                                        String media_type = "file";
+                                        if (extension == '.jpeg' || extension == '.jpg' || extension == '.png') {
+                                          media_type = "image";
+                                        } else if (extension == '.mp4') {
+                                          media_type = "video";
+                                        } else if (extension == '.mp3') {
+                                          media_type = "audio";
+                                        }
+
+                                        var uploadfile = await _fileFromImageUrl(suggestion['media_url']);
+                                        request.files.add(await http.MultipartFile.fromPath('file', uploadfile.path, contentType: MediaType('application', media_type)));
+                                        final response = await request.send();
+                                        final responseData = await response.stream.toBytes();
+                                        final responseString = String.fromCharCodes(responseData);
+                                      } else {
+                                        widget.textEditingController.text = suggestion['content'] ?? '';
+                                      }
+                                      setState(() {
+                                        suggestions = [];
+                                      });
+                                    },
+                                  );
+                                }).toList(),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    // The rest of your input bar starts here
+                    Container(
+                          padding: textFieldConfig?.padding ?? const EdgeInsets.symmetric(horizontal: 4), /* new */
+                          margin: textFieldConfig?.margin,
+                          decoration: BoxDecoration(
+                            borderRadius: textFieldConfig?.borderRadius ?? BorderRadius.circular(textFieldBorderRadius),
+                            color: sendMessageConfig?.textFieldBackgroundColor ?? Colors.white,
+                          ),
+                          child: ValueListenableBuilder<bool>(
+                            valueListenable: isRecording,
+                            builder: (_, isRecordingValue, child) {
+                              return Row(
+                                children: [
+                                  if (isRecordingValue && controller != null && !kIsWeb)
+                                    AudioWaveforms(
+                                      size: Size(MediaQuery.of(context).size.width * 0.75, 50),
+                                      recorderController: controller!,
+                                      margin: voiceRecordingConfig?.margin,
+                                      padding: voiceRecordingConfig?.padding ?? const EdgeInsets.symmetric(horizontal: 8),
+                                      decoration: voiceRecordingConfig?.decoration ?? BoxDecoration(
+                                        color: voiceRecordingConfig?.backgroundColor,
+                                        borderRadius: BorderRadius.circular(12.0),
+                                      ),
+                                      waveStyle: voiceRecordingConfig?.waveStyle ?? WaveStyle(
+                                        extendWaveform: true,
+                                        showMiddleLine: false,
+                                        waveColor: voiceRecordingConfig?.waveStyle?.waveColor ?? Colors.black,
+                                      ),
+                                    )
+                                  else
+                                    Expanded(
+                                      child: TextField(
+                                        /* focusNode: widget.focusNode, */
+                                        cursorColor: Colors.black,    
+                                        autofocus: widget.autofocus,
+                                        controller: widget.textEditingController,
+                                        style: textFieldConfig?.textStyle ?? const TextStyle(color: Colors.white),
+                                        maxLines: textFieldConfig?.maxLines ?? 5,
+                                        minLines: textFieldConfig?.minLines ?? 1,
+                                        keyboardType: textFieldConfig?.textInputType,
+                                        inputFormatters: textFieldConfig?.inputFormatters,
+                                        onChanged: _onChanged,
+                                        textCapitalization: textFieldConfig?.textCapitalization ?? TextCapitalization.sentences,
+                                        decoration: InputDecoration(
+                                          hintText: textFieldConfig?.hintText ?? PackageStrings.message,
+                                          fillColor: sendMessageConfig?.textFieldBackgroundColor ?? Colors.white,
+                                          filled: true,
+                                          hintStyle: textFieldConfig?.hintStyle ?? TextStyle(
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.w400,
+                                            color: Colors.grey.shade600,
+                                            letterSpacing: 0.25,
+                                          ),
+                                          contentPadding: textFieldConfig?.contentPadding ?? const EdgeInsets.symmetric(horizontal: 6),
+                                          border: _outLineBorder,
+                                          focusedBorder: _outLineBorder,
+                                          enabledBorder: OutlineInputBorder(
+                                            borderSide: const BorderSide(color: Colors.transparent),
+                                            borderRadius: textFieldConfig?.borderRadius ?? BorderRadius.circular(textFieldBorderRadius),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ValueListenableBuilder<String>(
+                                    valueListenable: _inputText,
+                                    builder: (_, inputTextValue, child){
+                                      if (inputTextValue.isNotEmpty) {
+                                        return Row(
+                                          mainAxisAlignment: MainAxisAlignment.end,
+                                          children: [
+                                              IconButton(
+                                                onPressed: () {
+                                                  final inputText = widget.textEditingController.text;
+                                                  if (inputText.isNotEmpty) {
+                                                    _show_dialog_fetch_response(context, inputText);
+                                                    widget.textEditingController.clear(); 
+                                                    _inputText.value = '';
+                                                  } else {
+                                                    _inputText.value = '';
+                                                  }
+                                                },
+                                                icon: const FaIcon(
+                                                  FontAwesomeIcons.magicWandSparkles,
+                                                  size: 18,
+                                                  color: Colors.black,
+                                                ),
+                                              ),
+                                            IconButton(
+                                              color: sendMessageConfig?.defaultSendButtonColor ?? Colors.green,
+                                              onPressed: () {
+                                                widget.onPressed();
+                                                _inputText.value = '';
+                                              },
+                                              icon: sendMessageConfig?.sendButtonIcon ?? const Icon(Icons.send),
+                                              ),
+                                        ],
+                                      );
+                                      } else {
+                                        return Row(
+                                          children: [
+                                            if (!isRecordingValue) ...[
+                                              if (sendMessageConfig?.enableCameraImagePicker ?? true)
+                                                IconButton(
+                                                  constraints: const BoxConstraints(),
+                                                  onPressed: () => /* _onIconPressed(
+                                                    ImageSource.camera,
+                                                    config: sendMessageConfig?.imagePickerConfiguration,
+                                                  ), */{},
+                                                  icon: imagePickerIconsConfig?.cameraImagePickerIcon ?? Icon(
+                                                    Icons.camera_alt_outlined,
+                                                    color: imagePickerIconsConfig?.cameraIconColor,
+                                                  ),
+                                                ),
+                                              if (sendMessageConfig?.enableGalleryImagePicker ?? true)
+                                                IconButton(
+                                                  constraints: const BoxConstraints(),
+                                                  onPressed: () => _onIconPressed(
+                                                    context,
+                                                    ImageSource.gallery,
+                                                    config: sendMessageConfig?.imagePickerConfiguration,
+                                                  ),
+                                                  icon: imagePickerIconsConfig?.galleryImagePickerIcon ?? Icon(
+                                                    Icons.image,
+                                                    color: imagePickerIconsConfig?.galleryIconColor,
+                                                  ),
+                                                ),
+                                              
+                                              if(inputTextValue.isEmpty)  
+                                                IconButton(
+                                                  onPressed: () {
+                                                    widget.onAIPressed();
+                                                  },
+                                                  icon: const FaIcon(
+                                                    FontAwesomeIcons.magicWandSparkles,
+                                                    size: 18,
+                                                    color: Colors.black,
+                                                  ),
+                                                ),  
+                                            ],
+                                            if (sendMessageConfig?.allowRecordingVoice ?? true && Platform.isIOS && Platform.isAndroid && !kIsWeb)
+                                              IconButton(
+                                                onPressed: _recordOrStop,
+                                                icon: (isRecordingValue ? voiceRecordingConfig?.micIcon : voiceRecordingConfig?.stopIcon) ?? Icon(isRecordingValue ? Icons.stop : Icons.mic),
+                                                color: voiceRecordingConfig?.recorderIconColor,
+                                              )
+                                          ],
+                                        );
+                                      }
+                                    },
+                                  ),
+                                ],
+                              );
+                            },
+                          ),
+                        ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+ /*  @override
   Widget build(BuildContext context) 
   {
 
@@ -693,7 +1008,7 @@ class _ChatUITextFieldState extends State<ChatUITextField> {
         child: SizedBox
         (
           width: MediaQuery.of(context).size.width,
-          //height:MediaQuery.of(context).size.height, new
+          //height:MediaQuery.of(context).size.height,
           child: Stack
           (
             children: 
@@ -1071,7 +1386,7 @@ class _ChatUITextFieldState extends State<ChatUITextField> {
         ),
      ),
     );
-  }
+  } */
   Future<void> _recordOrStop() async {
     assert(
       defaultTargetPlatform == TargetPlatform.iOS ||
