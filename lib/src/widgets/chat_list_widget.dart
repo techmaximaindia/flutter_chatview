@@ -383,18 +383,20 @@ void _showCustomMessagePopup({
                 elevation: 8,
                 borderRadius: BorderRadius.circular(25),
                 child: Container(
-                  width: 280, // Fixed width like in your image
+                  width: 300,
+                  //height:screenHeight,
                   padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: Colors.grey[900], // Dark background
+                   decoration: BoxDecoration(
+                    //color:Color(0xFF90CAF9),
+                    color:Colors.white,
                     borderRadius: BorderRadius.circular(25),
-                    boxShadow: [
+                    /* boxShadow: [
                       BoxShadow(
                         color: Colors.black26,
                         blurRadius: 10,
                         offset: Offset(0, 4),
                       ),
-                    ],
+                    ], */
                   ),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceAround,
@@ -631,14 +633,14 @@ Widget _buildPopupAction({
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 18, color: Colors.white),
+            Icon(icon, size: 18, color: Colors.black),
             const SizedBox(height: 2),
             Text(
               text,
               style: const TextStyle(
-                color: Colors.white,
+                color: Colors.black,
                 fontSize: 10,
-                fontWeight: FontWeight.w500,
+                letterSpacing: 0.25,
               ),
               textAlign: TextAlign.center,
               maxLines: 2,
