@@ -284,8 +284,9 @@ class _TypingIndicatorState extends State<TypingIndicator>
             margin: EdgeInsets.symmetric(horizontal: indicatorSpacing),
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: Color.lerp(flashingCircleDarkColor,
-                  flashingCircleBrightColor, circleColorPercent),
+              color:Color(0xFF90CAF9),
+              /* color: Color.lerp(flashingCircleDarkColor,
+                  flashingCircleBrightColor, circleColorPercent), */
             ),
           ),
         );

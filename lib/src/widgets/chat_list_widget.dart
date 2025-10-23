@@ -38,6 +38,7 @@ import '../utils/constants/constants.dart';
 import 'reaction_popup.dart';
 import 'reply_popup_widget.dart';
 
+import 'reply_popup_overlay.dart';
 class ChatListWidget extends StatefulWidget {
   const ChatListWidget({
     Key? key,
@@ -125,6 +126,11 @@ class _ChatListWidgetState extends State<ChatListWidget>
   ValueNotifier<bool> showPopUp = ValueNotifier(false);
   final GlobalKey<ReactionPopupState> _reactionPopupKey = GlobalKey();
 
+  ValueNotifier<bool> replyshowPopUp = ValueNotifier(false);
+  
+  final GlobalKey<ReplyPopupState> _replyPopupKey = GlobalKey();
+  
+
   ChatController get chatController => widget.chatController;
 
   List<Message> get messageList => chatController.initialMessageList;
@@ -138,6 +144,7 @@ class _ChatListWidgetState extends State<ChatListWidget>
 
   FeatureActiveConfig? featureActiveConfig;
   ChatUser? currentUser;
+  Message? _selectedMessage;
 
   @override
   void initState() {
@@ -228,21 +235,59 @@ class _ChatListWidgetState extends State<ChatListWidget>
                         showPopUp.value = true;
                       }
                       if (featureActiveConfig?.enableReplySnackBar ?? false) {
-                        _showReplyPopup(
+                        _replyPopupKey.currentState?.refreshWidget(
                           message: message,
-                          sendByCurrentUser: message.sendBy == currentUser?.id,
+                          xCoordinate: xCoordinate,
+                          yCoordinate: yCoordinate < 0
+                              ? -(yCoordinate) - 5
+                              : yCoordinate,
                         );
+                        replyshowPopUp.value = true;
                       }
+                      
                     },
-                    onChatListTap: _onChatListTap,
+                    onChatListTap:_onChatListTap,
                   ),
-                  if (featureActiveConfig?.enableReactionPopup ?? false)
+                  
+                  if (featureActiveConfig?.enableReplySnackBar ?? false)
+                      ValueListenableBuilder<bool>(
+                        valueListenable: replyshowPopUp,
+                        builder: (_, showReplyValue, __) {
+                          return ReplyPopup(
+                            key: _replyPopupKey,
+                            onTap: () {
+                              replyshowPopUp.value = false;
+                              _onChatListTap();
+                            },
+                            replyshowPopUp: showReplyValue,
+                            onReplyTap: (message) {
+                              
+                              widget.assignReplyMessage(message);
+                            },
+                            onCopyTap: (message) {
+                              
+                              Clipboard.setData(ClipboardData(text: message.message));
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text('Copied to clipboard'),
+                                  duration: Duration(seconds: 1),
+                                ),
+                              );
+                            },
+                            onTranslateTap: (message) {
+                              _translateMessage(message);
+                            },
+                          );
+                        },
+                      ),
+                    
+                  /* if (featureActiveConfig?.enableReactionPopup ?? false)
                     ReactionPopup(
                       key: _reactionPopupKey,
                       reactionPopupConfig: widget.reactionPopupConfig,
                       onTap: _onChatListTap,
                       showPopUp: showPopupValue,
-                    ),
+                    ), */
                 ],
               );
             },
@@ -263,348 +308,6 @@ class _ChatListWidgetState extends State<ChatListWidget>
     }
   }
 
-  /*void _showReplyPopup({
-    required Message message,
-    required bool sendByCurrentUser,
-  }) async {
-    final replyPopup = widget.replyPopupConfig;
-    ScaffoldMessenger.of(context)
-        .showSnackBar(
-          SnackBar(
-            duration: const Duration(seconds: 10),
-            backgroundColor: Colors.blue/* replyPopup?.backgroundColor */ ?? Colors.white,
-            content: replyPopup?.replyPopupBuilder != null
-                ? replyPopup!.replyPopupBuilder!(message, sendByCurrentUser)
-                : ReplyPopupWidget(
-                  message: message,
-                    buttonTextStyle: replyPopup?.buttonTextStyle,
-                    topBorderColor: replyPopup?.topBorderColor,
-                    onMoreTap: () {
-                      _onChatListTap();
-                      if (replyPopup?.onMoreTap != null) {
-                        replyPopup?.onMoreTap!();
-                      }
-                    },
-                    onReportTap: () {
-                      _onChatListTap();
-                      if (replyPopup?.onReportTap != null) {
-                        replyPopup?.onReportTap!();
-                      }
-                    },
-                    onUnsendTap: () {
-                      _onChatListTap();
-                      if (replyPopup?.onUnsendTap != null) {
-                        /* replyPopup?.onUnsendTap!(message); */
-                      }
-                    },
-                    onReplyTap: () {
-                      widget.assignReplyMessage(message);
-                      if (featureActiveConfig?.enableReactionPopup ?? false) {
-                        showPopUp.value = false;
-                      }
-                      ScaffoldMessenger.of(context).hideCurrentSnackBar();
-                      if (replyPopup?.onReplyTap != null) {
-                        replyPopup?.onReplyTap!(message);
-                      }
-                    },
-                    sendByCurrentUser: sendByCurrentUser,
-                  ),
-            padding: EdgeInsets.zero,
-          ),
-        )
-        .closed;
-  }*/
- /*  void _showReplyPopup({
-  required Message message,
-  required bool sendByCurrentUser,
-}) {
-  final replyPopup = widget.replyPopupConfig;
-  final BuildContext? context = this.context;
-  if (context == null) return;
-
-  _showCustomMessagePopup(
-    context: context,
-    message: message,
-    sendByCurrentUser: sendByCurrentUser,
-    replyPopup: replyPopup,
-  );
-} */
-void _showReplyPopup({
-  required Message message,
-  required bool sendByCurrentUser,
-}) {
-  final replyPopup = widget.replyPopupConfig;
-  final BuildContext? context = this.context;
-  if (context == null) return;
-
-  _showCustomMessagePopup(
-    context: context,
-    message: message,
-    sendByCurrentUser: sendByCurrentUser,
-    replyPopup: replyPopup,
-  );
-}
-
-void _showCustomMessagePopup({
-  required BuildContext context,
-  required Message message,
-  required bool sendByCurrentUser,
-  required ReplyPopupConfiguration? replyPopup,
-}) {
-  // Calculate position - you might need to adjust this based on your message widget position
-  final screenWidth = MediaQuery.of(context).size.width;
-  final screenHeight = MediaQuery.of(context).size.height;
-  
-  showDialog(
-    context: context,
-    barrierColor: Colors.transparent, // Make background transparent
-    builder: (context) {
-      return Stack(
-        children: [
-          // Background overlay that closes when tapped
-          Positioned.fill(
-            child: GestureDetector(
-              onTap: () {
-                Navigator.of(context).pop();
-                _onChatListTap();
-              },
-              child: Container(
-                color: Colors.transparent,
-              ),
-            ),
-          ),
-          // Custom popup positioned near the center/bottom
-          Positioned(
-            bottom: MediaQuery.of(context).size.height * 0.3, // Adjust this value to position vertically
-            left: 20,
-            right: 20,
-            child: Center(
-              child: Material(
-                elevation: 8,
-                borderRadius: BorderRadius.circular(25),
-                child: Container(
-                  width: 300,
-                  //height:screenHeight,
-                  padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                   decoration: BoxDecoration(
-                    //color:Color(0xFF90CAF9),
-                    color:Colors.white,
-                    borderRadius: BorderRadius.circular(25),
-                    /* boxShadow: [
-                      BoxShadow(
-                        color: Colors.black26,
-                        blurRadius: 10,
-                        offset: Offset(0, 4),
-                      ),
-                    ], */
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceAround,
-                    children: [
-                      _buildPopupAction(
-                        icon: Icons.reply,
-                        text: 'Reply',
-                        onTap: () {
-                          Navigator.of(context).pop();
-                          widget.assignReplyMessage(message);
-                          if (featureActiveConfig?.enableReactionPopup ?? false) {
-                            showPopUp.value = false;
-                          }
-                          if (replyPopup?.onReplyTap != null) {
-                            replyPopup?.onReplyTap!(message);
-                          }
-                        },
-                      ),
-                      _buildPopupAction(
-                        icon: Icons.copy,
-                        text: 'Copy',
-                        onTap: () {
-                          Navigator.of(context).pop();
-                          Clipboard.setData(ClipboardData(text: message.message));
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text('Copied to clipboard'),
-                              duration: Duration(seconds: 1),
-                            ),
-                          );
-                        },
-                      ),
-                      /* _buildPopupAction(
-                        icon: Icons.confirmation_num, // Ticket icon
-                        text: 'Create Ticket',
-                        onTap: () {
-                          Navigator.of(context).pop();
-                          //_createTicket(context, message);
-                        },
-                      ), */
-                      _buildPopupAction(
-                        icon: Icons.translate,
-                        text: 'Translate',
-                        onTap: () {
-                          Navigator.of(context).pop();
-                          _translateMessage(message);
-                        },
-                      ),
-                      /* _buildPopupAction(
-                        icon: Icons.delete_outline,
-                        text: 'Delete',
-                        onTap: () {
-                          Navigator.of(context).pop();
-                          if (replyPopup?.onUnsendTap != null) {
-                            // Handle delete action
-                          }
-                        },
-                      ), */
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ],
-      );
-    },
-  );
-}
-
-/*Widget _buildPopupAction({
-  required IconData icon,
-  required String text,
-  required VoidCallback onTap,
-}) {
-  return InkWell(
-    onTap: onTap,
-    borderRadius: BorderRadius.circular(20),
-    child: Container(
-      padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            icon,
-            size: 20,
-            color: Colors.white,
-          ),
-          SizedBox(height: 4),
-          Text(
-            text,
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 12,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-        ],
-      ),
-    ),
-  );
-} */
-/* void _showCustomMessagePopup({
-  required BuildContext context,
-  required Message message,
-  required bool sendByCurrentUser,
-  required ReplyPopupConfiguration? replyPopup,
-}) {
-  final screenWidth = MediaQuery.of(context).size.width;
-  final screenHeight = MediaQuery.of(context).size.height;
-  
-
-  showDialog(
-    context: context,
-    barrierColor: Colors.transparent,
-    builder: (context) {
-      return Stack(
-        children: [
-          // Tap outside to close
-          Positioned.fill(
-            child: GestureDetector(
-              onTap: () {
-                Navigator.of(context).pop();
-                _onChatListTap();
-              },
-              child: Container(color: Colors.transparent),
-            ),
-          ),
-          // Popup UI
-          Positioned(
-            bottom: MediaQuery.of(context).size.height * 0.3,
-            left: 20,
-            right: 20,
-            child: Center(
-              child: Material(
-                elevation: 8,
-                borderRadius: BorderRadius.circular(25),
-                child: Container(
-                  constraints: BoxConstraints(
-                    minWidth: 280,
-                    maxWidth: screenWidth - 32,
-                  ),
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: Colors.grey[900],
-                    borderRadius: BorderRadius.circular(25),
-                    boxShadow: const [
-                      BoxShadow(
-                        color: Colors.black26,
-                        blurRadius: 10,
-                        offset: Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      _buildPopupAction(
-                        icon: Icons.reply,
-                        text: 'Reply',
-                        onTap: () {
-                          Navigator.of(context).pop();
-                          widget.assignReplyMessage(message);
-                          if (featureActiveConfig?.enableReactionPopup ??
-                              false) {
-                            showPopUp.value = false;
-                          }
-                          if (replyPopup?.onReplyTap != null) {
-                            replyPopup?.onReplyTap!(message);
-                          }
-                        },
-                      ),
-                      _buildPopupAction(
-                        icon: Icons.copy,
-                        text: 'Copy',
-                        onTap: () {
-                          Navigator.of(context).pop();
-                          Clipboard.setData(
-                              ClipboardData(text: message.message));
-                          ScaffoldMessenger.of(this.context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Copied to clipboard'),
-                              duration: Duration(seconds: 1),
-                            ),
-                          );
-                        },
-                      ),
-                      _buildPopupAction(
-                        icon: Icons.translate,
-                        text: 'Translate',
-                        onTap: () {
-                          Navigator.of(context).pop();
-                          _translateMessage(message);
-                        },
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ],
-      );
-    },
-  );
-} */
 
 void _createTicket(BuildContext context, Message message) {
   showModalBottomSheet(
@@ -619,39 +322,7 @@ void _createTicket(BuildContext context, Message message) {
   );
 }
 
-Widget _buildPopupAction({
-  required IconData icon,
-  required String text,
-  required VoidCallback onTap,
-}) {
-  return Expanded(
-    child: InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(20),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 18, color: Colors.black),
-            const SizedBox(height: 2),
-            Text(
-              text,
-              style: const TextStyle(
-                color: Colors.black,
-                fontSize: 10,
-                letterSpacing: 0.25,
-              ),
-              textAlign: TextAlign.center,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ],
-        ),
-      ),
-    ),
-  );
-}
+
 
 Future<void> _translateMessage(Message message) async {
   final prefs = await SharedPreferences.getInstance();
@@ -835,14 +506,16 @@ void _showTranslationDialog(
     },
   );
 }
+ 
   void _onChatListTap() {
     widget.onChatListTap?.call();
-    if (!kIsWeb && (Platform.isIOS || Platform.isAndroid)) {
+     if (!kIsWeb && (Platform.isIOS || Platform.isAndroid)) {
       FocusScope.of(context).unfocus();
     }
     showPopUp.value = false;
+    replyshowPopUp.value = false;
     ScaffoldMessenger.of(context).hideCurrentSnackBar();
-  }
+  } 
 
   @override
   void dispose() {
