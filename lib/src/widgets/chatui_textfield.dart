@@ -456,7 +456,8 @@ class _ChatUITextFieldState extends State<ChatUITextField> {
                 height: _isExpanded ? MediaQuery.of(context).size.height : MediaQuery.of(context).size.height * 0.8,
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
-                    colors: [Color(0xFF0059FC), Color(0xFF820AFF)],
+                    colors: [Color(0xFF6366F1), Color(0xFF820AFF)],
+                    stops: [0.0, 0.8],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),
@@ -562,10 +563,13 @@ class _ChatUITextFieldState extends State<ChatUITextField> {
                           controller: _scrollController,
                           child: Card
                           (
-                            color: Color(0xFF90CAF9), 
-                            shape: RoundedRectangleBorder
-                            (
+                            color: Colors.white,
+                            shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(20),
+                              side: BorderSide(
+                                color: Color(0xFF6366F1),
+                                width: 3,
+                              ),
                             ),
                             elevation: 5,
                             child: Padding
