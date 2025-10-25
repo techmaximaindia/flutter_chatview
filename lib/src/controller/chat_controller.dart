@@ -125,7 +125,41 @@ class ChatController {
     initialMessageList.insertAll(0, messageList);
     messageStreamController.sink.add(initialMessageList);
   }
+  
+  //Function to Delete Particular Message
+  void removeMessageById(String messageId) {
+    // Find the message index
+    int messageIndex = initialMessageList.indexWhere((message) => 
+        message.id == messageId || 
+        message.message_id == messageId);
+    
+    if (messageIndex != -1) {
+      // Get the original message
+      Message originalMessage = initialMessageList[messageIndex];
+      
+      // Create a replacement "deleted" message
+      Message deletedMessage = Message(
+        id: originalMessage.id,
+        message: "This message was deleted by ${originalMessage.profilename}",
+        message_id: originalMessage.message_id,
+        createdAt: originalMessage.createdAt,
+        sendBy: originalMessage.sendBy,
+        replyMessage: originalMessage.replyMessage,
+        reaction: originalMessage.reaction,
+        messageType: MessageType.text, 
+        status: MessageStatus.undelivered,
+        profilename: originalMessage.profilename,
+        
+      );
+      
+      initialMessageList[messageIndex] = deletedMessage;
 
+      if (!messageStreamController.isClosed) {
+        messageStreamController.sink.add(initialMessageList);
+      }
+    }
+  }
+  
   /// Function for getting ChatUser object from user id
   ChatUser getUserFromId(String userId) =>
       chatUsers.firstWhere((element) => element.id == userId);
