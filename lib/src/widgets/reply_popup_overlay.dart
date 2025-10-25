@@ -2,6 +2,10 @@ import 'package:chatview/chatview.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../chatview.dart';
+import '../models/models.dart';
+
+
 class ReplyPopup extends StatefulWidget {
   const ReplyPopup({
     Key? key,
@@ -10,6 +14,8 @@ class ReplyPopup extends StatefulWidget {
     required this.onReplyTap,
     required this.onCopyTap,
     required this.onTranslateTap,
+    required this.onTicketTap,
+    required this.onDeleteTap,
   }) : super(key: key);
 
   final VoidCallBack onTap;
@@ -17,6 +23,8 @@ class ReplyPopup extends StatefulWidget {
   final MessageCallBack onReplyTap;
   final MessageCallBack onCopyTap;
   final MessageCallBack onTranslateTap;
+  final MessageCallBack onTicketTap;
+  final MessageCallBack onDeleteTap;
 
   @override
   ReplyPopupState createState() => ReplyPopupState();
@@ -138,6 +146,46 @@ class ReplyPopupState extends State<ReplyPopup>
             }
           },
         ),
+        if (_message?.profilename != "Bot" && _message?.profilename != "bot")
+          _buildReplyAction(
+            icon: Icons.delete, // Fixed: changed from Icons.Delete to Icons.delete
+            text: 'Delete',
+            onTap: () {
+              widget.onTap();
+              // Add your delete logic here
+              if (_message != null) {
+                // Call delete callback if you add it
+                 widget.onDeleteTap(_message!);
+              }
+            },
+            isDelete: true, // Add this parameter
+          ),
+          if (_message?.profilename != "Bot" && _message?.profilename != "bot")
+            _buildReplyAction(
+              icon: Icons.confirmation_num,
+              text: 'Ticket',
+              onTap: () {
+                widget.onTap();
+                if (_message != null) {
+                 
+                  if (_message!.messageType == MessageType.image || 
+                      _message!.messageType == MessageType.custom) {
+                    // Create a copy of the message with empty message text
+                    Message emptyMessage = Message(
+                      id: _message!.id,
+                      message: "", // Empty message
+                      messageType: _message!.messageType,
+                      sendBy: _message!.sendBy,
+                      createdAt: _message!.createdAt,
+                      // Copy other properties as needed
+                    );
+                    widget.onTicketTap(emptyMessage);
+                  } else {
+                    widget.onTicketTap(_message!);
+                  }
+                }
+              },
+            ),
       ],
     );
 
@@ -145,7 +193,10 @@ class ReplyPopupState extends State<ReplyPopup>
     required IconData icon,
     required String text,
     required VoidCallback onTap,
+    bool isDelete = false, // Add this parameter
   }) {
+    final color = isDelete ? Colors.red : Colors.black; // Red for delete, black for others
+    
     return Expanded(
       child: Material(
         color: Colors.transparent,
@@ -159,18 +210,20 @@ class ReplyPopupState extends State<ReplyPopup>
               children: [
                 Icon(
                   icon,
-                  size: 20,
-                  color: Colors.black,
+                  size: 18,
+                  color: color, // Use the color variable
                 ),
                 const SizedBox(height: 4),
                 Text(
                   text,
                   style: TextStyle(
-                    color: Colors.black,
-                    fontSize: 12,
+                    color: color, // Use the color variable
+                    fontSize: 11,
                     fontWeight: FontWeight.w500,
                   ),
                   textAlign: TextAlign.center,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ],
             ),
