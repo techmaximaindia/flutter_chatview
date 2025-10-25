@@ -1,6 +1,6 @@
 name: chatview
 description: A Flutter package that allows you to integrate Chat View with highly customization options.
-version: 1.9.2
+version: 1.9.3
 issue_tracker: https://github.com/SimformSolutionsPvtLtd/flutter_chatview/issues
 repository: https://github.com/SimformSolutionsPvtLtd/flutter_chatview
 
@@ -37,7 +37,7 @@ dependencies:
   #flutter_widget_from_html: ^0.16.0
   flutter_widget_from_html_core: ^0.16.0
   font_awesome_flutter: ^10.4.0
-
+  file_picker: ^9.0.0 
 dev_dependencies:
   flutter_test:
     sdk: flutter
