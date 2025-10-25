@@ -22,7 +22,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-
+import '../../chatview.dart';
 import '../models/models.dart';
 
 class ChatController {
