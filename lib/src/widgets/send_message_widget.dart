@@ -287,7 +287,9 @@ class SendMessageWidgetState extends State<SendMessageWidget> {
                 height: _isExpanded ? MediaQuery.of(context).size.height : MediaQuery.of(context).size.height * 0.8,
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
-                    colors: [Color(0xFF0059FC), Color(0xFF820AFF)],
+                    colors: [Color(0xFF6366F1), Color(0xFF820AFF)],
+                    stops: [0.0, 0.8],
+                    //colors: [Color(0xFF0059FC), Color(0xFF820AFF)],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),
@@ -393,10 +395,13 @@ class SendMessageWidgetState extends State<SendMessageWidget> {
                           controller: _scrollController,
                           child: Card
                           (
-                            color: Color(0xFF90CAF9), 
-                            shape: RoundedRectangleBorder
-                            (
+                            color: Colors.white,
+                            shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(20),
+                              side: BorderSide(
+                                color: Color(0xFF6366F1),
+                                width: 3,
+                              ),
                             ),
                             elevation: 5,
                             child: Padding
