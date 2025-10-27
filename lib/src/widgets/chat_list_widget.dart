@@ -479,7 +479,7 @@ class _ChatListWidgetState extends State<ChatListWidget>
         'Content-Type': 'application/json',
       };
 
-      var request = http.Request('POST', Uri.parse(base_url+'/api/delete_message/'));
+      var request = http.Request('POST', Uri.parse(base_url+'api/delete_message/'));
       request.body = json.encode({
         "source": "mobileapp",
         "cb_reference_messsage_sid":message.id ?? '',
@@ -809,7 +809,7 @@ class _CreateTicketBottomSheetState extends State<CreateTicketBottomSheet> {
     final String? uuid = prefs.getString('uuid');
     final String? team_alias = prefs.getString('team_alias');
 
-    String url = base_url+'/api/agent/'; 
+    String url = base_url+'api/agent/'; 
 
     try {
       var client = http.Client();
@@ -850,7 +850,7 @@ class _CreateTicketBottomSheetState extends State<CreateTicketBottomSheet> {
     final prefs = await SharedPreferences.getInstance();
     final String? uuid = prefs.getString('uuid');
     final String? team_alias = prefs.getString('team_alias');
-    String url = base_url+'/api/department/'; 
+    String url = base_url+'api/department/'; 
 
     try {
       var client = http.Client();
@@ -891,7 +891,7 @@ class _CreateTicketBottomSheetState extends State<CreateTicketBottomSheet> {
     final prefs = await SharedPreferences.getInstance();
     final String? uuid = prefs.getString('uuid');
     final String? team_alias = prefs.getString('team_alias');
-    String url = base_url+'/api/label/'; 
+    String url = base_url+'api/label/'; 
     try {
       var response = await http.get(
         Uri.parse(url),
@@ -1426,7 +1426,7 @@ class _CreateTicketBottomSheetState extends State<CreateTicketBottomSheet> {
 
         var request = http.MultipartRequest(
           'POST', 
-          Uri.parse(base_url+'/api/ticket/create_ticket/')
+          Uri.parse(base_url+'api/ticket/create_ticket/')
         );
 
         request.fields.addAll({
