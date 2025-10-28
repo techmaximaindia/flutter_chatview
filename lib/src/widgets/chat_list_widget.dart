@@ -798,7 +798,7 @@ class _CreateTicketBottomSheetState extends State<CreateTicketBottomSheet> {
     await Future.wait([
       getagent(),
       getdepartment(),
-      getlabel(),
+      //getlabel(),
     ]);
     setState(() {
       _isLoading = false;
@@ -928,7 +928,7 @@ class _CreateTicketBottomSheetState extends State<CreateTicketBottomSheet> {
     super.dispose();
   }
 
-  @override
+  /* @override
   Widget build(BuildContext context) {
     return Container(
       height: MediaQuery.of(context).size.height * 0.9,
@@ -1313,6 +1313,821 @@ class _CreateTicketBottomSheetState extends State<CreateTicketBottomSheet> {
         ),
       ),
     );
+  } */
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: MediaQuery.of(context).size.height * 0.9,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.only(
+          topLeft: Radius.circular(24),
+          topRight: Radius.circular(24),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 20,
+            spreadRadius: 2,
+          ),
+        ],
+      ),
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        body: Column(
+          children: [
+            // Header Section
+            Container(
+              height: 72,
+              padding: EdgeInsets.symmetric(horizontal: 20),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [Colors.blue[700]!, Colors.blue[600]!],
+                ),
+                borderRadius: BorderRadius.only(
+                  topLeft: Radius.circular(24),
+                  topRight: Radius.circular(24),
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.blue.withOpacity(0.3),
+                    blurRadius: 8,
+                    offset: Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.2),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      Icons.support_agent,
+                      color: Colors.white,
+                      size: 20,
+                    ),
+                  ),
+                  SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Create New Ticket',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 18,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: -0.2,
+                          ),
+                        ),
+                        SizedBox(height: 2),
+                        Text(
+                          'Fill in the details below',
+                          style: TextStyle(
+                            color: Colors.white.withOpacity(0.8),
+                            fontSize: 12,
+                            fontWeight: FontWeight.w400,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.2),
+                      shape: BoxShape.circle,
+                    ),
+                    child: IconButton(
+                      icon: Icon(Icons.close, color: Colors.white, size: 20),
+                      onPressed: () => Navigator.of(context).pop(),
+                      padding: EdgeInsets.zero,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            
+            // Form Content
+            Expanded(
+              child: SingleChildScrollView(
+                padding: EdgeInsets.all(24),
+                physics: BouncingScrollPhysics(),
+                child: Form(
+                  key: _formKey,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Information Card
+                      _buildInfoCard(),
+                      SizedBox(height: 28),
+                      
+                      // Ticket Title
+                      _buildSectionHeader(
+                        title: 'Ticket Title',
+                        required: true,
+                        icon: Icons.title,
+                      ),
+                      SizedBox(height: 8),
+                      _buildTextField(
+                        controller: _titleController,
+                        hintText: 'Enter a brief and clear title that summarizes the issue or request',
+                        validator: (value) {
+                          if (value == null || value.isEmpty) {
+                            return 'Please enter a ticket title';
+                          }
+                          return null;
+                        },
+                      ),
+                      SizedBox(height: 24),
+                      
+                      // Description
+                      _buildSectionHeader(
+                        title: 'Ticket Description',
+                        required: true,
+                        icon: Icons.description,
+                      ),
+                      SizedBox(height: 8),
+                      _buildTextArea(
+                        controller: _descriptionController,
+                        hintText: 'Provide details of the issue or request, including any necessary context or specifics to help resolve it.',
+                        validator: (value) {
+                          if (value == null || value.isEmpty) {
+                            return 'Please enter a ticket description';
+                          }
+                          return null;
+                        },
+                      ),
+                      SizedBox(height: 24),
+                      
+                      // Assigning Agent
+                      _buildSectionHeader(
+                        title: 'Assigning Agent',
+                        icon: Icons.person,
+                      ),
+                      SizedBox(height: 8),
+                      _buildDropdown(
+                        value: _selectedAgent,
+                        hintText: 'Select the agent responsible for addressing this ticket',
+                        items: agentname_list,
+                        onChanged: (String? newValue) {
+                          setState(() {
+                            _selectedAgent = newValue;
+                          });
+                        },
+                      ),
+                      SizedBox(height: 24),
+                      
+                      // Upload Section
+                      _buildSectionHeader(
+                        title: 'Upload Attachment',
+                        icon: Icons.attach_file,
+                      ),
+                      SizedBox(height: 8),
+                      _buildAttachmentSection(),
+                      SizedBox(height: 24),
+                      
+                      // Department
+                      _buildSectionHeader(
+                        title: 'Assigning Department',
+                        icon: Icons.business,
+                      ),
+                      SizedBox(height: 8),
+                      _buildDropdown(
+                        value: _selectedDepartment,
+                        hintText: 'Choose the department best suited to handle this ticket',
+                        items: departmentname_list,
+                        onChanged: (String? newValue) {
+                          setState(() {
+                            _selectedDepartment = newValue;
+                          });
+                        },
+                      ),
+                      //SizedBox(height: 24),
+                      
+                      /* // Labels
+                      _buildSectionHeader(
+                        title: 'Assigning Labels',
+                        icon: Icons.local_offer,
+                      ), */
+                      SizedBox(height: 32),
+                      //_buildLabelsSection(),
+                      //SizedBox(height: 32),
+                      
+                      // Submit Button
+                      _buildSubmitButton(),
+                      SizedBox(height: 20),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Helper Widgets
+  /* Widget _buildInfoCard() {
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Colors.blue[50]!, Colors.grey[50]!],
+        ),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.blue[100]!),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(
+            Icons.info_outline_rounded,
+            color: Colors.blue[600],
+            size: 20,
+          ),
+          SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              'Create and manage customer support tickets by providing a clear title, detailed description, and uploading any necessary files. Assign the ticket to the right contact and team to ensure a quick resolution.',
+              style: TextStyle(
+                color: Colors.grey[700],
+                fontSize: 14,
+                height: 1.5,
+                fontWeight: FontWeight.w400,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  } */
+  Widget _buildInfoCard() {
+    return PreferredSize(
+      preferredSize: const Size.fromHeight(60), // Increased height for more text
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          color: Colors.blue[50],
+          border: Border.all(color: Colors.blue[100]!),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(Icons.info_outline, size: 18, color: Colors.blue[600]),
+            SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                'Create support tickets with clear details and attachments. Assign to the right team for quick resolution.',
+                style: TextStyle(
+                  color: Colors.grey[700],
+                  fontSize: 13,
+                  height: 1.4,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSectionHeader({required String title, bool required = false, required IconData icon}) {
+    return Row(
+      children: [
+        Container(
+          width: 32,
+          height: 32,
+          decoration: BoxDecoration(
+            color: Colors.blue[50],
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(
+            icon,
+            color: Colors.blue[700],
+            size: 16,
+          ),
+        ),
+        SizedBox(width: 12),
+        Text(
+          title,
+          style: TextStyle(
+            fontWeight: FontWeight.w600,
+            fontSize: 16,
+            color: Colors.grey[800],
+            letterSpacing: -0.2,
+          ),
+        ),
+        if (required) ...[
+          SizedBox(width: 4),
+          Text(
+            '*',
+            style: TextStyle(
+              color: Colors.red[400],
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildTextField({
+    required TextEditingController controller,
+    required String hintText,
+    required FormFieldValidator<String> validator,
+  }) {
+    return TextFormField(
+      controller: controller,
+      style: TextStyle(
+        fontSize: 15,
+        fontWeight: FontWeight.w500,
+        color: Colors.grey[800],
+      ),
+      decoration: InputDecoration(
+        hintText: hintText,
+        hintStyle: TextStyle(
+          color: Colors.grey[500],
+          fontWeight: FontWeight.w400,
+        ),
+        hintMaxLines: 2, 
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: Colors.grey[300]!),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: Colors.grey[300]!),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: Colors.blue[400]!, width: 1.5),
+        ),
+        errorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: Colors.red[400]!),
+        ),
+        focusedErrorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: Colors.red[400]!, width: 1.5),
+        ),
+        contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        filled: true,
+        fillColor: Colors.white,
+      ),
+      validator: validator,
+    );
+  }
+
+  Widget _buildTextArea({
+    required TextEditingController controller,
+    required String hintText,
+    required FormFieldValidator<String> validator,
+  }) {
+    return TextFormField(
+      controller: controller,
+      maxLines: 4,
+      style: TextStyle(
+        fontSize: 15,
+        fontWeight: FontWeight.w500,
+        color: Colors.grey[800],
+      ),
+      decoration: InputDecoration(
+        hintText: hintText,
+        hintStyle: TextStyle(
+          color: Colors.grey[500],
+          fontWeight: FontWeight.w400,
+        ),
+        alignLabelWithHint: true,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: Colors.grey[300]!),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: Colors.grey[300]!),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: Colors.blue[400]!, width: 1.5),
+        ),
+        errorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: Colors.red[400]!),
+        ),
+        focusedErrorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: Colors.red[400]!, width: 1.5),
+        ),
+        contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        filled: true,
+        fillColor: Colors.white,
+      ),
+      validator: validator,
+    );
+  }
+
+  Widget _buildDropdown({
+    required String? value,
+    required String hintText,
+    required List<String> items,
+    required ValueChanged<String?> onChanged,
+  }) {
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey[300]!),
+        color: Colors.white,
+      ),
+      child: DropdownButtonFormField<String>(
+        value: value,
+        hint: Padding(
+          padding: EdgeInsets.symmetric(horizontal: 16),
+          child: Text(
+            hintText,
+            style: TextStyle(
+              color: Colors.grey[500],
+              fontSize: 15,
+            ),
+            overflow: TextOverflow.visible,
+          ),
+        ),
+        isExpanded: true,
+        icon: Icon(Icons.arrow_drop_down_rounded, color: Colors.grey[500]),
+        decoration: InputDecoration(
+          border: InputBorder.none,
+          contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        ),
+        dropdownColor: Colors.white,
+        style: TextStyle(
+          fontSize: 15,
+          fontWeight: FontWeight.w500,
+          color: Colors.grey[800],
+        ),
+        items: items.map((String item) {
+          return DropdownMenuItem<String>(
+            value: item,
+            child: Text(item),
+          );
+        }).toList(),
+        onChanged: items.isEmpty ? null : onChanged,
+      ),
+    );
+  }
+
+  Widget _buildAttachmentSection() {
+    return Column(
+      children: [
+        if (_attachments.isNotEmpty) ...[
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.grey[50],
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.grey[200]!),
+            ),
+            child: Column(
+              children: _attachments.map((file) => ListTile(
+                leading: Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: Colors.blue[50],
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: _getFileIcon(file),
+                ),
+                title: Text(
+                  file.name,
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                    color: Colors.grey[800],
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+                subtitle: Text(
+                  '${(file.size / 1024 / 1024).toStringAsFixed(2)} MB',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey[500],
+                  ),
+                ),
+                trailing: IconButton(
+                  icon: Icon(Icons.delete_outline, color: Colors.red[400], size: 20),
+                  onPressed: () => _removeAttachment(file),
+                ),
+                contentPadding: EdgeInsets.symmetric(horizontal: 16),
+              )).toList(),
+            ),
+          ),
+          SizedBox(height: 16),
+        ],
+        
+        // Upload Area
+        Container(
+          width: double.infinity,
+          padding: EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            border: Border.all(
+              color: _attachments.isNotEmpty ? Colors.grey[300]! : Colors.blue[200]!,
+              width: _attachments.isNotEmpty ? 1 : 1.5,
+            ),
+            borderRadius: BorderRadius.circular(16),
+            color: _attachments.isNotEmpty ? Colors.grey[50] : Colors.blue[50]!.withOpacity(0.3),
+          ),
+          child: Column(
+            children: [
+              Container(
+                width: 60,
+                height: 60,
+                decoration: BoxDecoration(
+                  color: _attachments.isNotEmpty ? Colors.grey[300] : Colors.blue[100],
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.attach_file,
+                  size: 28,
+                  color: _attachments.isNotEmpty ? Colors.grey[500] : Colors.blue[600],
+                ),
+              ),
+              SizedBox(height: 16),
+              Text(
+                'Attach a supporting file (max 1 file)',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: Colors.grey[700],
+                  fontSize: 15,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              SizedBox(height: 8),
+              Text(
+                'Upload screenshots or documents to help explain the issue',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: Colors.grey[500],
+                  fontSize: 13,
+                ),
+              ),
+              SizedBox(height: 20),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  _buildUploadButton(
+                    text: 'Files',
+                    icon: Icons.folder_open,
+                    onPressed: _attachments.isNotEmpty ? null : _pickFiles,
+                    color: Colors.blue[700]!,
+                  ),
+                  SizedBox(width: 12),
+                  _buildUploadButton(
+                    text: 'Images',
+                    icon: Icons.photo,
+                    onPressed: _attachments.isNotEmpty ? null : _pickImages,
+                    color: Colors.green[600]!,
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildUploadButton({
+    required String text,
+    required IconData icon,
+    required VoidCallback? onPressed,
+    required Color color,
+  }) {
+    return ElevatedButton(
+      onPressed: onPressed,
+      style: ElevatedButton.styleFrom(
+        backgroundColor: color,
+        foregroundColor: Colors.white,
+        padding: EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(10),
+        ),
+        elevation: 1,
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 18),
+          SizedBox(width: 6),
+          Text(
+            text,
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /* Widget _buildLabelsSection() {
+    return labelnamelist.isEmpty
+        ? Container(
+            padding: EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.grey[50],
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Center(
+              child: Text(
+                'No labels available',
+                style: TextStyle(
+                  color: Colors.grey[500],
+                  fontSize: 14,
+                ),
+              ),
+            ),
+          )
+        : Container(
+            decoration: BoxDecoration(
+              color: Colors.grey[50],
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.grey[200]!),
+            ),
+            padding: EdgeInsets.all(16),
+            child: Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              children: labelnamelist.map((label) {
+                bool isSelected = _selectedLabels.contains(label);
+                return InputChip(
+                  label: Text(
+                    label,
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                      color: isSelected ? Colors.blue[700] : Colors.grey[700],
+                    ),
+                  ),
+                  selected: isSelected,
+                  onSelected: (selected) {
+                    setState(() {
+                      if (selected) {
+                        _selectedLabels.add(label);
+                      } else {
+                        _selectedLabels.remove(label);
+                      }
+                    });
+                  },
+                  selectedColor: Colors.blue[50],
+                  checkmarkColor: Colors.blue[700],
+                  backgroundColor: Colors.white,
+                  shape: StadiumBorder(
+                    side: BorderSide(
+                      color: isSelected ? Colors.blue[200]! : Colors.grey[300]!,
+                    ),
+                  ),
+                  padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                );
+              }).toList(),
+            ),
+          );
+  } */
+  Widget _buildLabelsSection() {
+  return Container(
+    height: 160, // fixed height for consistent UI
+    margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(16),
+      boxShadow: [
+        BoxShadow(
+          color: Colors.grey.withOpacity(0.1),
+          blurRadius: 8,
+          offset: Offset(0, 3),
+        ),
+      ],
+      border: Border.all(color: Colors.grey[200]!),
+    ),
+    child: labelnamelist.isEmpty
+        ? Center(
+            child: Text(
+              'No labels available',
+              style: TextStyle(
+                color: Colors.grey[500],
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          )
+        : Padding(
+            padding: const EdgeInsets.all(12),
+            child: Scrollbar(
+              thumbVisibility: true,
+              radius: Radius.circular(12),
+              thickness: 4,
+              child: SingleChildScrollView(
+                scrollDirection: Axis.vertical, // or Axis.horizontal
+                child: Wrap(
+                  spacing: 10,
+                  runSpacing: 10,
+                  children: labelnamelist.map((label) {
+                    bool isSelected = _selectedLabels.contains(label);
+
+                    return AnimatedContainer(
+                      duration: Duration(milliseconds: 200),
+                      curve: Curves.easeInOut,
+                      child: InputChip(
+                        elevation: isSelected ? 2 : 0,
+                        shadowColor: Colors.blue.withOpacity(0.2),
+                        label: Text(
+                          label,
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: isSelected
+                                ? Colors.blue[800]
+                                : Colors.grey[800],
+                          ),
+                        ),
+                        selected: isSelected,
+                        onSelected: (selected) {
+                          setState(() {
+                            if (selected) {
+                              _selectedLabels.add(label);
+                            } else {
+                              _selectedLabels.remove(label);
+                            }
+                          });
+                        },
+                        selectedColor: Colors.blue[50],
+                        checkmarkColor: Colors.blue[700],
+                        backgroundColor: Colors.grey[50],
+                        shape: StadiumBorder(
+                          side: BorderSide(
+                            color: isSelected
+                                ? Colors.blue[300]!
+                                : Colors.grey[300]!,
+                          ),
+                        ),
+                        padding: EdgeInsets.symmetric(
+                            horizontal: 14, vertical: 8),
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ),
+            ),
+          ),
+  );
+}
+
+  Widget _buildSubmitButton() {
+    return SizedBox(
+      width: double.infinity,
+      height: 54,
+      child: ElevatedButton(
+        onPressed: _submitTicket,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.blue[700],
+          foregroundColor: Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          elevation: 2,
+          shadowColor: Colors.blue.withOpacity(0.3),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.send_rounded, size: 20),
+            SizedBox(width: 8),
+            Text(
+              'Submit Ticket',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+                letterSpacing: -0.2,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   Widget _getFileIcon(PlatformFile file) {
@@ -1436,7 +2251,8 @@ class _CreateTicketBottomSheetState extends State<CreateTicketBottomSheet> {
           'cb_message_id': widget.messageId??'',
           'cb_last_agent_id': selectedAgentId ?? '',
           'cb_last_dept_id': selectedDepartmentId ?? '',
-          'cb_label_id': selectedLabelIds ?? '',
+          //'cb_label_id': selectedLabelIds ?? '',
+          'cb_label_id':'',
         });
 
         for (PlatformFile file in _attachments) {
