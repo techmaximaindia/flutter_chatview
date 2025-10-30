@@ -116,6 +116,7 @@ class ReplyPopupState extends State<ReplyPopup>
   Widget get _replyPopupRow => Row(
       mainAxisAlignment: MainAxisAlignment.spaceAround,
       children: [
+        if(_message?.profilename !='Summary'&& _message?.message_deleted == false)
         _buildReplyAction(
           icon: Icons.reply,
           text: 'Reply',
@@ -126,6 +127,7 @@ class ReplyPopupState extends State<ReplyPopup>
             }
           },
         ),
+        if(_message?.message_deleted==false)
         _buildReplyAction(
           icon: Icons.copy,
           text: 'Copy',
@@ -136,6 +138,7 @@ class ReplyPopupState extends State<ReplyPopup>
             }
           },
         ),
+        if(_message?.profilename !='Summary' && _message?.message_deleted == false)
         _buildReplyAction(
           icon: Icons.translate,
           text: 'Translate',
@@ -146,7 +149,7 @@ class ReplyPopupState extends State<ReplyPopup>
             }
           },
         ),
-        if (_message?.profilename != "Bot" && _message?.profilename != "bot")
+        if (_message?.profilename != "Bot" && _message?.profilename != "bot"&& _message?.profilename !='Summary'&& _message?.message_deleted == false)
           _buildReplyAction(
             icon: Icons.delete, // Fixed: changed from Icons.Delete to Icons.delete
             text: 'Delete',
@@ -158,9 +161,9 @@ class ReplyPopupState extends State<ReplyPopup>
                  widget.onDeleteTap(_message!);
               }
             },
-            isDelete: true, // Add this parameter
+            isDelete: true, 
           ),
-          if (_message?.profilename != "Bot" && _message?.profilename != "bot")
+          if (_message?.profilename != "Bot" && _message?.profilename != "bot" && _message?.profilename !='Summary'&& _message?.message_deleted == false)
             _buildReplyAction(
               icon: Icons.confirmation_num,
               text: 'Ticket',
@@ -186,6 +189,30 @@ class ReplyPopupState extends State<ReplyPopup>
                 }
               },
             ),
+          if (_message?.message_deleted == true)
+          Expanded(
+            child: Container(
+              padding: EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.grey[200],
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.delete_outline, color: Colors.grey[600], size: 16),
+                  SizedBox(width: 8),
+                  Text(
+                    'Message has been deleted',
+                    style: TextStyle(
+                      color: Colors.grey[600],
+                      fontSize: 14,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
       ],
     );
 
