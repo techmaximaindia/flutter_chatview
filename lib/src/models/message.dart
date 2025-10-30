@@ -70,7 +70,7 @@ class Message {
   String? bubble_footer_text;
   final Map<String, dynamic>? cb_message_options_full;
   String? pagetype;
-
+  final bool message_deleted;
   Message({
     this.id = '',
     required this.message,
@@ -92,6 +92,7 @@ class Message {
     this.bubble_footer_text,
     this.cb_message_options_full,
     this.pagetype,
+    this.message_deleted = false, 
     MessageStatus status = MessageStatus.pending,
   })  : reaction = reaction ?? Reaction(reactions: [], reactedUserIds: []),
         key = GlobalKey(),
@@ -138,6 +139,7 @@ class Message {
       cb_message_options_full: json["cb_message_options_full"],
       pagetype: json["pagetype"],
       status: json['status'],
+      message_deleted: json["isDeleted"] ?? false,
     );
 
   Map<String, dynamic> toJson() => {
@@ -158,6 +160,7 @@ class Message {
         'bubble_footer_text':bubble_footer_text,
         'cb_message_options_full':cb_message_options_full,
         'pagetype':pagetype,
-        'status': status.name
+        'status': status.name,
+        'isDeleted': message_deleted,
       };
 }
