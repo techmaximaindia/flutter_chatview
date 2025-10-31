@@ -127,8 +127,10 @@ class ChatController {
   }
   
   //Function to Delete Particular Message
-  void removeMessageById(String messageId) {
+  void removeMessageById(String messageId) async {
     // Find the message index
+    final SharedPreferences prefs = await SharedPreferences.getInstance();
+    final String userName = prefs.getString('name') ?? 'Unknown User';
     int messageIndex = initialMessageList.indexWhere((message) => 
         message.id == messageId || 
         message.message_id == messageId);
@@ -137,10 +139,17 @@ class ChatController {
       // Get the original message
       Message originalMessage = initialMessageList[messageIndex];
       
-      // Create a replacement "deleted" message
+      String? profileNameToUse;
+        if (originalMessage.profilename != '' && originalMessage.profilename != 'Summary') {
+          profileNameToUse = originalMessage.profilename;
+        }
+        else{
+          profileNameToUse='';
+        }
+
       Message deletedMessage = Message(
         id: originalMessage.id,
-        message: "This message was deleted by ${originalMessage.profilename}",
+        message: "This message was deleted by ${userName}",
         message_id: originalMessage.message_id,
         createdAt: originalMessage.createdAt,
         sendBy: originalMessage.sendBy,
@@ -148,7 +157,7 @@ class ChatController {
         reaction: originalMessage.reaction,
         messageType: MessageType.text, 
         status: MessageStatus.undelivered,
-        profilename: originalMessage.profilename,
+        profilename: profileNameToUse,
         
       );
       
