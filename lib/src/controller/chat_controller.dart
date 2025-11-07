@@ -24,6 +24,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import '../../chatview.dart';
 import '../models/models.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class ChatController {
   /// Represents initial message list in chat which can be add by user.
@@ -130,7 +131,7 @@ class ChatController {
   void removeMessageById(String messageId) async {
     // Find the message index
     final SharedPreferences prefs = await SharedPreferences.getInstance();
-    final String userName = prefs.getString('name') ?? 'Unknown User';
+    final String userName = prefs.getString('name') ?? '';
     int messageIndex = initialMessageList.indexWhere((message) => 
         message.id == messageId || 
         message.message_id == messageId);
