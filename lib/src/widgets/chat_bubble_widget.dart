@@ -299,12 +299,16 @@ class _ChatBubbleWidgetState extends State<ChatBubbleWidget> {
           if (isMessageBySender) ...[getReciept(),],
           if (isMessageBySender &&
               (featureActiveConfig?.enableCurrentUserProfileAvatar ?? true))
-            ProfileCircle(
+           ProfileCircle(
               bottomPadding: widget.message.reaction.reactions.isNotEmpty
                   ? profileCircleConfig?.bottomPadding ?? 15
                   : profileCircleConfig?.bottomPadding ?? 2,
               profileCirclePadding: profileCircleConfig?.padding,
-              imageUrl: widget.message.chatmaxima_profile_image??'',
+              imageUrl: (widget.message.profilename == 'Bot' || 
+                widget.message.profilename == 'bot')
+                ? 'https://cdn.chatmaxima.com/images/logo/chatmaxima_bot_40x40_logo.png'
+                : (widget.message.chatmaxima_profile_image ?? ''),
+              //imageUrl: widget.message.chatmaxima_profile_image??'',
               user_names: widget.message.profilename??'',
               circleRadius: profileCircleConfig?.circleRadius,
               onTap: () => _onAvatarTap(messagedUser),
