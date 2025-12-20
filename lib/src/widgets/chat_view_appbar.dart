@@ -30,6 +30,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:http/http.dart' as http;
 import 'profile_page.dart';
+import 'package:chatmaxima/pages/lead.dart';
 
 class ChatViewAppBar extends StatelessWidget {
   const ChatViewAppBar({
@@ -156,7 +157,16 @@ class ChatViewAppBar extends StatelessWidget {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (context) => profilepage(chatTitle: chatTitle,profilePicture: profilePicture,platform: platform,mobile: mobile_number,profile_email: email_id,lead_id: lead_id,aliasuse: alias_to_use),
+                      builder: (context) => lead(
+                        cb_lead_name: chatTitle,
+                        lead_alias: alias_to_use ?? '',
+                        img: profilePicture ?? '',
+                        cb_lead_id: lead_id ?? '',
+                        cb_lead_email: email_id ?? '',
+                        account_platform: platform ?? '',
+                        to_mobile: mobile_number ?? '',
+                        distinct_alias: alias_to_use ?? '',
+                      ),
                     ),
                   );
                 }
