@@ -1442,12 +1442,97 @@ class _ChatUITextFieldState extends State<ChatUITextField> {
   }
 } */
 
+void _showCustomNotification(BuildContext context) {
+  OverlayEntry? overlayEntry;
+  
+  overlayEntry = OverlayEntry(
+    builder: (context) => Positioned(
+      bottom: 20,
+      left: 20,
+      right: 20,
+      child: Material(
+        color: Colors.transparent,
+        child: Container(
+          padding: EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: const Color(0xFFFF6B35), 
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black26,
+                blurRadius: 10,
+              ),
+            ],
+          ),
+          child: Row(
+            children: [
+              Icon(Icons.error_outline, color: Colors.white),
+              SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                        'Unsupported File Format',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w300,
+                          fontSize: 16,
+                          color: Colors.white,
+                        ),
+                      ),
+                      SizedBox(height: 4),
+                      Text(
+                        'The selected format is not supported by WhatsApp.',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.white,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              IconButton(
+                icon: Icon(Icons.close, color: Colors.white, size: 20),
+                onPressed: () {
+                  if (overlayEntry != null && overlayEntry!.mounted) {
+                    overlayEntry!.remove();
+                    overlayEntry = null; // Clear the reference
+                  }
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    ),
+  );
+  
+  Overlay.of(context).insert(overlayEntry!);
+  
+  // Auto remove after 5 seconds with null check
+  Future.delayed(Duration(seconds: 5), () {
+    if (overlayEntry != null && overlayEntry!.mounted) {
+      overlayEntry!.remove();
+      overlayEntry = null;
+    }
+  });
+}
 void _onIconPressed(
-  BuildContext ctx, // Pass a valid context
+  BuildContext ctx,
   ImageSource imageSource, {
   ImagePickerConfiguration? config,
 }) async {
   try {
+    // Get platform and page from SharedPreferences BEFORE picking image
+    final prefs = await SharedPreferences.getInstance();
+    final String? platform = prefs.getString('platform');
+    final String? page = prefs.getString('page');
+    
+    // Check if WhatsApp format validation is needed
+    bool needsWhatsAppValidation = page == 'chat' && 
+                                    (platform == 'fb_whatsapp' || platform == 'whatsapp');
+    
     final XFile? image = await _imagePicker.pickImage(
       source: imageSource,
       maxHeight: config?.maxHeight,
@@ -1463,31 +1548,71 @@ void _onIconPressed(
       String? updatedImagePath = await config?.onImagePicked!(imagePath);
       if (updatedImagePath != null) imagePath = updatedImagePath;
     }
-     if (imagePath != null && imagePath.isNotEmpty) {
+    
+    if (imagePath != null && imagePath.isNotEmpty) {
+      // Validate WhatsApp image format after selection
+      if (needsWhatsAppValidation) {
+        String lowerPath = imagePath.toLowerCase();
+        
+        // WhatsApp only supports JPG, JPEG, PNG for images
+        if (!lowerPath.endsWith('.jpg') && 
+            !lowerPath.endsWith('.jpeg') && 
+            !lowerPath.endsWith('.png')) {
+           _showCustomNotification(ctx);
+          /* showDialog(
+            context: ctx,
+            builder: (BuildContext context) {
+              return AlertDialog(
+                title: Text('Unsupported Image Format'),
+                content: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('The selected image format is not supported by WhatsApp.'),
+                    SizedBox(height: 10),
+                    Text('📷 Supported formats: JPG, JPEG, PNG', 
+                         style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+                    SizedBox(height: 10),
+                    Text('Please select a different image.'),
+                  ],
+                ),
+                actions: <Widget>[
+                  TextButton(
+                    onPressed: () {
+                      Navigator.of(context).pop();
+                    },
+                    child: Text('OK'),
+                  ),
+                ],
+              );
+            },
+          ); */
+          return; // Stop execution if format not allowed
+        }
+      }
+      
       Navigator.push(
         ctx,
         MaterialPageRoute(
           builder: (context) => ImageViewerPage(
-            imagePath: imagePath??'',
-            onSend: (sentImagePath,message) {
-              widget.onImageSelected(sentImagePath,'', message??''); 
+            imagePath: imagePath ?? '',
+            onSend: (sentImagePath, message) {
+              widget.onImageSelected(sentImagePath, '', message ?? ''); 
             },
-            padding:EdgeInsets.fromLTRB(bottomPadding4,
-                      bottomPadding4,
-                      bottomPadding4,
-                      bottomPadding4),
+            padding: EdgeInsets.fromLTRB(
+              bottomPadding4,
+              bottomPadding4,
+              bottomPadding4,
+              bottomPadding4
+            ),
           ),
         ),
       );
     }
-    /* if (imagePath != null && imagePath.isNotEmpty) {
-      await _handleImageSelection(ctx, imagePath??''); // Use the valid context
-    } */
   } catch (e) {
-    widget.onImageSelected('', e.toString(),'');
+    widget.onImageSelected('', e.toString(), '');
   }
 }
-
 
   
   void _onChanged(String inputText) async 
