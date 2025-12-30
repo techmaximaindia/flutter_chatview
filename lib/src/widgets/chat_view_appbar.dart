@@ -170,11 +170,20 @@ class ChatViewAppBar extends StatelessWidget {
                     ),
                   );
                 }
-                else if(current_page=='ticket'){
+               else if(current_page=='ticket'){
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (context) => profilepage(chatTitle: chatTitle,profilePicture: profilePicture,platform: '',mobile: '',profile_email:email_id,lead_id: '',page: current_page,aliasuse: ''),
+                      builder: (context) =>lead(
+                        cb_lead_name: chatTitle,
+                        lead_alias: alias_to_use ?? '',
+                        img: profilePicture ?? '',
+                        cb_lead_id:'',
+                        cb_lead_email: email_id ?? '',
+                        account_platform: platform ?? '',
+                        to_mobile: mobile_number ?? '',
+                        distinct_alias:'',
+                      ), //profilepage(chatTitle: chatTitle,profilePicture: profilePicture,platform: '',mobile: '',profile_email:email_id,lead_id: '',page: current_page,aliasuse: ''),
                     ),
                   );
                 }
