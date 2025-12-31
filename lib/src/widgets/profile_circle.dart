@@ -72,7 +72,8 @@ class ProfileCircle extends StatelessWidget {
         child:imageUrl != null && imageUrl !=''
             ? CircleAvatar(
                 /* backgroundColor: Color.fromRGBO(108, 117, 125,2), */
-                backgroundColor:Color(0xFF6C757D),
+                //backgroundColor:Color(0xFF6C757D),
+                backgroundColor:Colors.white,
                 radius: circleRadius ?? 16,
                 backgroundImage: NetworkImage(imageUrl!),
               )
