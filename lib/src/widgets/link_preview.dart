@@ -26,7 +26,7 @@ import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../utils/constants/constants.dart';
-
+import 'package:flutter/gestures.dart';
 class LinkPreview extends StatelessWidget {
   const LinkPreview({
     Key? key,
@@ -40,62 +40,140 @@ class LinkPreview extends StatelessWidget {
   /// Provides configuration of chat bubble appearance when link/URL is passed
   /// in message.
   final LinkPreviewConfiguration? linkPreviewConfig;
-
+  // Function to extract URLs from text and make them clickable
+    InlineSpan _buildTextWithLinks(String text, [TextStyle? baseStyle]) {
+      // URL pattern to match http/https links
+      final urlPattern = RegExp(
+        r'(https?:\/\/[^\s]+)',
+        caseSensitive: false,
+      );
+      
+      final matches = urlPattern.allMatches(text);
+      if (matches.isEmpty) {
+        // No URLs found, return plain text
+        return TextSpan(text: text, style: baseStyle);
+      }
+      
+      List<TextSpan> spans = [];
+      int currentIndex = 0;
+      
+      for (final match in matches) {
+        // Add text before the URL (black color)
+        if (match.start > currentIndex) {
+          spans.add(
+            TextSpan(
+              text: text.substring(currentIndex, match.start),
+              style: baseStyle ?? const TextStyle(color: Colors.black),
+            ),
+          );
+        }
+        
+        // Get the URL
+        String urlText = match.group(0)!;
+        
+        // Add the clickable URL (blue color)
+        spans.add(
+          TextSpan(
+            text: urlText,
+            style: (baseStyle ?? const TextStyle()).copyWith(
+              color: Colors.blue,
+              decoration: TextDecoration.underline,
+              decorationColor: Colors.black,
+            ),
+            recognizer: TapGestureRecognizer()
+              ..onTap = () async {
+                try {
+                  final uri = Uri.parse(urlText);
+                  if (await canLaunchUrl(uri)) {
+                    await launchUrl(
+                      uri,
+                      mode: LaunchMode.externalApplication,
+                    );
+                  }
+                } catch (e) {
+                  print('Error launching URL: $e');
+                }
+              },
+          ),
+        );
+        
+        currentIndex = match.end;
+      }
+      
+      // Add any remaining text after the last URL (black color)
+      if (currentIndex < text.length) {
+        spans.add(
+          TextSpan(
+            text: text.substring(currentIndex),
+            style: const TextStyle(color: Colors.black),
+          ),
+        );
+      }
+      
+      return TextSpan(children: spans);
+    }
   @override
   Widget build(BuildContext context) {
+    // Check if the message contains ONLY a URL (no other text)
+    final urlPattern = RegExp(r'^https?:\/\/[^\s]+$', caseSensitive: false);
+    final isPureUrl = urlPattern.hasMatch(url.trim());
     return Padding(
       padding: linkPreviewConfig?.padding ??
           const EdgeInsets.symmetric(horizontal: 6, vertical: verticalPadding),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: verticalPadding),
-            child:url.isImageUrl
-                ? InkWell(
-                    onTap: _onLinkTap,
-                    child:Image.network(
-                      url,
-                      height: 120,
-                      width: double.infinity,
-                      fit: BoxFit.fitWidth,
-                    ),
-                  )
-                : AnyLinkPreview(
-                    link: url,
-                    removeElevation: true,
-                    proxyUrl: linkPreviewConfig?.proxyUrl,
-                    onTap: _onLinkTap,
-                    placeholderWidget: SizedBox(
-                      height: MediaQuery.of(context).size.height * 0.25,
-                      width: double.infinity,
-                      child: Center(
-                        child: CircularProgressIndicator(
-                          strokeWidth: 1,
-                          color: linkPreviewConfig?.loadingColor,
+          if (isPureUrl)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: verticalPadding),
+              child: url.isImageUrl
+                  ? InkWell(
+                      onTap: _onLinkTap,
+                      child: Image.network(
+                        url,
+                        height: 120,
+                        width: double.infinity,
+                        fit: BoxFit.fitWidth,
+                      ),
+                    )
+                  : AnyLinkPreview(
+                      link: url,
+                      removeElevation: true,
+                      proxyUrl: linkPreviewConfig?.proxyUrl,
+                      onTap: _onLinkTap,
+                      placeholderWidget: SizedBox(
+                        height: MediaQuery.of(context).size.height * 0.25,
+                        width: double.infinity,
+                        child: Center(
+                          child: CircularProgressIndicator(
+                            strokeWidth: 1,
+                            color: linkPreviewConfig?.loadingColor,
+                          ),
                         ),
                       ),
+                      backgroundColor: linkPreviewConfig?.backgroundColor ?? Colors.grey.shade200,
+                      borderRadius: linkPreviewConfig?.borderRadius,
+                      bodyStyle: linkPreviewConfig?.bodyStyle ?? const TextStyle(color: Colors.black),
+                      titleStyle: linkPreviewConfig?.titleStyle,
+                      errorBody: '',
+                      errorTitle: '',
                     ),
-                    backgroundColor: linkPreviewConfig?.backgroundColor ??Colors.grey.shade200,
-                    borderRadius: linkPreviewConfig?.borderRadius,
-                    bodyStyle: linkPreviewConfig?.bodyStyle ??const TextStyle(color: Colors.black),
-                    titleStyle: linkPreviewConfig?.titleStyle,
-                    errorBody: '',
-                    errorTitle: '',
-                  ),
-          ),
-          const SizedBox(height: verticalPadding),
-          InkWell(
-            onTap: _onLinkTap,
-            child: Text(
+            ),
+          
+          if (isPureUrl) const SizedBox(height: verticalPadding),
+          
+          // Show the message text with clickable URLs
+          RichText(
+            text: _buildTextWithLinks(
               url,
-              style: linkPreviewConfig?.linkStyle ??
+              linkPreviewConfig?.linkStyle?.copyWith(color: Colors.black) ??
                   const TextStyle(
-                    color: Colors.white,
-                    decoration: TextDecoration.underline,
+                    color: Colors.black,
+                    fontSize: 14,
                   ),
             ),
           ),
+          
         ],
       ),
     );
