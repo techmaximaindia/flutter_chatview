@@ -38,6 +38,7 @@ import 'package:html/parser.dart' as html_parser;
 import 'package:url_launcher/url_launcher.dart';
 //import 'package:flutter_widget_from_html/flutter_widget_from_html.dart';
 import 'package:flutter_widget_from_html_core/flutter_widget_from_html_core.dart';
+import 'package:flutter/gestures.dart';
 class ImageMessageView extends StatelessWidget {
   const ImageMessageView({
     Key? key,
@@ -297,6 +298,103 @@ class ImageMessageView extends StatelessWidget {
 }
 Widget _buildMessageContent(context,String textMessage, TextTheme textTheme) 
   {
+      // Helper function to detect URLs in text and make them clickable
+      InlineSpan _buildTextWithLinks(String text, [TextStyle? baseStyle]) {
+        // URL pattern to match http/https links
+        final urlPattern = RegExp(
+          r'(?:(?:https?|ftp):\/\/)?[\w/\-?=%.]+\.[\w/\-?=%.]+',
+          caseSensitive: false,
+          multiLine: false,
+        );
+        
+        final matches = urlPattern.allMatches(text);
+        if (matches.isEmpty) {
+          // No URLs found, return plain text
+          return TextSpan(text: text, style: baseStyle);
+        }
+        
+        List<TextSpan> spans = [];
+        int currentIndex = 0;
+        
+        for (final match in matches) {
+          // Add text before the URL
+          if (match.start > currentIndex) {
+            spans.add(
+              TextSpan(
+                text: text.substring(currentIndex, match.start),
+                style: baseStyle,
+              ),
+            );
+          }
+          
+          // Get the URL
+          String urlText = match.group(0)!;
+          // Ensure URL has proper scheme
+          if (!urlText.toLowerCase().startsWith('http')) {
+            urlText = 'https://$urlText';
+          }
+          
+          // Add the clickable URL
+          spans.add(
+            TextSpan(
+              text: match.group(0),
+              style: (baseStyle ?? const TextStyle()).copyWith(
+                color: Colors.blue,
+                decoration: TextDecoration.underline,
+              ),
+              recognizer: TapGestureRecognizer()
+                ..onTap = () async {
+                  try {
+                    final uri = Uri.parse(urlText);
+                    if (await canLaunchUrl(uri)) {
+                      await launchUrl(
+                        uri,
+                        mode: LaunchMode.externalApplication,
+                      );
+                    } else {
+                      // Try to launch without https prefix
+                      final fallbackUri = Uri.parse(
+                        urlText.startsWith('https://')
+                            ? urlText.replaceFirst('https://', 'http://')
+                            : urlText,
+                      );
+                      if (await canLaunchUrl(fallbackUri)) {
+                        await launchUrl(
+                          fallbackUri,
+                          mode: LaunchMode.externalApplication,
+                        );
+                      }
+                    }
+                  } catch (e) {
+                    print('Error launching URL: $e');
+                  }
+                },
+            ),
+          );
+          
+          currentIndex = match.end;
+        }
+        
+        // Add any remaining text after the last URL
+        if (currentIndex < text.length) {
+          spans.add(
+            TextSpan(
+              text: text.substring(currentIndex),
+              style: baseStyle,
+            ),
+          );
+        }
+        
+        return TextSpan(children: spans);
+      }
+      
+      // Helper function to create RichText widget with clickable links
+      Widget _buildRichText(String text, TextStyle style) {
+        return RichText(
+          text: _buildTextWithLinks(text, style),
+          textAlign: TextAlign.left,
+        );
+      }
     final document = html_parser.parse(textMessage);
     final String parsedString = document.body?.text ?? '';
     String translated_title = message.translate_title??'';
@@ -699,14 +797,22 @@ Widget _buildMessageContent(context,String textMessage, TextTheme textTheme)
   }
   else 
   {
-    return Text(
+    return _buildRichText(
+      textMessage,
+      _textStyle ??
+          textTheme.bodyMedium!.copyWith(
+            color: Colors.black,
+            fontSize: 14,
+          ),
+    );
+    /*return Text(
       textMessage,
       style: _textStyle ??
           textTheme.bodyMedium!.copyWith(
             color: Colors.black,
             fontSize: 14,
           ),
-    );
+    );*/
   }
 }
   EdgeInsetsGeometry? get _margin => isMessageBySender
