@@ -302,7 +302,7 @@ Widget _buildMessageContent(context,String textMessage, TextTheme textTheme)
       InlineSpan _buildTextWithLinks(String text, [TextStyle? baseStyle]) {
         // URL pattern to match http/https links
         final urlPattern = RegExp(
-          r'(?:(?:https?|ftp):\/\/)?[\w/\-?=%.]+\.[\w/\-?=%.]+',
+          r'(?:(?:https?|ftp):\/\/)?(?:www\.)?[\w\-]+\.[\w\-]+(?:\/[^\s]*)?',
           caseSensitive: false,
           multiLine: false,
         );
