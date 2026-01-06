@@ -44,8 +44,9 @@ class LinkPreview extends StatelessWidget {
     InlineSpan _buildTextWithLinks(String text, [TextStyle? baseStyle]) {
       // URL pattern to match http/https links
       final urlPattern = RegExp(
-        r'(https?:\/\/[^\s]+)',
+        r'(?:(?:https?|ftp):\/\/)?(?:www\.)?[\w\-]+\.[\w\-]+(?:\/[^\s]*)?',
         caseSensitive: false,
+        multiLine: false,
       );
       
       final matches = urlPattern.allMatches(text);
