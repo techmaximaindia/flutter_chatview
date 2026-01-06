@@ -296,7 +296,7 @@ class ImageMessageView extends StatelessWidget {
     ],
   );
 }
-Widget _buildMessageContent(context,String textMessage, TextTheme textTheme) 
+/*Widget _buildMessageContent(context,String textMessage, TextTheme textTheme) 
   {
       // Helper function to detect URLs in text and make them clickable
       InlineSpan _buildTextWithLinks(String text, [TextStyle? baseStyle]) {
@@ -813,6 +813,349 @@ Widget _buildMessageContent(context,String textMessage, TextTheme textTheme)
             fontSize: 14,
           ),
     );*/
+  }
+}*/
+  Widget _buildMessageContent(context, String textMessage, TextTheme textTheme) {
+  InlineSpan _buildTextWithLinks(String text, [TextStyle? baseStyle]) {
+    // URL pattern to match http/https links
+    final urlPattern = RegExp(
+        r'\b(?:https?|ftp):\/\/'  // Required protocol
+        r'(?:www\.)?'  // Optional www
+        r'(?:[\w\-]+\.)+[\w\-]{2,}'  // Domain
+        r'(?:\/[^\s]*)?',  // Optional path
+        caseSensitive: false,
+        multiLine: false,
+      );
+    
+    final matches = urlPattern.allMatches(text);
+    if (matches.isEmpty) {
+      // No URLs found, return plain text
+      return TextSpan(text: text, style: baseStyle);
+    }
+    
+    List<TextSpan> spans = [];
+    int currentIndex = 0;
+    
+    for (final match in matches) {
+      // Add text before the URL
+      if (match.start > currentIndex) {
+        spans.add(
+          TextSpan(
+            text: text.substring(currentIndex, match.start),
+            style: baseStyle,
+          ),
+        );
+      }
+      
+      // Get the URL
+      String urlText = match.group(0)!;
+      // Ensure URL has proper scheme
+      if (!urlText.toLowerCase().startsWith('http')) {
+        urlText = 'https://$urlText';
+      }
+      
+      // Add the clickable URL
+      spans.add(
+        TextSpan(
+          text: match.group(0),
+          style: (baseStyle ?? const TextStyle()).copyWith(
+            color: Colors.blue,
+            decoration: TextDecoration.underline,
+            decorationColor: Colors.blue,
+          ),
+          recognizer: TapGestureRecognizer()
+            ..onTap = () async {
+              try {
+                final uri = Uri.parse(urlText);
+                if (await canLaunchUrl(uri)) {
+                  await launchUrl(
+                    uri,
+                    mode: LaunchMode.externalApplication,
+                  );
+                } else {
+                  // Try to launch without https prefix
+                  final fallbackUri = Uri.parse(
+                    urlText.startsWith('https://')
+                        ? urlText.replaceFirst('https://', 'http://')
+                        : urlText,
+                  );
+                  if (await canLaunchUrl(fallbackUri)) {
+                    await launchUrl(
+                      fallbackUri,
+                      mode: LaunchMode.externalApplication,
+                    );
+                  }
+                }
+              } catch (e) {
+                print('Error launching URL: $e');
+              }
+            },
+        ),
+      );
+      
+      currentIndex = match.end;
+    }
+    
+    // Add any remaining text after the last URL
+    if (currentIndex < text.length) {
+      spans.add(
+        TextSpan(
+          text: text.substring(currentIndex),
+          style: baseStyle,
+        ),
+      );
+    }
+    
+    return TextSpan(children: spans);
+  }
+  
+  // Helper function to create RichText widget with clickable links
+  Widget _buildRichText(String text, TextStyle style) {
+    return RichText(
+      text: _buildTextWithLinks(text, style),
+      textAlign: TextAlign.left,
+    );
+  }
+
+  final document = html_parser.parse(textMessage);
+  final String parsedString = document.body?.text ?? '';
+  String translated_title = message.translate_title ?? '';
+  String translated_content = message.translate_content ?? '';
+
+  final urlPattern = r'http[s]?://[^\s]+';
+  final urlRegExp = RegExp(urlPattern);
+  
+  final iframeTags = document.getElementsByTagName('iframe');
+  final iframeUrls = iframeTags.map((iframe) => iframe.attributes['src']).toList();
+
+  var message_options_full = message.cb_message_options_full;
+  String? type = message_options_full?['type'];
+  
+  List<String> buttonValues = (message_options_full?['button_values'] as List<dynamic>?)
+      ?.map((e) => e.toString())
+      .toList() ?? [];
+
+  List<String> listDesc = (message_options_full?['list_desc'] as List<dynamic>?)
+      ?.map((e) => e.toString())
+      .toList() ?? [];
+
+  String? list_menu_header = message_options_full?['list_menu_header'] ?? '';
+  String? list_header = message_options_full?['list_header'] ?? '';
+  String? header = message_options_full?['header'] ?? '';
+  String? footer = message_options_full?['footer'] ?? '';
+
+  final textStyle = _textStyle ??
+      textTheme.bodyMedium!.copyWith(
+        color: Colors.black,
+        fontSize: 14,
+      );
+
+  // Priority 1: Translation
+  if (translated_title != '' && translated_content != '') {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildRichText(textMessage, textStyle),
+        SizedBox(height: 4),
+        Text(
+          "Translation From $translated_title",
+          style: textTheme.bodyLarge?.copyWith(
+            fontWeight: FontWeight.bold,
+            color: Colors.black,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          translated_content,
+          style: textTheme.bodyMedium?.copyWith(
+            color: Colors.black87,
+          ),
+        ),
+      ],
+    );
+  }
+  
+  // Priority 2: Iframe URLs
+  else if (iframeUrls.isNotEmpty) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: iframeUrls.map((url) {
+        if (url != null) {
+          final uri = Uri.parse(url);
+          return GestureDetector(
+            onTap: () async {
+              if (await canLaunchUrl(uri)) {
+                await launchUrl(uri);
+              }
+            },
+            child: Text(
+              uri.toString(),
+              style: textTheme.bodyMedium?.copyWith(
+                color: Colors.blue,
+                decoration: TextDecoration.underline,
+              ),
+            ),
+          );
+        }
+        return SizedBox.shrink();
+      }).toList(),
+    );
+  }
+  
+  // Priority 3: Button type
+  else if (message.cb_message_options_full != null && type == "button") {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (header != null && header.isNotEmpty)
+          Text(
+            header,
+            style: textTheme.bodyMedium?.copyWith(
+              fontWeight: FontWeight.bold,
+              color: Colors.black,
+            ),
+          ),
+        _buildRichText(textMessage, textStyle),
+        if (footer != null && footer.isNotEmpty)
+          Text(
+            footer,
+            style: textTheme.bodyLarge?.copyWith(
+              fontSize: 13,
+              color: Color.fromARGB(255, 52, 58, 64),
+            ),
+          ),
+        const SizedBox(height: 8),
+        if (buttonValues.isNotEmpty)
+          ...buttonValues.map((option) {
+            return Padding(
+              padding: const EdgeInsets.symmetric(vertical: 4.0),
+              child: ElevatedButton(
+                onPressed: () {},
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  minimumSize: const Size(double.infinity, 48),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const FaIcon(
+                      FontAwesomeIcons.list,
+                      color: Colors.blue,
+                      size: 10,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      option.trim(),
+                      style: textTheme.bodyMedium?.copyWith(
+                        color: Colors.blue,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }).toList(),
+      ],
+    );
+  }
+  
+  // Priority 4: List type
+  else if (message.cb_message_options_full != null && type == "list") {
+    // ... [Keep your existing showCustomDialog function] ...
+    
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (header != null && header.isNotEmpty)
+          Text(
+            header,
+            style: textTheme.bodyMedium?.copyWith(
+              fontWeight: FontWeight.bold,
+              color: Colors.black,
+            ),
+          ),
+        _buildRichText(textMessage, textStyle),
+        if (footer != null && footer.isNotEmpty)
+          Text(
+            footer,
+            style: textTheme.bodyLarge?.copyWith(
+              fontSize: 13,
+              color: Color.fromARGB(255, 52, 58, 64),
+            ),
+          ),
+        const SizedBox(height: 8),
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 4.0),
+          child: ElevatedButton(
+            onPressed: () {
+              // showCustomDialog(context, list_menu_header!, buttonValues, listDesc);
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              minimumSize: const Size(double.infinity, 48),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const FaIcon(
+                  FontAwesomeIcons.list,
+                  color: Colors.blue,
+                  size: 10,
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  list_menu_header ?? '',
+                  style: textTheme.bodyMedium?.copyWith(
+                    color: Colors.blue,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+  
+  // Priority 5: HTML content (with tags but not just URLs)
+  else if (parsedString != textMessage && !urlRegExp.hasMatch(parsedString)) {
+    return HtmlWidget(
+      textMessage,
+      textStyle: const TextStyle(
+        color: Colors.black,
+      ),
+      customStylesBuilder: (element) {
+        if (element.localName == 'img') {
+          return {
+            'max-width': '100%',
+            'height': 'auto',
+            'display': 'block',
+          };
+        }
+        if (element.localName == 'a') {
+          return {
+            'color': 'blue',
+            'text-decoration': 'underline',
+          };
+        }
+        return null;
+      },
+    );
+  }
+  
+  // Priority 6: Default - Plain text or text with URLs
+  else {
+    return _buildRichText(textMessage, textStyle);
   }
 }
   EdgeInsetsGeometry? get _margin => isMessageBySender
