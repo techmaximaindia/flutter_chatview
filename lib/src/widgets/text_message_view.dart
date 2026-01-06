@@ -277,7 +277,10 @@ class TextMessageView extends StatelessWidget {
       InlineSpan _buildTextWithLinks(String text, [TextStyle? baseStyle]) {
         // URL pattern to match http/https links
         final urlPattern = RegExp(
-          r'(?:(?:https?|ftp):\/\/)?(?:www\.)?[\w\-]+\.[\w\-]+(?:\/[^\s]*)?',
+          r'\b(?:https?|ftp):\/\/'  // Required protocol
+          r'(?:www\.)?'  // Optional www
+          r'(?:[\w\-]+\.)+[\w\-]{2,}'  // Domain
+          r'(?:\/[^\s]*)?',  // Optional path
           caseSensitive: false,
           multiLine: false,
         );
