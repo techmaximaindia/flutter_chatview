@@ -41,82 +41,89 @@ class LinkPreview extends StatelessWidget {
   /// in message.
   final LinkPreviewConfiguration? linkPreviewConfig;
   // Function to extract URLs from text and make them clickable
-    InlineSpan _buildTextWithLinks(String text, [TextStyle? baseStyle]) {
-      // URL pattern to match http/https links
-      final urlPattern = RegExp(
-        r'(?:(?:https?|ftp):\/\/)?(?:www\.)?[\w\-]+\.[\w\-]+(?:\/[^\s]*)?',
-        caseSensitive: false,
-        multiLine: false,
+InlineSpan _buildTextWithLinks(String text, [TextStyle? baseStyle]) {
+  // URL pattern to match http/https links
+  final urlPattern = RegExp(
+    r'\b(?:https?|ftp):\/\/'  // Required protocol
+    r'(?:www\.)?'  // Optional www
+    r'(?:[\w\-]+\.)+[\w\-]{2,}'  // Domain
+    r'(?:\/[^\s]*)?',  // Optional path
+    caseSensitive: false,
+    multiLine: false,
+  );
+  
+  final matches = urlPattern.allMatches(text);
+  if (matches.isEmpty) {
+    // No URLs found, return plain text
+    return TextSpan(text: text, style: baseStyle);
+  }
+  
+  List<TextSpan> spans = [];
+  int currentIndex = 0;
+  
+  for (final match in matches) {
+    // Add text before the URL (black color)
+    if (match.start > currentIndex) {
+      spans.add(
+        TextSpan(
+          text: text.substring(currentIndex, match.start),
+          style: baseStyle ?? const TextStyle(color: Colors.black),
+        ),
       );
-      
-      final matches = urlPattern.allMatches(text);
-      if (matches.isEmpty) {
-        // No URLs found, return plain text
-        return TextSpan(text: text, style: baseStyle);
-      }
-      
-      List<TextSpan> spans = [];
-      int currentIndex = 0;
-      
-      for (final match in matches) {
-        // Add text before the URL (black color)
-        if (match.start > currentIndex) {
-          spans.add(
-            TextSpan(
-              text: text.substring(currentIndex, match.start),
-              style: baseStyle ?? const TextStyle(color: Colors.black),
-            ),
-          );
-        }
-        
-        // Get the URL
-        String urlText = match.group(0)!;
-        
-        // Add the clickable URL (blue color)
-        spans.add(
-          TextSpan(
-            text: urlText,
-            style: (baseStyle ?? const TextStyle()).copyWith(
-              color: Colors.blue,
-              decoration: TextDecoration.underline,
-              decorationColor: Colors.black,
-            ),
-            recognizer: TapGestureRecognizer()
-              ..onTap = () async {
-                try {
-                  final uri = Uri.parse(urlText);
-                  if (await canLaunchUrl(uri)) {
-                    await launchUrl(
-                      uri,
-                      mode: LaunchMode.externalApplication,
-                    );
-                  }
-                } catch (e) {
-                  print('Error launching URL: $e');
-                }
-              },
-          ),
-        );
-        
-        currentIndex = match.end;
-      }
-      
-      // Add any remaining text after the last URL (black color)
-      if (currentIndex < text.length) {
-        spans.add(
-          TextSpan(
-            text: text.substring(currentIndex),
-            style: const TextStyle(color: Colors.black),
-          ),
-        );
-      }
-      
-      return TextSpan(children: spans);
     }
+    
+    // Get the URL
+    String urlText = match.group(0)!;
+    
+    // Add the clickable URL (blue color with blue underline)
+    spans.add(
+      TextSpan(
+        text: urlText,
+        style: (baseStyle ?? const TextStyle()).copyWith(
+          color: Colors.blue,
+          decoration: TextDecoration.underline,
+          decorationColor: Colors.blue, // Change this from black to blue
+        ),
+        recognizer: TapGestureRecognizer()
+          ..onTap = () async {
+            try {
+              final uri = Uri.parse(urlText);
+              if (await canLaunchUrl(uri)) {
+                await launchUrl(
+                  uri,
+                  mode: LaunchMode.externalApplication,
+                );
+              }
+            } catch (e) {
+              print('Error launching URL: $e');
+            }
+          },
+      ),
+    );
+    
+    currentIndex = match.end;
+  }
+  
+  // Add any remaining text after the last URL (black color)
+  if (currentIndex < text.length) {
+    spans.add(
+      TextSpan(
+        text: text.substring(currentIndex),
+        style: const TextStyle(color: Colors.black),
+      ),
+    );
+  }
+  
+  return TextSpan(children: spans);
+}
   @override
   Widget build(BuildContext context) {
     // Check if the message contains ONLY a URL (no other text)
-    final urlPattern = RegExp(r'^https?:\/\/[^\s]+$', caseSensitive: false);
+    final urlPattern = RegExp(
+      r'(?:(?:https?|ftp):\/\/)?(?:www\.)?[\w\-]+\.[\w\-]+(?:\/[^\s]*)?',
+      caseSensitive: false,
+      multiLine: false,
+    );
     final isPureUrl = urlPattern.hasMatch(url.trim());
     return Padding(
       padding: linkPreviewConfig?.padding ??
@@ -174,7 +181,6 @@ class LinkPreview extends StatelessWidget {
                   ),
             ),
           ),
-          
         ],
       ),
     );
