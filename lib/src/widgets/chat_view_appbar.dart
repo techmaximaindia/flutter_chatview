@@ -55,6 +55,7 @@ class ChatViewAppBar extends StatelessWidget {
     this.ticket_title,
     this.message_date,
     this.alias_to_use,
+    this.chat_label
   }) : super(key: key);
 
   /// Allow user to change colour of appbar.
@@ -107,7 +108,7 @@ class ChatViewAppBar extends StatelessWidget {
   final String? ticket_title;
   final String? message_date;
   final String? alias_to_use;
-
+  final String? chat_label;
   @override
   Widget build(BuildContext context) {
     Future<bool> image_url_valid(String url) async {              
@@ -170,7 +171,7 @@ class ChatViewAppBar extends StatelessWidget {
                     ),
                   );
                 }
-               else if(current_page=='ticket'){
+                else if(current_page=='ticket'){
                   Navigator.push(
                     context,
                     MaterialPageRoute(
@@ -311,6 +312,38 @@ class ChatViewAppBar extends StatelessWidget {
             ),
             ),
           ),
+         /*  if (chat_label != null && chat_label!.trim().isNotEmpty)
+          Container(
+            padding: EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: 8,
+            ),
+            child: Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: _buildLabelBadges(chat_label!),
+            ),
+          ), */
+          if (chat_label != null && chat_label!.trim().isNotEmpty)
+            Container(
+              width: double.infinity,
+              padding: EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: 4,
+              ),
+              color: Colors.white,
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: [Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: _buildLabelBadges(chat_label!),
+                    )
+                  ],
+                ),
+              ),
+            ),
          // SizedBox(height: (ticket_title != null && ticket_title!.trim().isNotEmpty) ? 38 : 0),
           if (ticket_title != null && ticket_title != ''&&ticket_title!.trim().isNotEmpty)
             Container(
@@ -360,6 +393,55 @@ class ChatViewAppBar extends StatelessWidget {
                 ), 
       ],
     );
+  }
+  
+
+  List<Widget> _buildLabelBadges(String labelString) {
+    // Split the comma-separated string into individual labels
+    List<String> labels = labelString.split(',').map((label) => label.trim()).toList();
+    
+    // Remove any empty strings
+    labels = labels.where((label) => label.isNotEmpty).toList();
+    
+    // Create a badge for each label
+    return labels.map((label) {
+      return Container(
+        padding: EdgeInsets.symmetric(horizontal: 12, vertical: 3), //2  font size 9 ,3 fontsize 10 ,3 font size 12
+        decoration: BoxDecoration(
+          color: Colors.blue,
+          // color: _getLabelColor(label),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 12,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      );
+    }).toList();
+  }
+
+  // Helper function to generate consistent colors for labels
+  Color _getLabelColor(String label) {
+    // Generate a color based on the label text
+    int hash = label.hashCode;
+    // Use a subset of colors that look good as badges
+    List<Color> colors = [
+      Colors.blue,
+      Colors.green,
+      Colors.orange,
+      Colors.purple,
+      Colors.teal,
+      Colors.pink,
+      Colors.indigo,
+      Colors.cyan,
+      Colors.deepOrange,
+      Colors.deepPurple,
+    ];
+    return colors[hash.abs() % colors.length];
   }
   get_platform_widget(platform) 
   {
