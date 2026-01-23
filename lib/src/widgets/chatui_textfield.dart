@@ -104,7 +104,7 @@ class ChatUITextField extends StatefulWidget {
   State<ChatUITextField> createState() => _ChatUITextFieldState();
 }
 
-class _ChatUITextFieldState extends State<ChatUITextField> {
+class _ChatUITextFieldState extends State<ChatUITextField> with WidgetsBindingObserver{
  
   /* final TextEditingController _messageController = TextEditingController(text: ""); */
 
@@ -152,6 +152,7 @@ class _ChatUITextFieldState extends State<ChatUITextField> {
 
   @override
   void initState() {
+     WidgetsBinding.instance.addObserver(this);
     attachListeners();
     if (defaultTargetPlatform == TargetPlatform.iOS ||
         defaultTargetPlatform == TargetPlatform.android) {
@@ -187,6 +188,25 @@ class _ChatUITextFieldState extends State<ChatUITextField> {
     );
     _loadPreferences();
   }
+   @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // When app goes to inactive or paused state (like when swiping down)
+    if (state == AppLifecycleState.inactive || state == AppLifecycleState.paused) {
+      _stopRecordingIfActive();
+    }
+  }
+
+  Future<void> _stopRecordingIfActive() async {
+    if (isRecording.value) {
+      try {
+        await recorderController.stop();
+        isRecording.value = false;
+      } catch (e) {
+        print('Error stopping recording: $e');
+        isRecording.value = false;
+      }
+    }
+  }
 
   Future<void> _loadPreferences() async {
    final prefs = await SharedPreferences.getInstance();
@@ -204,6 +224,9 @@ class _ChatUITextFieldState extends State<ChatUITextField> {
     composingStatus.dispose();
     isRecording.dispose();
     _inputText.dispose();
+    recorderController.stop();
+    WidgetsBinding.instance.removeObserver(this);
+     _stopRecordingIfActive();
     _suggestionOverlay?.remove();
     try {
       SocketManager().disconnectSocket();
@@ -1024,13 +1047,51 @@ class _ChatUITextFieldState extends State<ChatUITextField> {
       ),
     );
   }
-   Future<void> _recordOrStop(BuildContext ctx) async {
+    Future<void> _recordOrStop(BuildContext ctx) async {
     assert(
       defaultTargetPlatform == TargetPlatform.iOS ||
           defaultTargetPlatform == TargetPlatform.android,
       "Voice messages are only supported with android and ios platform",
     );
     
+    if (!isRecording.value) {
+      final directory = await getTemporaryDirectory();
+      final filePath = '${directory.path}/recording_${DateTime.now().millisecondsSinceEpoch}.m4a';
+      
+      await recorderController?.record(path: filePath); // Pass the path here
+      isRecording.value = true;
+    } else {
+      // Stop recording
+      final recordedPath = await recorderController.stop();
+      isRecording.value = false;
+      
+      if (recordedPath != null && recordedPath.isNotEmpty) {
+        final prefs = await SharedPreferences.getInstance();
+        final String? platform = prefs.getString('platform');
+        
+        Navigator.push(
+          ctx,
+          MaterialPageRoute(
+            builder: (ctx) => AudioViewerPage(
+              fileUrl: recordedPath,
+              onSend: (fileUrl, caption) {
+                send_file_tap(fileUrl, caption ?? '');
+              },
+              platform: platform ?? '',
+            ),
+          ),
+        );
+      }
+    }
+  }
+   /* Future<void> _recordOrStop(BuildContext ctx) async {
+    assert(
+      defaultTargetPlatform == TargetPlatform.iOS ||
+          defaultTargetPlatform == TargetPlatform.android,
+      "Voice messages are only supported with android and ios platform",
+    );
+    final prefs = await SharedPreferences.getInstance();
+    final String? platform = prefs.getString('platform');
    /*  if (!isRecording.value) {
       await controller?.record();
       isRecording.value = true;
@@ -1057,6 +1118,7 @@ class _ChatUITextFieldState extends State<ChatUITextField> {
                 send_file_tap(fileUrl, caption??'');
                 //widget.onRecordingComplete(fileUrl);
               },
+              platform: platform??'',
             ),
           ),
         );
@@ -1064,7 +1126,7 @@ class _ChatUITextFieldState extends State<ChatUITextField> {
         //widget.onRecordingComplete(recordedPath);
       }
     }
-  }  
+  }  */ 
   String getFileExtension(String fileName) 
   {
     return ".${fileName.split('.').last}".toLowerCase();
@@ -1278,7 +1340,7 @@ void _onIconPressed(
     
     // Check if WhatsApp format validation is needed
     bool needsWhatsAppValidation = page == 'chat' && 
-                                    (platform == 'livechatwidget' || platform == 'whatsapp');
+                                    (platform == 'fb_whatsapp' || platform == 'whatsapp');
     
     final XFile? image = await _imagePicker.pickImage(
       source: imageSource,
@@ -1492,8 +1554,9 @@ class _ImageViewerPageState extends State<ImageViewerPage> {
 class AudioViewerPage extends StatefulWidget {
   final String fileUrl;
   final Function(String, String?) onSend;
+  final String platform; 
 
-  const AudioViewerPage({Key? key, required this.fileUrl, required this.onSend}) : super(key: key);
+  const AudioViewerPage({Key? key, required this.fileUrl, required this.onSend,required this.platform,}) : super(key: key);
 
   @override
   _AudioViewerPageState createState() => _AudioViewerPageState();
@@ -1509,10 +1572,13 @@ class _AudioViewerPageState extends State<AudioViewerPage> {
   bool _isInitialized = false;
   int? _fileSize;
   bool _hasCompleted = false;
+  late bool _hideCaption;
 
   @override
   void initState() {
     super.initState();
+    _hideCaption = widget.platform == 'fb_whatsapp' || 
+                   widget.platform == 'whatsapp';
     _audioPlayer = audio.AudioPlayer();
     _initAudioPlayer();
     _getFileSize();
@@ -1785,43 +1851,74 @@ class _AudioViewerPageState extends State<AudioViewerPage> {
               ),
             ),
           ),
-          Container(
-            margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-            padding: const EdgeInsets.symmetric(horizontal: 4),
-            decoration: BoxDecoration(
-              color: Colors.grey[900],
-              borderRadius: BorderRadius.circular(15),
-            ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _messageController,
-                    style: const TextStyle(color: Colors.white),
-                    maxLines: 5,
-                    minLines: 1,
-                    decoration: const InputDecoration(
-                      hintText: "Add a caption...",
-                      hintStyle: TextStyle(color: Colors.white54),
-                      border: InputBorder.none,
-                      contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          if (!_hideCaption) ...[
+            Container(
+              margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+              decoration: BoxDecoration(
+                color: Colors.grey[900],
+                borderRadius: BorderRadius.circular(15),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: _messageController,
+                      style: const TextStyle(color: Colors.white),
+                      maxLines: 5,
+                      minLines: 1,
+                      decoration: const InputDecoration(
+                        hintText: "Add a caption...",
+                        hintStyle: TextStyle(color: Colors.white54),
+                        border: InputBorder.none,
+                        contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      ),
                     ),
                   ),
-                ),
-                GestureDetector(
-                  onTap: () {
-                    widget.onSend(widget.fileUrl, _messageController.text.trim());
-                    _messageController.clear();
-                    Navigator.pop(context);
-                  },
-                  child: const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 8),
-                    child: Icon(Icons.send, color: Colors.blue, size: 24),
+                  GestureDetector(
+                    onTap: () {
+                      widget.onSend(widget.fileUrl, _messageController.text.trim());
+                      _messageController.clear();
+                      Navigator.pop(context);
+                    },
+                    child: const Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 8),
+                      child: Icon(Icons.send, color: Colors.blue, size: 24),
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
+           ]else...[
+              Container(
+                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                padding: const EdgeInsets.symmetric(horizontal: 4),
+                decoration: BoxDecoration(
+                  color: Colors.grey[900],
+                  borderRadius: BorderRadius.circular(15),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    GestureDetector(
+                      onTap: () {
+                        // Pass empty string as caption for WhatsApp
+                        widget.onSend(widget.fileUrl, '');
+                        Navigator.pop(context);
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.blue,
+                          borderRadius: BorderRadius.circular(50),
+                        ),
+                        child: const Icon(Icons.send, color: Colors.white, size: 24),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+           ]
         ],
       ),
     );
