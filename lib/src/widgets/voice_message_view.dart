@@ -150,7 +150,7 @@ class _VoiceMessageViewState extends State<VoiceMessageView> {
   }
 
   void _playOrPause() {
-    assert(
+    /*assert(
       defaultTargetPlatform == TargetPlatform.iOS ||
           defaultTargetPlatform == TargetPlatform.android,
       "Voice messages are only supported with android and ios platform",
@@ -161,6 +161,6 @@ class _VoiceMessageViewState extends State<VoiceMessageView> {
       controller.startPlayer(finishMode: FinishMode.pause);
     } else {
       controller.pausePlayer();
-    }
+    }*/
   }
 }
