@@ -2057,7 +2057,7 @@ class _AudioViewerPageState extends State<AudioViewerPage> {
   @override
   void initState() {
     super.initState();
-    _hideCaption = widget.platform == 'fb_whatsapp' || widget.platform == 'whatsapp' || widget.platform =='facebook';
+    _hideCaption = widget.platform == 'fb_whatsapp' || widget.platform == 'whatsapp' || widget.platform =='facebook' || widget.platform=='telegram' || widget.platform=='instagram';
     _audioPlayer = audio.AudioPlayer();
     _initAudioPlayer();
     _getFileSize();
