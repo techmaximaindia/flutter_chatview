@@ -116,6 +116,11 @@ class _ChatUITextFieldState extends State<ChatUITextField> with WidgetsBindingOb
   
   late final RecorderController recorderController;
   
+  Timer? _recordingTimer;
+  int _recordingSeconds = 0;
+  String _timerText = "00:00";
+
+
   ValueNotifier<bool> isRecording = ValueNotifier(false);
 
   SendMessageConfiguration? get sendMessageConfig => widget.sendMessageConfig;
@@ -188,7 +193,33 @@ class _ChatUITextFieldState extends State<ChatUITextField> with WidgetsBindingOb
     );
     _loadPreferences();
   }
-   @override
+
+  void _startTimer() {
+    _recordingTimer?.cancel();
+    _recordingSeconds = 0;
+    _updateTimerText();
+    _recordingTimer = Timer.periodic(Duration(seconds: 1), (timer) {
+      _recordingSeconds++;
+      _updateTimerText();
+    });
+  }
+
+  void _updateTimerText() {
+    final minutes = (_recordingSeconds ~/ 60).toString().padLeft(2, '0');
+    final seconds = (_recordingSeconds % 60).toString().padLeft(2, '0');
+    _timerText = "$minutes:$seconds";
+    setState(() {});
+  }
+
+  void _stopTimer() {
+    _recordingTimer?.cancel();
+    _recordingTimer = null;
+    _recordingSeconds = 0;
+    _timerText = "00:00";
+    setState(() {});
+  }
+
+  @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     // When app goes to inactive or paused state (like when swiping down)
     if (state == AppLifecycleState.inactive || state == AppLifecycleState.paused) {
@@ -894,7 +925,30 @@ class _ChatUITextFieldState extends State<ChatUITextField> with WidgetsBindingOb
                           child: ValueListenableBuilder<bool>(
                             valueListenable: isRecording,
                             builder: (context, isRecordingValue, child) {
-                              return Row(
+                              return Column(
+                                children: [
+                                  // Timer row - positioned above the audio waves at left end
+                                  if (isRecordingValue)
+                                    Container(
+                                      padding: EdgeInsets.only(left: 16, top: 8, bottom: 2),
+                                      alignment: Alignment.centerLeft,
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Icon(Icons.fiber_manual_record, color: Colors.red, size: 16),
+                                          SizedBox(width: 8),
+                                          Text(
+                                            _timerText,
+                                            style: TextStyle(
+                                              color: Colors.black,
+                                              fontSize: 14,
+                                              fontWeight: FontWeight.w500,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                Row(
                                 children: [
                                   if (isRecordingValue && recorderController != null && !kIsWeb)
                                     AudioWaveforms(
@@ -1034,6 +1088,8 @@ class _ChatUITextFieldState extends State<ChatUITextField> with WidgetsBindingOb
                                     },
                                   ), 
                                 ],
+                              ),
+                                ],
                               );
                             },
                           ),
@@ -1047,7 +1103,8 @@ class _ChatUITextFieldState extends State<ChatUITextField> with WidgetsBindingOb
       ),
     );
   }
-    Future<void> _recordOrStop(BuildContext ctx) async {
+  
+  Future<void> _recordOrStop(BuildContext ctx) async {
     assert(
       defaultTargetPlatform == TargetPlatform.iOS ||
           defaultTargetPlatform == TargetPlatform.android,
@@ -1060,11 +1117,57 @@ class _ChatUITextFieldState extends State<ChatUITextField> with WidgetsBindingOb
       
       await recorderController?.record(path: filePath); // Pass the path here
       isRecording.value = true;
+      _startTimer();
     } else {
       // Stop recording
       final recordedPath = await recorderController.stop();
       isRecording.value = false;
+      _stopTimer();
       
+      if (recordedPath != null && recordedPath.isNotEmpty) {
+        final prefs = await SharedPreferences.getInstance();
+        final String? platform = prefs.getString('platform');
+        
+        // Dismiss keyboard before navigating
+        FocusManager.instance.primaryFocus?.unfocus();
+        
+        // Add a small delay to ensure keyboard is dismissed before navigation
+        await Future.delayed(const Duration(milliseconds: 100));
+        
+        Navigator.push(
+          ctx,
+          MaterialPageRoute(
+            builder: (ctx) => AudioViewerPage(
+              fileUrl: recordedPath,
+              onSend: (fileUrl, caption) {
+                send_file_tap(fileUrl, caption ?? '');
+              },
+              platform: platform ?? '',
+            ),
+          ),
+        );
+      }
+    }
+  }
+    /* Future<void> _recordOrStop(BuildContext ctx) async {
+    assert(
+      defaultTargetPlatform == TargetPlatform.iOS ||
+          defaultTargetPlatform == TargetPlatform.android,
+      "Voice messages are only supported with android and ios platform",
+    );
+    
+    if (!isRecording.value) {
+      final directory = await getTemporaryDirectory();
+      final filePath = '${directory.path}/recording_${DateTime.now().millisecondsSinceEpoch}.m4a';
+      
+      await recorderController?.record(path: filePath); // Pass the path here
+      isRecording.value = true;
+       _startTimer();
+    } else {
+      // Stop recording
+      final recordedPath = await recorderController.stop();
+      isRecording.value = false;
+       _stopTimer();
       if (recordedPath != null && recordedPath.isNotEmpty) {
         final prefs = await SharedPreferences.getInstance();
         final String? platform = prefs.getString('platform');
@@ -1083,50 +1186,8 @@ class _ChatUITextFieldState extends State<ChatUITextField> with WidgetsBindingOb
         );
       }
     }
-  }
-   /* Future<void> _recordOrStop(BuildContext ctx) async {
-    assert(
-      defaultTargetPlatform == TargetPlatform.iOS ||
-          defaultTargetPlatform == TargetPlatform.android,
-      "Voice messages are only supported with android and ios platform",
-    );
-    final prefs = await SharedPreferences.getInstance();
-    final String? platform = prefs.getString('platform');
-   /*  if (!isRecording.value) {
-      await controller?.record();
-      isRecording.value = true;
-    } else {
-      final recordedPath = await controller?.stop();
-      isRecording.value = false; */
-    if (!isRecording.value) {
-      final directory = await getTemporaryDirectory();
-      final filePath = '${directory.path}/recording_${DateTime.now().millisecondsSinceEpoch}.m4a';
-      
-      await recorderController?.record(path: filePath); // Pass the path here
-      isRecording.value = true;
-    } else {
-    final recordedPath = await recorderController?.stop();
-    isRecording.value = false;
-      
-      if (recordedPath != null && recordedPath.isNotEmpty) {
-        Navigator.push(
-          ctx,
-          MaterialPageRoute(
-            builder: (ctx) => AudioViewerPage(
-              fileUrl: recordedPath,
-              onSend: (fileUrl, caption) {
-                send_file_tap(fileUrl, caption??'');
-                //widget.onRecordingComplete(fileUrl);
-              },
-              platform: platform??'',
-            ),
-          ),
-        );
-      } else {
-        //widget.onRecordingComplete(recordedPath);
-      }
-    }
-  }  */ 
+  } */
+   
   String getFileExtension(String fileName) 
   {
     return ".${fileName.split('.').last}".toLowerCase();
@@ -1386,6 +1447,7 @@ void _onIconPressed(
               bottomPadding4,
               bottomPadding4
             ),
+            platform: platform??'',
           ),
         ),
       );
@@ -1460,9 +1522,10 @@ void _onIconPressed(
 class ImageViewerPage extends StatefulWidget {
   final String? imagePath;
   final Function(String, String?) onSend;
+  final String platform;
   final EdgeInsetsGeometry padding;
 
-  const ImageViewerPage({Key? key, required this.imagePath, required this.onSend,required this.padding}) : super(key: key);
+  const ImageViewerPage({Key? key, required this.imagePath, required this.onSend,required this.padding,required this.platform}) : super(key: key);
 
   @override
   _ImageViewerPageState createState() => _ImageViewerPageState();
@@ -1508,6 +1571,54 @@ class _ImageViewerPageState extends State<ImageViewerPage> {
             ),
           ),
           Container(
+              margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              padding: EdgeInsets.symmetric(horizontal: 4),
+              decoration: BoxDecoration(
+                color: Colors.grey[900],
+                borderRadius: BorderRadius.circular(15),
+              ),
+              child: Row(
+                children: [
+                  // Only show caption input if platform is NOT fb_whatsapp, facebook, or instagram
+                  if ( 
+                      widget.platform != 'facebook' && 
+                      widget.platform != 'instagram')
+                    Expanded(
+                      child: TextField(
+                        controller: _messageController,
+                        style: const TextStyle(color: Colors.white),
+                        maxLines: 5,
+                        minLines: 1,
+                        decoration: const InputDecoration(
+                          hintText: "Add a caption...",
+                          hintStyle: TextStyle(color: Colors.white54),
+                          border: InputBorder.none,
+                        ),
+                      ),
+                    ),
+                  
+                  // For fb_whatsapp, facebook, instagram - push send icon to the right
+                  if (
+                      widget.platform == 'facebook' || 
+                      widget.platform == 'instagram')
+                    Spacer(),
+                  
+                  GestureDetector(
+                    onTap: () {
+                      
+                      widget.onSend(widget.imagePath??'', _messageController.text.trim());
+                      _messageController.clear();
+                      Navigator.pop(context);
+                    },
+                    child: const Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 8),
+                      child: Icon(Icons.send, color: Colors.blue, size: 24),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          /* Container(
 
             margin:const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
             padding:widget.padding,
@@ -1544,12 +1655,381 @@ class _ImageViewerPageState extends State<ImageViewerPage> {
                   ),
               ],
             ),
-          ),
+          ), */
         ],
       ),
     );
   }
 }
+/* class AudioViewerPage extends StatefulWidget {
+  final String fileUrl;
+  final Function(String, String?) onSend;
+  final String platform; 
+
+  const AudioViewerPage({Key? key, required this.fileUrl, required this.onSend,required this.platform,}) : super(key: key);
+
+  @override
+  _AudioViewerPageState createState() => _AudioViewerPageState();
+}
+
+class _AudioViewerPageState extends State<AudioViewerPage> {
+  final TextEditingController _messageController = TextEditingController();
+  late audio.AudioPlayer _audioPlayer;
+  bool _isPlaying = false;
+  Duration _duration = Duration.zero;
+  Duration _position = Duration.zero;
+  bool _isLoading = true;
+  bool _isInitialized = false;
+  int? _fileSize;
+  bool _hasCompleted = false;
+  late bool _hideCaption;
+  
+  @override
+  void initState() {
+    super.initState();
+    _hideCaption = widget.platform == 'fb_whatsapp' || widget.platform == 'whatsapp' || widget.platform =='facebook';
+    _audioPlayer = audio.AudioPlayer();
+    _initAudioPlayer();
+    _getFileSize();
+    
+    // Dismiss keyboard from previous page when _hideCaption is true
+    if (_hideCaption) {
+      // Use addPostFrameCallback to ensure the page is fully built before dismissing keyboard
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        // Unfocus any currently focused widget (like the chatview text field)
+        // Using only FocusManager to avoid context type conflict
+        FocusManager.instance.primaryFocus?.unfocus();
+      });
+    }
+  }
+
+  Future<void> _initAudioPlayer() async {
+    try {
+      // Stop any existing playback
+      await _audioPlayer.stop();
+      
+      // Reset state
+      setState(() {
+        _isLoading = true;
+        _isPlaying = false;
+        _position = Duration.zero;
+        _duration = Duration.zero;
+      });
+
+      // Set up listeners
+      _audioPlayer.onPlayerStateChanged.listen((audio.PlayerState state) {
+        setState(() {
+          _isPlaying = state == audio.PlayerState.playing;
+        });
+      });
+
+      _audioPlayer.onDurationChanged.listen((Duration duration) {
+        setState(() {
+          _duration = duration;
+          _isLoading = false;
+        });
+      });
+
+      _audioPlayer.onPositionChanged.listen((Duration position) {
+        setState(() {
+          _position = position;
+        });
+      });
+
+      _audioPlayer.onPlayerComplete.listen((_) {
+        setState(() {
+          _isPlaying = false;
+          _position = Duration.zero;
+          _hasCompleted = true; // Set completion flag
+        });
+      });
+
+      // Load audio file
+      await _audioPlayer.setSource(audio.DeviceFileSource(widget.fileUrl));
+      _isInitialized = true;
+    } catch (e) {
+      print('Error initializing audio player: $e');
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
+
+  Future<void> _playPause() async {
+    if (!_isInitialized) {
+      await _initAudioPlayer();
+    }
+    
+    if (_isPlaying) {
+      await _audioPlayer.pause();
+    } else {
+      // If audio has completed, treat this as a replay
+      if (_hasCompleted) {
+        await _replayAudio();
+        setState(() {
+          _hasCompleted = false; // Reset completion flag
+        });
+      } else {
+        // Normal resume
+        if (_position >= _duration - Duration(milliseconds: 100) || _duration == Duration.zero) {
+          await _audioPlayer.seek(Duration.zero);
+        }
+        await _audioPlayer.resume();
+      }
+    }
+  }
+  
+  Future<void> _seekAudio(double value) async {
+    if (!_isInitialized) return;
+    
+    final position = Duration(milliseconds: (value * _duration.inMilliseconds).round());
+    await _audioPlayer.seek(position);
+  }
+
+  Future<void> _replayAudio() async {
+    if (!_isInitialized) return;
+    
+    await _audioPlayer.stop();
+    await _audioPlayer.setSource(audio.DeviceFileSource(widget.fileUrl));
+    await _audioPlayer.resume();
+  }
+  
+  Future<void> _getFileSize() async {
+    try {
+      final file = File(widget.fileUrl);
+      final exists = await file.exists();
+      if (exists) {
+        final stat = await file.stat();
+        setState(() {
+          _fileSize = stat.size;
+        });
+      }
+    } catch (e) {
+      print('Error getting file size: $e');
+    }
+  }
+  
+  String _formatDuration(Duration duration) {
+    String twoDigits(int n) => n.toString().padLeft(2, '0');
+    final hours = twoDigits(duration.inHours);
+    final minutes = twoDigits(duration.inMinutes.remainder(60));
+    final seconds = twoDigits(duration.inSeconds.remainder(60));
+    
+    return hours == '00' ? '$minutes:$seconds' : '$hours:$minutes:$seconds';
+  }
+  
+  String _getFileSizeText() {
+    if (_fileSize == null) return '';
+    
+    if (_fileSize! < 1024) {
+      return '${_fileSize} B';
+    } else if (_fileSize! < 1024 * 1024) {
+      return '${(_fileSize! / 1024).toStringAsFixed(1)} KB';
+    } else {
+      return '${(_fileSize! / (1024 * 1024)).toStringAsFixed(1)} MB';
+    }
+  }
+
+  @override
+  void dispose() {
+    _audioPlayer.stop();
+    _audioPlayer.dispose();
+    _messageController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      appBar: AppBar(
+        backgroundColor: Colors.black,
+        title: const Text('Audio Preview', style: TextStyle(color: Colors.white)),
+        centerTitle: true,
+        iconTheme: const IconThemeData(color: Colors.white),
+      ),
+      body: Column(
+        children: [
+          Expanded(
+            child: Center(
+              child: Container(
+                margin: const EdgeInsets.all(20),
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: Colors.grey[900],
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Audio file name
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: Text(
+                        p.basename(widget.fileUrl),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w400,
+                        ),
+                        textAlign: TextAlign.center,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    
+                    // Audio file size
+                    if (_fileSize != null)
+                      Text(
+                        'File size: ${_getFileSizeText()}',
+                        style: const TextStyle(
+                          color: Colors.white70,
+                          fontSize: 12,
+                        ),
+                      ),
+                    const SizedBox(height: 20),
+                    
+                    // Audio player controls
+                    _isLoading 
+                        ? const CircularProgressIndicator(color: Colors.blue)
+                        : Column(
+                          children: [
+                            // Progress bar
+                            SliderTheme(
+                              data: SliderTheme.of(context).copyWith(
+                                activeTrackColor: Colors.blue,
+                                inactiveTrackColor: Colors.grey[700],
+                                trackHeight: 4.0,
+                                thumbColor: Colors.blue,
+                                overlayColor: Colors.blue.withAlpha(32),
+                                thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 8.0),
+                                overlayShape: const RoundSliderOverlayShape(overlayRadius: 14.0),
+                              ),
+                              child: Slider(
+                                value: _duration.inMilliseconds == 0 
+                                    ? 0 
+                                    : (_position.inMilliseconds / _duration.inMilliseconds).clamp(0.0, 1.0),
+                                onChanged: _seekAudio,
+                                onChangeEnd: _seekAudio,
+                              ),
+                            ),
+                            
+                            // Time indicators
+                            Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    _formatDuration(_position),
+                                    style: const TextStyle(
+                                      color: Colors.white70,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                  Text(
+                                    _formatDuration(_duration),
+                                    style: const TextStyle(
+                                      color: Colors.white70,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 20),
+                            GestureDetector(
+                              onTap: _playPause,
+                              child: Container(
+                                padding: const EdgeInsets.all(16),
+                                decoration: BoxDecoration(
+                                  color: Colors.blue,
+                                  shape: BoxShape.circle,
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.blue.withOpacity(0.5),
+                                      blurRadius: 10,
+                                      spreadRadius: 2,
+                                    ),
+                                  ],
+                                ),
+                                child: Icon(
+                                  _hasCompleted 
+                                      ? Icons.replay  // Show replay icon when completed
+                                      : (_isPlaying ? Icons.pause : Icons.play_arrow), // Show play/pause otherwise
+                                  color: Colors.white,
+                                  size: 30,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 10),
+                            
+                          ],
+                        ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          Container(
+            margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+            decoration: BoxDecoration(
+              color: Colors.grey[900],
+              borderRadius: BorderRadius.circular(15),
+            ),
+            child: Row(
+              children: [
+                // Only show caption input if platform is NOT fb_whatsapp, facebook, or whatsapp
+                if (!_hideCaption)
+                  Expanded(
+                    child: TextField(
+                      controller: _messageController,
+                      style: const TextStyle(color: Colors.white),
+                      maxLines: 5,
+                      minLines: 1,
+                      decoration: const InputDecoration(
+                        hintText: "Add a caption...",
+                        hintStyle: TextStyle(color: Colors.white54),
+                        border: InputBorder.none,
+                        contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      ),
+                    ),
+                  ),
+                
+                // For fb_whatsapp, facebook, whatsapp - push send icon to the right
+                if (_hideCaption)
+                  Spacer(),
+                
+                GestureDetector(
+                  onTap: () {
+                    widget.onSend(widget.fileUrl, _messageController.text.trim());
+                    _messageController.clear();
+                    Navigator.pop(context);
+                  },
+                  child: _hideCaption
+                      ? Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.blue,
+                            borderRadius: BorderRadius.circular(50),
+                          ),
+                          child: const Icon(Icons.send, color: Colors.white, size: 24),
+                        )
+                      : const Padding(
+                          padding: EdgeInsets.symmetric(horizontal: 8),
+                          child: Icon(Icons.send, color: Colors.blue, size: 24),
+                        ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+} */
 
 class AudioViewerPage extends StatefulWidget {
   final String fileUrl;
@@ -1573,12 +2053,11 @@ class _AudioViewerPageState extends State<AudioViewerPage> {
   int? _fileSize;
   bool _hasCompleted = false;
   late bool _hideCaption;
-
+  
   @override
   void initState() {
     super.initState();
-    _hideCaption = widget.platform == 'fb_whatsapp' || 
-                   widget.platform == 'whatsapp';
+    _hideCaption = widget.platform == 'fb_whatsapp' || widget.platform == 'whatsapp' || widget.platform =='facebook';
     _audioPlayer = audio.AudioPlayer();
     _initAudioPlayer();
     _getFileSize();
@@ -1924,5 +2403,4 @@ class _AudioViewerPageState extends State<AudioViewerPage> {
     );
   }
 }
-
 
