@@ -1128,10 +1128,8 @@ class _ChatUITextFieldState extends State<ChatUITextField> with WidgetsBindingOb
         final prefs = await SharedPreferences.getInstance();
         final String? platform = prefs.getString('platform');
         
-        // Dismiss keyboard before navigating
         FocusManager.instance.primaryFocus?.unfocus();
-        
-        // Add a small delay to ensure keyboard is dismissed before navigation
+      
         await Future.delayed(const Duration(milliseconds: 100));
         
         Navigator.push(
@@ -1275,6 +1273,26 @@ class _ChatUITextFieldState extends State<ChatUITextField> with WidgetsBindingOb
           final mimeParts = mime_type.split('/');
           request.files.add(await http.MultipartFile.fromPath('file', filePath, contentType: MediaType(mimeParts[0], mimeParts[1])));
         }
+        else if(platform=='instagram'){
+          String media_type = "file";
+        
+          if (extension == '.jpg' || extension == '.png' || extension == '.jpeg')
+          {
+              media_type = "image";
+          }
+          else if (extension == '.mp4'  || extension == '.mov' || extension == '.ogg' || extension =='.avi' || extension =='.webm')
+          {
+            media_type = "video";
+          }
+          else if ( extension == '.wav' || extension == '.aac' || extension == '.mp4' || extension == '.m4a')
+          {
+            media_type = "audio";
+          }
+          else if(extension == '.pdf'){
+             media_type = "file";
+          }
+          request.files.add(await http.MultipartFile.fromPath('file', filePath, contentType: MediaType('application', media_type)));
+        }
         else{
           
           String media_type = "file";
@@ -1311,7 +1329,82 @@ class _ChatUITextFieldState extends State<ChatUITextField> with WidgetsBindingOb
     }
   }
   
-
+void _showCustomNotificationinstagram(BuildContext context) {
+  OverlayEntry? overlayEntry;
+  
+  overlayEntry = OverlayEntry(
+    builder: (context) => Positioned(
+      bottom: 20,
+      left: 20,
+      right: 20,
+      child: Material(
+        color: Colors.transparent,
+        child: Container(
+          padding: EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: const Color(0xFFFF6B35), 
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black26,
+                blurRadius: 10,
+              ),
+            ],
+          ),
+          child: Row(
+            children: [
+              Icon(Icons.error_outline, color: Colors.white),
+              SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                        'Unsupported File Format',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w300,
+                          fontSize: 16,
+                          color: Colors.white,
+                        ),
+                      ),
+                      SizedBox(height: 4),
+                      Text(
+                        'The selected format is not supported by Instagram.',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.white,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              IconButton(
+                icon: Icon(Icons.close, color: Colors.white, size: 20),
+                onPressed: () {
+                  if (overlayEntry != null && overlayEntry!.mounted) {
+                    overlayEntry!.remove();
+                    overlayEntry = null; // Clear the reference
+                  }
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    ),
+  );
+  
+  Overlay.of(context).insert(overlayEntry!);
+  
+  // Auto remove after 5 seconds with null check
+  Future.delayed(Duration(seconds: 5), () {
+    if (overlayEntry != null && overlayEntry!.mounted) {
+      overlayEntry!.remove();
+      overlayEntry = null;
+    }
+  });
+}
 void _showCustomNotification(BuildContext context) {
   OverlayEntry? overlayEntry;
   
@@ -1402,7 +1495,8 @@ void _onIconPressed(
     // Check if WhatsApp format validation is needed
     bool needsWhatsAppValidation = page == 'chat' && 
                                     (platform == 'fb_whatsapp' || platform == 'whatsapp');
-    
+    bool needsinstagramValidation = page == 'chat' && 
+                                    (platform == 'instagram' || platform == 'Instagram');
     final XFile? image = await _imagePicker.pickImage(
       source: imageSource,
       maxHeight: config?.maxHeight,
@@ -1431,7 +1525,18 @@ void _onIconPressed(
           
           return; 
         }
+      } else if(needsinstagramValidation){
+        String lowerPath = imagePath.toLowerCase();
+        
+        // Instagram only supports JPG, JPEG, PNG for images
+        if (!lowerPath.endsWith('.jpeg') && 
+            !lowerPath.endsWith('.png')) {
+           _showCustomNotificationinstagram(ctx);
+          
+          return; 
+        }
       }
+      
       
       Navigator.push(
         ctx,
