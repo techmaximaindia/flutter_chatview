@@ -107,7 +107,7 @@ class SendMessageWidgetState extends State<SendMessageWidget> {
    @override
    void initState() {
     super.initState();
-    SocketManager().connectSocket(
+   /*  SocketManager().connectSocket(
       onMessageReceived: (incomingText) {
         setState(() {
           _messageController.text += incomingText;
@@ -119,7 +119,7 @@ class SendMessageWidgetState extends State<SendMessageWidget> {
         _scrollToBottom();
       },
       /* source: 'chat' */
-    );
+    ); */
    }
   @override
   void didChangeDependencies() {
@@ -515,6 +515,7 @@ class SendMessageWidgetState extends State<SendMessageWidget> {
       _isSendEnabled.value = false;
     });
   }
+ 
   @override
   Widget build(BuildContext context) {
     final replyTitle = "${PackageStrings.replyTo} $_replyTo";
@@ -667,6 +668,16 @@ class SendMessageWidgetState extends State<SendMessageWidget> {
                               '',
                             );
                           },
+                          onAIStreamingResponse: (incomingText) {
+                            setState(() {
+                              _messageController.text += incomingText; 
+                              _messageController.selection = TextSelection.fromPosition(
+                                TextPosition(offset: _messageController.text.length),
+                              );
+                            });
+                            _isSendEnabled.value = true;
+                            _scrollToBottom();
+                          },
                         ),
                       ],
                     ),
@@ -763,7 +774,7 @@ class SendMessageWidgetState extends State<SendMessageWidget> {
       messageText.trim(),
       replyMessage,
       MessageType.text,
-      ''
+      '',
     );
     print(replyMessage.messageId);
     print(replyMessage.message);
@@ -803,11 +814,11 @@ class SendMessageWidgetState extends State<SendMessageWidget> {
     _textEditingController.dispose();
     /* _focusNode.dispose(); */
     _replyMessage.dispose();
-    try {
+   /*  /* try { */
       SocketManager().disconnectSocket();
-    } catch (e) {
+    /* } catch (e) {
       print('Socket disconnection error: $e');
-    }
+    } */ */
     SharedPreferences.getInstance().then((prefs) {
       prefs.remove('conversation_id');
       prefs.remove('ticket_id');
