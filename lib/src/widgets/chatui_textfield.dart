@@ -65,6 +65,7 @@ class ChatUITextField extends StatefulWidget {
     required this.onAIPressed,
     required this.messageController,
     required this.ai_send_pressed,
+    this.onAIStreamingResponse, 
     /* this.reply_message_id,
     this.reply_messages, */
   }) : super(key: key);
@@ -78,6 +79,7 @@ class ChatUITextField extends StatefulWidget {
   /// Provides functions which handles text field.
   final TextEditingController textEditingController;
 
+  final Function(String)? onAIStreamingResponse; 
   /// Provides callback when user tap on text field.
   final VoidCallBack onPressed;
 
@@ -174,7 +176,7 @@ class _ChatUITextFieldState extends State<ChatUITextField> with WidgetsBindingOb
     super.initState();
 
     
-    SocketManager().connectSocket(
+    /* SocketManager().connectSocket(
       onMessageReceived: (incomingText) {
         setState(() {
           /* _messageController.text += incomingText;
@@ -190,10 +192,19 @@ class _ChatUITextFieldState extends State<ChatUITextField> with WidgetsBindingOb
         _scrollToBottom();
       },
       /* source: 'chat', */
-    );
+    ); */
     _loadPreferences();
   }
-
+  @override
+  void didUpdateWidget(ChatUITextField oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    
+    // ✅ ADD THIS: Handle AI streaming when callback is triggered
+    if (widget.onAIStreamingResponse != null) {
+      // The callback will be invoked from ChatPage
+      // You don't need to do anything here, just ensure the callback exists
+    }
+  }
   void _startTimer() {
     _recordingTimer?.cancel();
     _recordingSeconds = 0;
@@ -259,11 +270,11 @@ class _ChatUITextFieldState extends State<ChatUITextField> with WidgetsBindingOb
     WidgetsBinding.instance.removeObserver(this);
      _stopRecordingIfActive();
     _suggestionOverlay?.remove();
-    try {
+   /* /*  try { */
       SocketManager().disconnectSocket();
-    } catch (e) {
+    /* } catch (e) {
       print('Socket disconnection error: $e');
-    }
+    } */ */
 
     // Fire and forget any async operations
     SharedPreferences.getInstance().then((prefs) {
