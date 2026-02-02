@@ -320,7 +320,6 @@ class _ChatUITextFieldState extends State<ChatUITextField> with WidgetsBindingOb
     {
       String responseBody = await response.stream.bytesToString();
       Map<String, dynamic> decodedResponse = json.decode(responseBody);
-
       if (decodedResponse.containsKey('data') && decodedResponse['data'] != null) 
       {
         List<Map<String, String>> todos = (decodedResponse['data'] as List)
@@ -350,6 +349,7 @@ class _ChatUITextFieldState extends State<ChatUITextField> with WidgetsBindingOb
       return [];
     }
   }
+  
   void _removeSuggestionOverlay() 
   {
     _suggestionOverlay?.remove();
@@ -767,506 +767,338 @@ class _ChatUITextFieldState extends State<ChatUITextField> with WidgetsBindingOb
       _isSendEnabled.value = false;
     });
   } 
-  /* @override
-  Widget build(BuildContext context) {
-    final outlineBorder = _outLineBorder;
-    return IntrinsicHeight(
-      child: Align(
-        alignment: Alignment.bottomCenter,
-        child: SizedBox(
-          width: MediaQuery.of(context).size.width,
-          child: SafeArea(
-            bottom: true,
-            left: false,
-            right: false,
-            top: false,
-            child: Stack(
-              children: [
-                Stack(
-                  alignment: Alignment.bottomCenter,
-                  children: [
-                    if (suggestions.isNotEmpty)
-                      Container(
-                        decoration: BoxDecoration(
-                          color: widget.sendMessageConfig?.textFieldBackgroundColor ?? Colors.white,
-                          borderRadius: const BorderRadius.vertical(top: Radius.circular(14)),
-                        ),
-                        margin: const EdgeInsets.only(bottom: 17, right: 0.4, left: 0.4),
-                        padding: const EdgeInsets.fromLTRB(leftPadding, leftPadding, leftPadding, 30),
-                        child: Container(
-                          margin: const EdgeInsets.only(bottom: 2),
-                          padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 6),
-                          decoration: BoxDecoration(
-                            color: Colors.grey.shade200,
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: ConstrainedBox(
-                            constraints: BoxConstraints(maxHeight: 150),
-                            child: SingleChildScrollView(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                mainAxisSize: MainAxisSize.min,
-                                children: suggestions.map((suggestion) {
-                                  Widget mediaWidget;
-                                  switch (suggestion['media_type']) {
-                                    case 'image':
-                                      mediaWidget = Image.network(
-                                        suggestion['media_url'] ?? '',
-                                        width: 50,
-                                        height: 50,
-                                        fit: BoxFit.cover,
-                                      );
-                                      break;
-                                    case 'video':
-                                      mediaWidget = Icon(Icons.video_call, color: Colors.grey);
-                                      break;
-                                    case 'audio':
-                                      mediaWidget = Icon(Icons.audiotrack, color: Colors.grey);
-                                      break;
-                                    case 'file':
-                                      mediaWidget = Icon(Icons.file_copy_outlined, color: Colors.grey);
-                                      break;
-                                    default:
-                                      mediaWidget = Text(
-                                        suggestion['content'] ?? '',
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: TextStyle(color: Colors.black, fontSize: 14),
-                                      );
-                                      break;
-                                  }
-                                  return ListTile(
-                                    contentPadding: EdgeInsets.symmetric(vertical: 0, horizontal: 10),
-                                    dense: true,
-                                    visualDensity: VisualDensity(horizontal: 0, vertical: -3),
-                                    title: Row(
-                                      children: [
-                                        Flexible(
-                                          child: Text(
-                                            '${suggestion['short_code'] ?? 'No Shortcode'} - ',
-                                            maxLines: 1,
-                                            overflow: TextOverflow.ellipsis,
-                                            style: TextStyle(
-                                              color: Colors.black,
-                                              fontWeight: FontWeight.bold,
-                                              fontSize: 14,
-                                            ),
-                                          ),
-                                        ),
-                                        SizedBox(width: 5),
-                                        Flexible(child: mediaWidget),
-                                      ],
-                                    ),
-                                    onTap: () async {
-                                      if (suggestion['media_url'] != '') {
-                                        Future<File> _fileFromImageUrl(image_url) async {
-                                          final fileName = image_url.split('/').last;
-                                          final response = await http.get(Uri.parse(image_url));
-                                          final documentDirectory = await getApplicationDocumentsDirectory();
-                                          final file = File(join(documentDirectory.path, fileName));
-                                          file.writeAsBytesSync(response.bodyBytes);
-                                          return file;
-                                        }
+ 
 
-                                        String getFileExtension(String fileName) {
-                                          return ".${fileName.split('.').last}".toLowerCase();
-                                        }
-
-                                        final prefs = await SharedPreferences.getInstance();
-                                        final String? uuid = prefs.getString('uuid');
-                                        final String? team_alias = prefs.getString('team_alias');
-                                        final String? cb_lead_id = prefs.getString('cb_lead_id');
-                                        final String? platform = prefs.getString('platform');
-                                        final String? conversation_id = prefs.getString('conversation_id');
-                                        String url = base_url + 'api/send_image_message/';
-                                        Map<String, String> headers = {"Authorization": "$uuid|$team_alias"};
-
-                                        var postUri = Uri.parse(url);
-                                        var request = http.MultipartRequest("POST", postUri);
-                                        request.fields['cb_lead_id'] = "$cb_lead_id";
-                                        request.fields['platform'] = "$platform";
-                                        request.fields['message_body'] = '';
-                                        request.fields['conversation_id'] = "$conversation_id";
-                                        request.fields['cb_message_source'] = 'android';
-                                        request.headers.addAll(headers);
-                                        String extension = getFileExtension("${suggestion['media_url']}");
-                                        String media_type = "file";
-                                        if(extension == '.jpg' || extension == '.png' || extension == '.jpeg' || extension == '.gif' || extension == '.bmp' || extension == '.webp'|| extension == '.heic' ||extension == '.heif')
-                                        {
-                                            media_type = "image";
-                                        }
-                                        else if(extension == '.mp4' || extension == '.avi' || extension == '.mov' || extension == '.wmv' ||  extension == '.flv' || extension == '.mkv' || extension == '.webm' || extension == '.3gp' || extension == '.m4v' )
-                                        {
-                                          media_type="video";
-                                        }
-                                        else if (extension == '.mp3' || extension == '.wav' || extension == '.aac' || extension == '.ogg' || extension == '.opus' || extension == '.m4a' || extension == '.flac' || extension == '.amr' || extension == '.webm' || extension == '.caf' || extension == '.aiff' || extension == '.aif')
-                                        {
-                                          media_type="audio";
-                                        }
-                                        
-
-                                        var uploadfile = await _fileFromImageUrl(suggestion['media_url']);
-                                        request.files.add(await http.MultipartFile.fromPath('file', uploadfile.path, contentType: MediaType('application', media_type)));
-                                        final response = await request.send();
-                                        final responseData = await response.stream.toBytes();
-                                        final responseString = String.fromCharCodes(responseData);
-                                      } else {
-                                        widget.textEditingController.text = suggestion['content'] ?? '';
-                                      }
-                                      setState(() {
-                                        suggestions = [];
-                                      });
-                                    },
-                                  );
-                                }).toList(),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    
-                    // The rest of your input bar starts here
-                    Container(
-                          padding: textFieldConfig?.padding ?? const EdgeInsets.symmetric(horizontal: 4), /* new */
-                          margin: textFieldConfig?.margin,
-                          decoration: BoxDecoration(
-                            borderRadius: textFieldConfig?.borderRadius ?? BorderRadius.circular(textFieldBorderRadius),
-                            color: sendMessageConfig?.textFieldBackgroundColor ?? Colors.white,
-                          ),
-                          child: ValueListenableBuilder<bool>(
-                            valueListenable: isRecording,
-                            builder: (context, isRecordingValue, child) {
-                              return Column(
-                                children: [
-                                  // Timer row - positioned above the audio waves at left end
-                                  if (isRecordingValue)
-                                    Container(
-                                      padding: EdgeInsets.only(left: 16, top: 8, bottom: 2),
-                                      alignment: Alignment.centerLeft,
-                                      child: Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          Icon(Icons.fiber_manual_record, color: Colors.red, size: 16),
-                                          SizedBox(width: 8),
-                                          Text(
-                                            _timerText,
-                                            style: TextStyle(
-                                              color: Colors.black,
-                                              fontSize: 14,
-                                              fontWeight: FontWeight.w500,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                Row(
-                                children: [
-                                  if (isRecordingValue && recorderController != null && !kIsWeb)
-                                    AudioWaveforms(
-                                      size: Size(MediaQuery.of(context).size.width * 0.75, 50),
-                                      recorderController: recorderController!,
-                                      margin: voiceRecordingConfig?.margin,
-                                      padding: voiceRecordingConfig?.padding ?? const EdgeInsets.symmetric(horizontal: 8),
-                                      decoration: voiceRecordingConfig?.decoration ?? BoxDecoration(
-                                        color: voiceRecordingConfig?.backgroundColor,
-                                        borderRadius: BorderRadius.circular(12.0),
-                                      ),
-                                      waveStyle: voiceRecordingConfig?.waveStyle ?? WaveStyle(
-                                        extendWaveform: true,
-                                        showMiddleLine: false,
-                                        waveColor: voiceRecordingConfig?.waveStyle?.waveColor ?? Colors.black,
-                                      ),
-                                    )
-                                  else
-                                     Expanded(
-                                      child: TextField(
-                                        /* focusNode: widget.focusNode, */
-                                        cursorColor: Colors.black,    
-                                        autofocus: widget.autofocus,
-                                        controller: widget.textEditingController,
-                                        style: textFieldConfig?.textStyle ?? const TextStyle(color: Colors.white),
-                                        maxLines: textFieldConfig?.maxLines ?? 5,
-                                        minLines: textFieldConfig?.minLines ?? 1,
-                                        keyboardType: textFieldConfig?.textInputType,
-                                        inputFormatters: textFieldConfig?.inputFormatters,
-                                        onChanged: _onChanged,
-                                        textCapitalization: textFieldConfig?.textCapitalization ?? TextCapitalization.sentences,
-                                        decoration: InputDecoration(
-                                          hintText: textFieldConfig?.hintText ?? PackageStrings.message,
-                                          fillColor: sendMessageConfig?.textFieldBackgroundColor ?? Colors.white,
-                                          filled: true,
-                                          hintStyle: textFieldConfig?.hintStyle ?? TextStyle(
-                                            fontSize: 16,
-                                            fontWeight: FontWeight.w400,
-                                            color: Colors.grey.shade600,
-                                            letterSpacing: 0.25,
-                                          ),
-                                          contentPadding: textFieldConfig?.contentPadding ?? const EdgeInsets.symmetric(horizontal: 6),
-                                          border: _outLineBorder,
-                                          focusedBorder: _outLineBorder,
-                                          enabledBorder: OutlineInputBorder(
-                                            borderSide: const BorderSide(color: Colors.transparent),
-                                            borderRadius: textFieldConfig?.borderRadius ?? BorderRadius.circular(textFieldBorderRadius),
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                   ValueListenableBuilder<String>(
-                                    valueListenable: _inputText,
-                                    builder: (_, inputTextValue, child){
-                                      if (inputTextValue.isNotEmpty) {
-                                        return Row(
-                                          mainAxisAlignment: MainAxisAlignment.end,
-                                          children: [
-                                              IconButton(
-                                                onPressed: () {
-                                                  final inputText = widget.textEditingController.text;
-                                                  if (inputText.isNotEmpty) {
-                                                    _show_dialog_fetch_response(context, inputText);
-                                                    widget.textEditingController.clear(); 
-                                                    _inputText.value = '';
-                                                  } else {
-                                                    _inputText.value = '';
-                                                  }
-                                                },
-                                                icon: const FaIcon(
-                                                  FontAwesomeIcons.magicWandSparkles,
-                                                  size: 18,
-                                                  color: Colors.black,
-                                                ),
-                                              ),
-                                            IconButton(
-                                              color: sendMessageConfig?.defaultSendButtonColor ?? Colors.green,
-                                              onPressed: () {
-                                                widget.onPressed();
-                                                _inputText.value = '';
-                                              },
-                                              icon: sendMessageConfig?.sendButtonIcon ?? const Icon(Icons.send),
-                                              ),
-                                        ],
-                                      );
-                                      } else {
-                                        return Row(
-                                          children: [
-                                            if (!isRecordingValue) ...[
-                                              if (sendMessageConfig?.enableCameraImagePicker ?? true)
-                                                IconButton(
-                                                  constraints: const BoxConstraints(),
-                                                  onPressed: () => /* _onIconPressed(
-                                                    ImageSource.camera,
-                                                    config: sendMessageConfig?.imagePickerConfiguration,
-                                                  ), */{},
-                                                  icon: imagePickerIconsConfig?.cameraImagePickerIcon ?? Icon(
-                                                    Icons.camera_alt_outlined,
-                                                    color: imagePickerIconsConfig?.cameraIconColor,
-                                                  ),
-                                                ),
-                                              if (sendMessageConfig?.enableGalleryImagePicker ?? true)
-                                                IconButton(
-                                                  constraints: const BoxConstraints(),
-                                                  onPressed: () => _onIconPressed(
-                                                    context,
-                                                    ImageSource.gallery,
-                                                    config: sendMessageConfig?.imagePickerConfiguration,
-                                                  ),
-                                                  icon: imagePickerIconsConfig?.galleryImagePickerIcon ?? Icon(
-                                                    Icons.image,
-                                                    color: imagePickerIconsConfig?.galleryIconColor,
-                                                  ),
-                                                ),
-                                              
-                                              if(inputTextValue.isEmpty)  
-                                                IconButton(
-                                                  onPressed: () {
-                                                    widget.onAIPressed();
-                                                  },
-                                                  icon: const FaIcon(
-                                                    FontAwesomeIcons.magicWandSparkles,
-                                                    size: 18,
-                                                    color: Colors.black,
-                                                  ),
-                                                ),  
-                                            ],
-                                            if (sendMessageConfig?.allowRecordingVoice ?? true && Platform.isIOS && Platform.isAndroid && !kIsWeb)
-                                              IconButton(
-                                                onPressed: () => _recordOrStop(context),
-                                                icon: (isRecordingValue ? voiceRecordingConfig?.micIcon : voiceRecordingConfig?.stopIcon) ?? Icon(isRecordingValue ? Icons.stop : Icons.mic),
-                                                color: voiceRecordingConfig?.recorderIconColor,
-                                              )
-                                          ],
-                                        );
-                                      }
-                                    },
-                                  ), 
-                                ],
-                              ),
-                                ],
-                              );
-                            },
-                          ),
-                        ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  } */
   @override
   Widget build(BuildContext context) {
     final outlineBorder = _outLineBorder;
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        // Suggestions container - displayed above the text field
+        // WhatsApp-style Quick Replies section
         if (suggestions.isNotEmpty)
           Container(
             width: MediaQuery.of(context).size.width,
-            constraints: BoxConstraints(maxHeight: 200),
             decoration: BoxDecoration(
-              color: widget.sendMessageConfig?.textFieldBackgroundColor ?? Colors.white,
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(14)),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.1),
-                  blurRadius: 4,
-                  offset: Offset(0, -2),
-                ),
-              ],
-            ),
-            margin: const EdgeInsets.only(left: 4, right: 4, bottom: 8),
-            padding: const EdgeInsets.all(8),
-            child: Container(
-              padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 6),
-              decoration: BoxDecoration(
-                color: Colors.grey.shade200,
-                borderRadius: BorderRadius.circular(12),
+              color: Colors.white,
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(14),
+                bottom: Radius.circular(14),
               ),
-              child: SingleChildScrollView(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: suggestions.map((suggestion) {
-                    Widget mediaWidget;
-                    switch (suggestion['media_type']) {
-                      case 'image':
-                        mediaWidget = Image.network(
-                          suggestion['media_url'] ?? '',
-                          width: 50,
-                          height: 50,
-                          fit: BoxFit.cover,
-                        );
-                        break;
-                      case 'video':
-                        mediaWidget = Icon(Icons.video_call, color: Colors.grey);
-                        break;
-                      case 'audio':
-                        mediaWidget = Icon(Icons.audiotrack, color: Colors.grey);
-                        break;
-                      case 'file':
-                        mediaWidget = Icon(Icons.file_copy_outlined, color: Colors.grey);
-                        break;
-                      default:
-                        mediaWidget = Text(
-                          suggestion['content'] ?? '',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(color: Colors.black, fontSize: 14),
-                        );
-                        break;
-                    }
-                    return ListTile(
-                      contentPadding: EdgeInsets.symmetric(vertical: 0, horizontal: 10),
-                      dense: true,
-                      visualDensity: VisualDensity(horizontal: 0, vertical: -3),
-                      title: Row(
-                        children: [
-                          Flexible(
-                            child: Text(
-                              '${suggestion['short_code'] ?? 'No Shortcode'} - ',
-                              maxLines: 1,
+              border: Border.all(
+                color: Colors.grey.shade300,
+                width: 0.5,
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Quick Replies',
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.black87,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                
+                // Suggestions list
+                Container(
+                  constraints: BoxConstraints(maxHeight: 200),
+                  child: ListView.builder(
+                    shrinkWrap: true,
+                    padding: EdgeInsets.zero,
+                    itemCount: suggestions.length,
+                    itemBuilder: (context, index) {
+                      final suggestion = suggestions[index];
+                      
+                      // Build media/content widget
+                      Widget? trailingWidget;
+                      Widget? contentWidget;
+
+                      String getFileExtensionFromUrl(String url) {
+                        if (url.isEmpty) return '';
+                        return url.split('.').last.toLowerCase();
+                      }
+                      bool isImageExtension(String extension) {
+                        return ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'svg'].contains(extension);
+                      }
+                      
+                      bool isVideoExtension(String extension) {
+                        return ['mp4', 'webm', 'ogg'].contains(extension);
+                      }
+
+                      bool isDocumentExtension(String extension) {
+                        return ['doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'txt', 'pdf'].contains(extension);
+                      }
+
+                      IconData getDocumentIcon(String extension) {
+                        switch (extension) {
+                          case 'doc':
+                          case 'docx':
+                            return Icons.description_outlined;
+                          case 'xls':
+                          case 'xlsx':
+                            return Icons.table_chart_outlined;
+                          case 'ppt':
+                          case 'pptx':
+                            return Icons.slideshow_outlined;
+                          case 'txt':
+                            return Icons.text_snippet_outlined;
+                          case 'pdf':
+                            return Icons.picture_as_pdf_outlined;
+                          default:
+                            return Icons.insert_drive_file_outlined;
+                        }
+                      }
+                      
+                      switch (suggestion['media_type']) {
+                        case 'image':
+                          trailingWidget = Container(
+                            width: 48,
+                            height: 48,
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(4),
+                              color: Colors.grey.shade200,
+                            ),
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(4),
+                              child: Image.network(
+                                suggestion['media_url'] ?? '',
+                                fit: BoxFit.cover,
+                                errorBuilder: (context, error, stackTrace) {
+                                  return Icon(Icons.image, color: Colors.grey, size: 14);
+                                },
+                              ),
+                            ),
+                          );
+                          break;
+                        case 'video':
+                          trailingWidget = Container(
+                            padding: EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: Colors.grey,
+                              borderRadius: BorderRadius.circular(24),
+                            ),
+                            child: Icon(Icons.play_circle_outline, color: Colors.black, size: 14),
+                          );
+                          break;
+                        case 'audio':
+                          trailingWidget = Container(
+                            padding: EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: Colors.grey,
+                              borderRadius: BorderRadius.circular(24),
+                            ),
+                            child: Icon(Icons.audiotrack, color: Colors.black, size: 14),
+                          );
+                          break;
+                        case 'file':
+                          final mediaUrl = suggestion['media_url'] ?? '';
+                          final extension = getFileExtensionFromUrl(mediaUrl);
+                          
+                          if (isImageExtension(extension)) {
+                            // Show image thumbnail for image files
+                            trailingWidget = Container(
+                              width: 48,
+                              height: 48,
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(4),
+                                color: Colors.grey.shade200,
+                              ),
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(4),
+                                child: Image.network(
+                                  mediaUrl,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (context, error, stackTrace) {
+                                    return Icon(Icons.image, color: Colors.grey, size: 14);
+                                  },
+                                ),
+                              ),
+                            );
+                          } else if (isVideoExtension(extension)) {
+                            // Show video icon
+                            trailingWidget = Container(
+                              padding: EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: Colors.grey.shade100,
+                                borderRadius: BorderRadius.circular(24),
+                              ),
+                              child: Icon(Icons.play_circle_outline, color: Colors.black, size: 14),
+                            );
+                          } else if (isDocumentExtension(extension)) {
+                            // Show document-specific icon
+                            trailingWidget = Container(
+                              padding: EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: Colors.grey.shade100,
+                                borderRadius: BorderRadius.circular(24),
+                              ),
+                              child: Icon(getDocumentIcon(extension), color: Colors.black, size: 14),
+                            );
+                          } else {
+                            // Not a supported file type, treat as text
+                            contentWidget = Text(
+                              suggestion['content'] ?? '',
+                              maxLines: 3,
                               overflow: TextOverflow.ellipsis,
                               style: TextStyle(
-                                color: Colors.black,
-                                fontWeight: FontWeight.bold,
+                                color: Colors.grey.shade600,
                                 fontSize: 14,
+                                height: 1.3,
+                              ),
+                            );
+                            trailingWidget = Icon(
+                              Icons.subdirectory_arrow_left,
+                              color: Colors.black,
+                              size: 14,
+                            );
+                          }
+                          break;
+                        default:
+                          // Text content
+                          contentWidget = Text(
+                            suggestion['content'] ?? '',
+                            maxLines: 3,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: Colors.grey.shade600,
+                              fontSize: 14,
+                              height: 1.3,
+                            ),
+                          );
+                          trailingWidget = Icon(
+                            Icons.subdirectory_arrow_left,
+                            color: Colors.black,
+                            size: 14,
+                          );
+                          break;
+                      }
+                      
+                      return InkWell(
+                        onTap: () async {
+                          if (suggestion['media_url'] != '') {
+                            // Your existing media sending logic
+                            Future<File> _fileFromImageUrl(image_url) async {
+                              final fileName = image_url.split('/').last;
+                              final response = await http.get(Uri.parse(image_url));
+                              final documentDirectory = await getApplicationDocumentsDirectory();
+                              final file = File(join(documentDirectory.path, fileName));
+                              file.writeAsBytesSync(response.bodyBytes);
+                              return file;
+                            }
+
+                            String getFileExtension(String fileName) {
+                              return ".${fileName.split('.').last}".toLowerCase();
+                            }
+
+                            final prefs = await SharedPreferences.getInstance();
+                            final String? uuid = prefs.getString('uuid');
+                            final String? team_alias = prefs.getString('team_alias');
+                            final String? cb_lead_id = prefs.getString('cb_lead_id');
+                            final String? platform = prefs.getString('platform');
+                            final String? conversation_id = prefs.getString('conversation_id');
+                            String url = base_url + 'api/send_image_message/';
+                            Map<String, String> headers = {"Authorization": "$uuid|$team_alias"};
+
+                            var postUri = Uri.parse(url);
+                            var request = http.MultipartRequest("POST", postUri);
+                            request.fields['cb_lead_id'] = "$cb_lead_id";
+                            request.fields['platform'] = "$platform";
+                            request.fields['message_body'] = '';
+                            request.fields['conversation_id'] = "$conversation_id";
+                            request.fields['cb_message_source'] = 'android';
+                            request.headers.addAll(headers);
+                            String extension = getFileExtension("${suggestion['media_url']}");
+                            String media_type = "file";
+                            if(extension == '.jpg' || extension == '.png' || extension == '.jpeg' || extension == '.gif' || extension == '.bmp' || extension == '.webp'|| extension == '.bmp' ||extension == '.svg')
+                            {
+                                media_type = "image";
+                            }
+                            else if(extension == '.mp4' || extension == '.avi' || extension == '.mov' || extension == '.wmv' ||  extension == '.flv' || extension == '.mkv' || extension == '.webm' || extension == '.3gp' || extension == '.m4v' )
+                            {
+                              media_type="video";
+                            }
+                            else if (extension == '.mp3' || extension == '.wav' || extension == '.aac' || extension == '.ogg' || extension == '.opus' || extension == '.m4a' || extension == '.flac' || extension == '.amr' || extension == '.webm' || extension == '.caf' || extension == '.aiff' || extension == '.aif')
+                            {
+                              media_type="audio";
+                            }
+
+                            var uploadfile = await _fileFromImageUrl(suggestion['media_url']);
+                            request.files.add(await http.MultipartFile.fromPath('file', uploadfile.path, contentType: MediaType('application', media_type)));
+                            final response = await request.send();
+                            final responseData = await response.stream.toBytes();
+                            final responseString = String.fromCharCodes(responseData);
+                          } else {
+                            widget.textEditingController.text = suggestion['content'] ?? '';
+                          }
+                          setState(() {
+                            suggestions = [];
+                            _inputText.value = widget.textEditingController.text;
+                          });
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                          decoration: BoxDecoration(
+                            border: Border(
+                              bottom: BorderSide(
+                                color: Colors.grey.shade200,
+                                width: 0.5,
                               ),
                             ),
                           ),
-                          SizedBox(width: 5),
-                          Flexible(child: mediaWidget),
-                        ],
-                      ),
-                      onTap: () async {
-                        if (suggestion['media_url'] != '') {
-                          Future<File> _fileFromImageUrl(image_url) async {
-                            final fileName = image_url.split('/').last;
-                            final response = await http.get(Uri.parse(image_url));
-                            final documentDirectory = await getApplicationDocumentsDirectory();
-                            final file = File(join(documentDirectory.path, fileName));
-                            file.writeAsBytesSync(response.bodyBytes);
-                            return file;
-                          }
-
-                          String getFileExtension(String fileName) {
-                            return ".${fileName.split('.').last}".toLowerCase();
-                          }
-
-                          final prefs = await SharedPreferences.getInstance();
-                          final String? uuid = prefs.getString('uuid');
-                          final String? team_alias = prefs.getString('team_alias');
-                          final String? cb_lead_id = prefs.getString('cb_lead_id');
-                          final String? platform = prefs.getString('platform');
-                          final String? conversation_id = prefs.getString('conversation_id');
-                          String url = base_url + 'api/send_image_message/';
-                          Map<String, String> headers = {"Authorization": "$uuid|$team_alias"};
-
-                          var postUri = Uri.parse(url);
-                          var request = http.MultipartRequest("POST", postUri);
-                          request.fields['cb_lead_id'] = "$cb_lead_id";
-                          request.fields['platform'] = "$platform";
-                          request.fields['message_body'] = '';
-                          request.fields['conversation_id'] = "$conversation_id";
-                          request.fields['cb_message_source'] = 'android';
-                          request.headers.addAll(headers);
-                          String extension = getFileExtension("${suggestion['media_url']}");
-                          String media_type = "file";
-                          if(extension == '.jpg' || extension == '.png' || extension == '.jpeg' || extension == '.gif' || extension == '.bmp' || extension == '.webp'|| extension == '.heic' ||extension == '.heif')
-                          {
-                              media_type = "image";
-                          }
-                          else if(extension == '.mp4' || extension == '.avi' || extension == '.mov' || extension == '.wmv' ||  extension == '.flv' || extension == '.mkv' || extension == '.webm' || extension == '.3gp' || extension == '.m4v' )
-                          {
-                            media_type="video";
-                          }
-                          else if (extension == '.mp3' || extension == '.wav' || extension == '.aac' || extension == '.ogg' || extension == '.opus' || extension == '.m4a' || extension == '.flac' || extension == '.amr' || extension == '.webm' || extension == '.caf' || extension == '.aiff' || extension == '.aif')
-                          {
-                            media_type="audio";
-                          }
-                          
-
-                          var uploadfile = await _fileFromImageUrl(suggestion['media_url']);
-                          request.files.add(await http.MultipartFile.fromPath('file', uploadfile.path, contentType: MediaType('application', media_type)));
-                          final response = await request.send();
-                          final responseData = await response.stream.toBytes();
-                          final responseString = String.fromCharCodes(responseData);
-                        } else {
-                          widget.textEditingController.text = suggestion['content'] ?? '';
-                        }
-                        setState(() {
-                          suggestions = [];
-                        });
-                      },
-                    );
-                  }).toList(),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      suggestion['short_code'] ?? 'No Shortcode',
+                                      style: TextStyle(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w500,
+                                        color: const Color(0xFF1E88E5),
+                                        //color: Colors.black87,
+                                      ),
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                    // Content preview (if text)
+                                    if (contentWidget != null) ...[
+                                      SizedBox(height: 2),
+                                      contentWidget,
+                                    ],
+                                  ],
+                                ),
+                              ),
+                              // Trailing icon/media
+                              if (trailingWidget != null) ...[
+                                SizedBox(width: 12),
+                                trailingWidget,
+                              ],
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  ),
                 ),
-              ),
+              ],
             ),
           ),
         
-        // The input bar
+        // The input bar - ORIGINAL CODE PRESERVED
         IntrinsicHeight(
           child: Align(
             alignment: Alignment.bottomCenter,
@@ -1329,7 +1161,7 @@ class _ChatUITextFieldState extends State<ChatUITextField> with WidgetsBindingOb
                               ),
                             )
                           else
-                             Expanded(
+                            Expanded(
                               child: TextField(
                                 /* focusNode: widget.focusNode, */
                                 cursorColor: Colors.black,    
@@ -1362,7 +1194,7 @@ class _ChatUITextFieldState extends State<ChatUITextField> with WidgetsBindingOb
                                 ),
                               ),
                             ),
-                           ValueListenableBuilder<String>(
+                          ValueListenableBuilder<String>(
                             valueListenable: _inputText,
                             builder: (_, inputTextValue, child){
                               if (inputTextValue.isNotEmpty) {
@@ -1438,7 +1270,7 @@ class _ChatUITextFieldState extends State<ChatUITextField> with WidgetsBindingOb
                                           ),
                                         ),  
                                     ],
-                                    if (sendMessageConfig?.allowRecordingVoice ?? true && Platform.isIOS && Platform.isAndroid && !kIsWeb)
+                                    if (sendMessageConfig?.allowRecordingVoice ?? true && (Platform.isIOS || Platform.isAndroid) && !kIsWeb)
                                       IconButton(
                                         onPressed: () => _recordOrStop(context),
                                         icon: (isRecordingValue ? voiceRecordingConfig?.micIcon : voiceRecordingConfig?.stopIcon) ?? Icon(isRecordingValue ? Icons.stop : Icons.mic),
@@ -1888,20 +1720,34 @@ void _onIconPressed(
   {
     if (inputText.startsWith('/')) 
     {
-      final canned_response = await fetch_canned_responses(inputText.substring(1));
+      String searchText;
+    
+        if (inputText == '/') {
+          // Case 1: User typed just "/"
+          searchText = '/';
+        } else {
+          // Case 2: User typed something like "/hello"
+          searchText = inputText.substring(1); // Remove the slash
+        }
+      final canned_response = await fetch_canned_responses(searchText);
       setState(() 
       {
-        if (inputText.substring(1).isEmpty)
-        {
-            suggestions=[
+        if (inputText == '/') {
+          // Just the slash - check if API returned empty
+          if (canned_response.isEmpty) {
+            suggestions = [
               {
-              "short_code": "Enter the shortcode",
-              "content": "",
-              "media_type": "",
-              "media_url": ""
-            }
-          ];
-        }
+                "short_code": "Please Enter Short code",
+                "content": "",
+                "media_type": "",
+                "media_url": ""
+              }
+            ];
+          } else {
+            // Show API suggestions for just "/"
+            suggestions = canned_response;
+          }
+        } 
         else if (canned_response.isEmpty) 
         {
           suggestions = 
@@ -1944,6 +1790,7 @@ void _onIconPressed(
       composingStatus.value = TypeWriterStatus.typing;
     });
   }
+
 }
 
 class ImageViewerPage extends StatefulWidget {
