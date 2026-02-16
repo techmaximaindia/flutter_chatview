@@ -768,7 +768,398 @@ class _ChatUITextFieldState extends State<ChatUITextField> with WidgetsBindingOb
     });
   } 
  
+ // Update the validation method to return error message or null
+Future<String?> _validateFileForPlatform(String fileUrl, String platform, String page) async {
 
+  if (page != 'chat') {
+
+    return null; // Only validate for chat pages
+  }
+  
+  // Handle both URLs and file paths
+  String extension = ".${fileUrl.split('.').last}".toLowerCase();
+
+  
+  // WHATSAPP VALIDATION
+  if (platform == 'fb_whatsapp' || platform == 'whatsapp') {
+
+    // WhatsApp image validation
+    if (extension == '.jpg' || extension == '.jpeg' || extension == '.png') {
+
+      return null;
+    }
+    // WhatsApp video validation
+    else if (extension == '.mp4' || extension == '.3gp') {
+
+      return null;
+    }
+    // WhatsApp audio validation
+    else if (extension == '.aac' || extension == '.amr' || extension == '.mp3' || 
+             extension == '.m4a' || extension == '.ogg' || extension == '.oga') {
+      return null;
+    }
+    // WhatsApp document validation
+    else if (extension == '.txt' || extension == '.xls' || extension == '.xlsx' || 
+             extension == '.doc' || extension == '.docx' || extension == '.ppt' || 
+             extension == '.pptx' || extension == '.pdf') {
+
+      return null;
+    }
+    return 'WhatsApp does not support this file format.';
+  }
+  
+  // INSTAGRAM VALIDATION
+  else if (platform == 'instagram' || platform == 'Instagram') {
+
+    if (extension == '.jpeg' || extension == '.png' || extension == '.jpg') {
+      return null;
+    }
+    else if (extension == '.mp4' || extension == '.mov' || extension == '.ogg' || 
+             extension == '.avi' || extension == '.webm') {
+
+      return null;
+    }
+    else if (extension == '.wav' || extension == '.aac' || extension == '.mp4' || 
+             extension == '.m4a') {
+
+      return null;
+    }
+    
+
+    return 'Instagram does not support this file format.';
+  }
+  
+  // TELEGRAM VALIDATION
+  else if (platform == 'telegram' || platform == 'Telegram') {
+
+    if (extension == '.png' || extension == '.jpeg' || extension == '.jpg' || 
+        extension == '.gif' || extension == '.webp' || extension == '.bmp') {
+
+      return null;
+    }
+    else if (extension == '.mp4' || extension == '.avi' || extension == '.mov' || 
+             extension == '.mkv' || extension == '.webm') {
+
+      return null;
+    }
+    else if (extension == '.mp3' || extension == '.ogg' || extension == '.opus' || 
+             extension == '.m4a' || extension == '.flac') {
+
+      return null;
+    }
+    else if (extension == '.txt' || extension == '.pdf' || extension == '.doc' || 
+             extension == '.docx' || extension == '.xls' || extension == '.xlsx' || 
+             extension == '.ppt' || extension == '.pptx') {
+
+      return null;
+    }
+    
+
+    return 'Telegram does not support this file format.';
+  }
+  
+  // FACEBOOK VALIDATION
+  else if (platform == 'facebook' || platform == 'Facebook') {
+
+    if (extension == '.png' || extension == '.jpeg' || extension == '.jpg' || 
+        extension == '.gif') {
+
+      return null;
+    }
+    else if (extension == '.mp4' || extension == '.mov' || extension == '.avi' || 
+             extension == '.mkv' || extension == '.webm') {
+
+      return null;
+    }
+    else if (extension == '.mp3' || extension == '.m4a' || extension == '.ogg') {
+
+      return null;
+    }
+    
+
+    return 'Facebook does not support this file format.';
+  }
+
+  return null;
+}
+void _showErrorSnackbar(BuildContext context, String message) {
+  if (!mounted) return;
+  
+  ScaffoldMessenger.of(context).showSnackBar(
+    SnackBar(
+      content: Row(
+        children: [
+          Icon(Icons.error_outline, color: Colors.white, size: 20),
+          SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              message,
+              style: TextStyle(fontSize: 14,color: Colors.white),
+            ),
+          ),
+        ],
+      ),
+      backgroundColor: const Color(0xFFFF6B35),
+      duration: Duration(seconds: 4),
+      behavior: SnackBarBehavior.floating,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(10),
+      ),
+      margin: EdgeInsets.all(10),
+    ),
+  );
+}
+void send_file_canned_responses(BuildContext context, String filePath, String? message) async {
+  if (filePath != '') {
+    // Get platform information for validation
+    final prefs = await SharedPreferences.getInstance();
+    final String? platform = prefs.getString('platform');
+    final String? page = prefs.getString('page');
+    
+    // Validate file format based on platform
+    String? validationError = await _validateFileForPlatform(
+      filePath,
+      platform ?? '',
+      page ?? '',
+    );
+    
+
+    if (validationError != null) {
+      _showErrorSnackbar(context, validationError);
+      return; // Stop if format is not supported
+    }
+    
+    // Continue with existing sending logic
+    final String? uuid = prefs.getString('uuid');
+    final String? team_alias = prefs.getString('team_alias');
+    final String? cb_lead_id = prefs.getString('cb_lead_id');
+    final String? conversation_id = prefs.getString('conversation_id');
+    String url = base_url + 'api/send_image_message/';
+    Map<String, String> headers = {"Authorization": "$uuid|$team_alias"};
+    
+    var postUri = Uri.parse(url);
+    var request = http.MultipartRequest("POST", postUri);
+    request.fields['cb_lead_id'] = cb_lead_id ?? '';
+    request.fields['platform'] = platform ?? '';
+    request.fields['message_body'] = message ?? '';
+    request.fields['conversation_id'] = conversation_id ?? '';
+    request.fields['cb_message_source'] = 'android';
+    request.headers.addAll(headers);
+    
+    String extension = getFileExtension(filePath);
+    
+    // Platform-specific file handling
+    if (platform == 'fb_whatsapp' || platform == 'whatsapp') {
+      var mime_type = 'image/png';
+      if (extension == '.jpg' || extension == '.jpeg') {
+        mime_type = 'image/jpeg';
+      } else if (extension == '.png') {
+        mime_type = 'image/png';
+      } else if (extension == '.aac') {
+        mime_type = 'audio/aac';
+      } else if (extension == '.amr') {
+        mime_type = 'audio/amr';
+      } else if (extension == '.mp3') {
+        mime_type = 'audio/mpeg';
+      } else if (extension == '.m4a') {
+        mime_type = 'audio/mp4';
+      } else if (extension == '.ogg' || extension == '.oga') {
+        mime_type = 'audio/ogg';
+      } else if (extension == '.3gp') {
+        mime_type = 'video/3gpp';
+      } else if (extension == '.mp4') {
+        mime_type = 'video/mp4';
+      } else if (extension == '.txt') {
+        mime_type = 'text/plain';
+      } else if (extension == '.xls') {
+        mime_type = 'application/vnd.ms-excel';
+      } else if (extension == '.xlsx') {
+        mime_type = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+      } else if (extension == '.doc') {
+        mime_type = 'application/msword';
+      } else if (extension == '.docx') {
+        mime_type = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+      } else if (extension == '.ppt') {
+        mime_type = 'application/vnd.ms-powerpoint';
+      } else if (extension == '.pptx') {
+        mime_type = 'application/vnd.openxmlformats-officedocument.presentationml.presentation';
+      } else if (extension == '.pdf') {
+        mime_type = 'application/pdf';
+      }
+      
+      final mimeParts = mime_type.split('/');
+      request.files.add(await http.MultipartFile.fromPath(
+        'file', 
+        filePath, 
+        contentType: MediaType(mimeParts[0], mimeParts[1])
+      ));
+      
+    } else if (platform == 'instagram' || platform == 'Instagram') {
+      String media_type = "file";
+      
+      if (extension == '.jpg' || extension == '.png' || extension == '.jpeg') {
+        media_type = "image";
+      } else if (extension == '.mp4' || extension == '.mov' || extension == '.ogg' || 
+                extension == '.avi' || extension == '.webm') {
+        media_type = "video";
+      } else if (extension == '.wav' || extension == '.aac' || extension == '.mp4' || 
+                extension == '.m4a') {
+        media_type = "audio";
+      } else if (extension == '.pdf') {
+        media_type = "file";
+      }
+
+      request.files.add(await http.MultipartFile.fromPath(
+        'file', 
+        filePath, 
+        contentType: MediaType('application', media_type)
+      ));
+      
+    } else if (platform == 'telegram' || platform == 'Telegram') {
+      String media_type = "file";
+      
+      if (extension == '.jpg' || extension == '.png' || extension == '.jpeg' || 
+          extension == '.gif' || extension == '.webp') {
+        media_type = "image";
+      } else if (extension == '.mp4' || extension == '.mov' || extension == '.webm') {
+        media_type = "video";
+      } else if (extension == '.aac' || extension == '.m4a' || extension == '.wav' || 
+                extension == '.mp3' || extension == '.ogg' || extension == '.flac') {
+        media_type = "audio";
+      } else if (extension == '.pdf') {
+        media_type = "file";
+      }
+
+      request.files.add(await http.MultipartFile.fromPath(
+        'file', 
+        filePath, 
+        contentType: MediaType('application', media_type)
+      ));
+      
+    } else if (platform == 'facebook' || platform == 'Facebook') {
+      String media_type = "file";
+      
+      if (extension == '.jpg' || extension == '.png' || extension == '.jpeg' || 
+          extension == '.gif') {
+        media_type = "image";
+      } else if (extension == '.mp4' || extension == '.ogg' || extension == '.avi' || 
+                extension == '.mov' || extension == '.webm' || extension == '.3gp') {
+        media_type = "video";
+      } else if (extension == '.aac' || extension == '.m4a' || extension == '.wav') {
+        media_type = "audio";
+      } else {
+        media_type = "file";
+      }
+
+      request.files.add(await http.MultipartFile.fromPath(
+        'file', 
+        filePath, 
+        contentType: MediaType('application', media_type)
+      ));
+      
+    } else {
+      // Generic platform handling
+      String media_type = "file";
+      
+      if (extension == '.jpg' || extension == '.png' || extension == '.jpeg' || 
+          extension == '.gif' || extension == '.bmp' || extension == '.webp' || 
+          extension == '.heic' || extension == '.heif' || extension == '.svg' || 
+          extension == '.tiff' || extension == '.tif' || extension == '.ico' || 
+          extension == '.raw') {
+        media_type = "image";
+      } else if (extension == '.mp4' || extension == '.avi' || extension == '.mov' || 
+                extension == '.wmv' || extension == '.flv' || extension == '.mkv' || 
+                extension == '.webm' || extension == '.3gp' || extension == '.m4v' || 
+                extension == '.ts' || extension == '.mts' || extension == '.m2ts') {
+        media_type = "video";
+      } else if (extension == '.mp3' || extension == '.wav' || extension == '.aac' || 
+                extension == '.oga' || extension == '.ogg' || extension == '.opus' || 
+                extension == '.m4a' || extension == '.flac' || extension == '.amr' || 
+                extension == '.wma' || extension == '.caf' || extension == '.aiff' || 
+                extension == '.aif' || extension == '.mid' || extension == '.midi' || 
+                extension == '.3ga') {
+        media_type = "audio";
+      }
+
+      request.files.add(await http.MultipartFile.fromPath(
+        'file', 
+        filePath, 
+        contentType: MediaType('application', media_type)
+      ));
+    }
+    
+    try {
+      final response = await request.send();
+      final responseData = await response.stream.toBytes();
+      final responseString = String.fromCharCodes(responseData);
+
+      
+      if (response.statusCode == 200) {
+
+      } else {
+ 
+        _showErrorSnackbar(context, 'Failed to send file. Please try again.');
+      }
+    } catch (e) {
+      _showErrorSnackbar(context, 'Failed to send file. Please try again.');
+    }
+    
+    setState(() {
+      filePath = '';
+    });
+  }
+}
+  
+ // Add this new method to check if file is supported without showing notifications
+bool _isFileSupportedForPlatform(String fileUrl, String platform, String page) {
+  if (page != 'chat') return true;
+  
+  String extension = ".${fileUrl.split('.').last}".toLowerCase();
+  
+  // WHATSAPP SUPPORTED FORMATS
+  if (platform == 'fb_whatsapp' || platform == 'whatsapp') {
+    return (extension == '.jpg' || extension == '.jpeg' || extension == '.png' ||
+            extension == '.mp4' || extension == '.3gp' ||
+            extension == '.aac' || extension == '.amr' || extension == '.mp3' || 
+            extension == '.m4a' || extension == '.ogg' || extension == '.oga' ||
+            extension == '.txt' || extension == '.xls' || extension == '.xlsx' || 
+            extension == '.doc' || extension == '.docx' || extension == '.ppt' || 
+            extension == '.pptx' || extension == '.pdf');
+  }
+  
+  // INSTAGRAM SUPPORTED FORMATS
+  else if (platform == 'instagram' || platform == 'Instagram') {
+    return (extension == '.jpeg' || extension == '.png' || extension == '.jpg' ||
+            extension == '.mp4' || extension == '.mov' || extension == '.ogg' || 
+            extension == '.avi' || extension == '.webm' ||
+            extension == '.wav' || extension == '.aac' || extension == '.mp4' || 
+            extension == '.m4a');
+  }
+  
+  // TELEGRAM SUPPORTED FORMATS
+  else if (platform == 'telegram' || platform == 'Telegram') {
+    return (extension == '.png' || extension == '.jpeg' || extension == '.jpg' || 
+            extension == '.gif' || extension == '.webp' || extension == '.bmp' ||
+            extension == '.mp4' || extension == '.avi' || extension == '.mov' || 
+            extension == '.mkv' || extension == '.webm' ||
+            extension == '.mp3' || extension == '.ogg' || extension == '.opus' || 
+            extension == '.m4a' || extension == '.flac' ||
+            extension == '.txt' || extension == '.pdf' || extension == '.doc' || 
+            extension == '.docx' || extension == '.xls' || extension == '.xlsx' || 
+            extension == '.ppt' || extension == '.pptx');
+  }
+  
+  // FACEBOOK SUPPORTED FORMATS
+  else if (platform == 'facebook' || platform == 'Facebook') {
+    return (extension == '.png' || extension == '.jpeg' || extension == '.jpg' || 
+            extension == '.gif' ||
+            extension == '.mp4' || extension == '.mov' || extension == '.avi' || 
+            extension == '.mkv' || extension == '.webm' ||
+            extension == '.mp3' || extension == '.m4a' || extension == '.ogg');
+  }
+  
+  return true; // Allow all formats for other platforms
+}
   @override
   Widget build(BuildContext context) {
     final outlineBorder = _outLineBorder;
@@ -810,7 +1201,7 @@ class _ChatUITextFieldState extends State<ChatUITextField> with WidgetsBindingOb
                   ),
                 ),
                 
-                // Suggestions list
+                /* // Suggestions list
                 Container(
                   constraints: BoxConstraints(maxHeight: 200),
                   child: ListView.builder(
@@ -985,7 +1376,7 @@ class _ChatUITextFieldState extends State<ChatUITextField> with WidgetsBindingOb
                       }
                       
                       return InkWell(
-                        onTap: () async {
+                        /* onTap: () async {
                           if (suggestion['media_url'] != '') {
                             // Your existing media sending logic
                             Future<File> _fileFromImageUrl(image_url) async {
@@ -1045,7 +1436,61 @@ class _ChatUITextFieldState extends State<ChatUITextField> with WidgetsBindingOb
                             suggestions = [];
                             _inputText.value = widget.textEditingController.text;
                           });
-                        },
+                        }, */
+                        // In the InkWell onTap for suggestions
+                        /* onTap: () async {
+                          if (suggestion['media_url'] != null && suggestion['media_url']!.isNotEmpty) {
+ 
+                            final prefs = await SharedPreferences.getInstance();
+                            final String? platform = prefs.getString('platform');
+                            final String? page = prefs.getString('page');
+
+                            String? validationError = await _validateFileForPlatform(
+                              suggestion['media_url'] ?? '',
+                              platform ?? '',
+                              page ?? '',
+                            );
+                            
+                            print('Validation error: $validationError');
+                            
+                            if (validationError != null) {
+
+                              _showErrorSnackbar(context, validationError);
+                              return; 
+                            }
+                            
+                            try {
+                              final fileName = suggestion['media_url']!.split('/').last;
+                              final response = await http.get(Uri.parse(suggestion['media_url']!));
+                              
+                              if (response.statusCode == 200) {
+                                final documentDirectory = await getApplicationDocumentsDirectory();
+                                final file = File(join(documentDirectory.path, fileName));
+                                await file.writeAsBytes(response.bodyBytes);
+
+                                send_file_canned_responses(context, file.path, '');
+                                widget.textEditingController.clear();
+                                _inputText.value = '';
+                              } else {
+                                 widget.textEditingController.clear();
+                                  _inputText.value = '';
+                                //_showErrorSnackbar(context, 'Failed to download media. Please try again.');
+                              }
+                            } catch (e) {
+                              widget.textEditingController.clear();
+                              _inputText.value = '';
+                              _showErrorSnackbar(context, 'Failed to download media. Please try again.');
+                            }
+                          } else {
+                            widget.textEditingController.text = suggestion['content'] ?? '';
+                          }
+                          
+                          setState(() {
+                            suggestions = [];
+                            _inputText.value = widget.textEditingController.text;
+                          });
+                        }, */
+                        
                         child: Container(
                           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                           decoration: BoxDecoration(
@@ -1090,6 +1535,355 @@ class _ChatUITextFieldState extends State<ChatUITextField> with WidgetsBindingOb
                             ],
                           ),
                         ),
+                      );
+                    },
+                  ),
+                ), */
+                // Suggestions list
+                Container(
+                  constraints: BoxConstraints(maxHeight: 200),
+                  child: ListView.builder(
+                    shrinkWrap: true,
+                    padding: EdgeInsets.zero,
+                    itemCount: suggestions.length,
+                    itemBuilder: (context, index) {
+                      final suggestion = suggestions[index];
+                      
+                      // Build media/content widget (keep your existing widget building code)
+                      Widget? trailingWidget;
+                      Widget? contentWidget;
+
+                      String getFileExtensionFromUrl(String url) {
+                        if (url.isEmpty) return '';
+                        return url.split('.').last.toLowerCase();
+                      }
+                      bool isImageExtension(String extension) {
+                        return ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'svg'].contains(extension);
+                      }
+                      
+                      bool isVideoExtension(String extension) {
+                        return ['mp4', 'webm', 'ogg'].contains(extension);
+                      }
+
+                      bool isDocumentExtension(String extension) {
+                        return ['doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'txt', 'pdf'].contains(extension);
+                      }
+
+                      IconData getDocumentIcon(String extension) {
+                        switch (extension) {
+                          case 'doc':
+                          case 'docx':
+                            return Icons.description_outlined;
+                          case 'xls':
+                          case 'xlsx':
+                            return Icons.table_chart_outlined;
+                          case 'ppt':
+                          case 'pptx':
+                            return Icons.slideshow_outlined;
+                          case 'txt':
+                            return Icons.text_snippet_outlined;
+                          case 'pdf':
+                            return Icons.picture_as_pdf_outlined;
+                          default:
+                            return Icons.insert_drive_file_outlined;
+                        }
+                      }
+                      
+                      switch (suggestion['media_type']) {
+                        case 'image':
+                          trailingWidget = Container(
+                            width: 48,
+                            height: 48,
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(4),
+                              color: Colors.grey.shade200,
+                            ),
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(4),
+                              child: Image.network(
+                                suggestion['media_url'] ?? '',
+                                fit: BoxFit.cover,
+                                errorBuilder: (context, error, stackTrace) {
+                                  return Icon(Icons.image, color: Colors.grey, size: 14);
+                                },
+                              ),
+                            ),
+                          );
+                          break;
+                        case 'video':
+                          trailingWidget = Container(
+                            padding: EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: Colors.grey,
+                              borderRadius: BorderRadius.circular(24),
+                            ),
+                            child: Icon(Icons.play_circle_outline, color: Colors.black, size: 14),
+                          );
+                          break;
+                        case 'audio':
+                          trailingWidget = Container(
+                            padding: EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: Colors.grey,
+                              borderRadius: BorderRadius.circular(24),
+                            ),
+                            child: Icon(Icons.audiotrack, color: Colors.black, size: 14),
+                          );
+                          break;
+                        case 'file':
+                          final mediaUrl = suggestion['media_url'] ?? '';
+                          final extension = getFileExtensionFromUrl(mediaUrl);
+                          
+                          if (isImageExtension(extension)) {
+                            trailingWidget = Container(
+                              width: 48,
+                              height: 48,
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(4),
+                                color: Colors.grey.shade200,
+                              ),
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(4),
+                                child: Image.network(
+                                  mediaUrl,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (context, error, stackTrace) {
+                                    return Icon(Icons.image, color: Colors.grey, size: 14);
+                                  },
+                                ),
+                              ),
+                            );
+                          } else if (isVideoExtension(extension)) {
+                            trailingWidget = Container(
+                              padding: EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: Colors.grey.shade100,
+                                borderRadius: BorderRadius.circular(24),
+                              ),
+                              child: Icon(Icons.play_circle_outline, color: Colors.black, size: 14),
+                            );
+                          } else if (isDocumentExtension(extension)) {
+                            trailingWidget = Container(
+                              padding: EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: Colors.grey.shade100,
+                                borderRadius: BorderRadius.circular(24),
+                              ),
+                              child: Icon(getDocumentIcon(extension), color: Colors.black, size: 14),
+                            );
+                          } else {
+                            contentWidget = Text(
+                              suggestion['content'] ?? '',
+                              maxLines: 3,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                color: Colors.grey.shade600,
+                                fontSize: 14,
+                                height: 1.3,
+                              ),
+                            );
+                            trailingWidget = Icon(
+                              Icons.subdirectory_arrow_left,
+                              color: Colors.black,
+                              size: 14,
+                            );
+                          }
+                          break;
+                        default:
+                          contentWidget = Text(
+                            suggestion['content'] ?? '',
+                            maxLines: 3,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: Colors.grey.shade600,
+                              fontSize: 14,
+                              height: 1.3,
+                            ),
+                          );
+                          trailingWidget = Icon(
+                            Icons.subdirectory_arrow_left,
+                            color: Colors.black,
+                            size: 14,
+                          );
+                          break;
+                      }
+                      
+                      // For text-only suggestions, just set the text in controller
+                      if (suggestion['media_url'] == null || suggestion['media_url']!.isEmpty) {
+                        return InkWell(
+                          onTap: () {
+                            // Just set the text in the controller, don't send automatically
+                            widget.textEditingController.text = suggestion['content'] ?? '';
+                            _inputText.value = suggestion['content'] ?? '';
+                            
+                            setState(() {
+                              suggestions = [];
+                            });
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                            decoration: BoxDecoration(
+                              border: Border(
+                                bottom: BorderSide(
+                                  color: Colors.grey.shade200,
+                                  width: 0.5,
+                                ),
+                              ),
+                            ),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        suggestion['short_code'] ?? 'No Shortcode',
+                                        style: TextStyle(
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w500,
+                                          color: const Color(0xFF1E88E5),
+                                        ),
+                                        maxLines: 2,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                      if (contentWidget != null) ...[
+                                        SizedBox(height: 2),
+                                        contentWidget,
+                                      ],
+                                    ],
+                                  ),
+                                ),
+                                if (trailingWidget != null) ...[
+                                  SizedBox(width: 12),
+                                  trailingWidget,
+                                ],
+                              ],
+                            ),
+                          ),
+                        );
+                      }
+                      
+                      // For media suggestions, use FutureBuilder to check platform support
+                      return FutureBuilder<Map<String, dynamic>>(
+                        future: SharedPreferences.getInstance().then((prefs) {
+                          final platform = prefs.getString('platform') ?? '';
+                          final page = prefs.getString('page') ?? '';
+                          final isSupported = _isFileSupportedForPlatform(
+                            suggestion['media_url']!,
+                            platform,
+                            page,
+                          );
+                          return {'isSupported': isSupported, 'platform': platform};
+                        }),
+                        builder: (context, snapshot) {
+                          bool isSupported = snapshot.data?['isSupported'] ?? true;
+                          String platform = snapshot.data?['platform'] ?? '';
+                          
+                          return InkWell(
+                            onTap: isSupported ? () async {
+                              final prefs = await SharedPreferences.getInstance();
+                              final String? platform = prefs.getString('platform');
+                              final String? page = prefs.getString('page');
+
+                              String? validationError = await _validateFileForPlatform(
+                                suggestion['media_url'] ?? '',
+                                platform ?? '',
+                                page ?? '',
+                              );
+                              
+                              if (validationError != null) {
+                                _showErrorSnackbar(context, validationError);
+                                return; 
+                              }
+                              
+                              try {
+                                final fileName = suggestion['media_url']!.split('/').last;
+                                final response = await http.get(Uri.parse(suggestion['media_url']!));
+                                
+                                if (response.statusCode == 200) {
+                                  final documentDirectory = await getApplicationDocumentsDirectory();
+                                  final file = File(join(documentDirectory.path, fileName));
+                                  await file.writeAsBytes(response.bodyBytes);
+
+                                  send_file_canned_responses(context, file.path, '');
+                                  widget.textEditingController.clear();
+                                  _inputText.value = '';
+                                } else {
+                                  widget.textEditingController.clear();
+                                  _inputText.value = '';
+                                }
+                              } catch (e) {
+                                widget.textEditingController.clear();
+                                _inputText.value = '';
+                                _showErrorSnackbar(context, 'Failed to download media. Please try again.');
+                              }
+                              
+                              setState(() {
+                                suggestions = [];
+                                _inputText.value = widget.textEditingController.text;
+                              });
+                            } : null, // Disable onTap if not supported
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                              decoration: BoxDecoration(
+                                border: Border(
+                                  bottom: BorderSide(
+                                    color: Colors.grey.shade200,
+                                    width: 0.5,
+                                  ),
+                                ),
+                                color: isSupported ? Colors.transparent : Colors.grey.shade50,
+                              ),
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          suggestion['short_code'] ?? 'No Shortcode',
+                                          style: TextStyle(
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.w500,
+                                            color: isSupported 
+                                                ? const Color(0xFF1E88E5)
+                                                : Colors.grey.shade400,
+                                          ),
+                                          maxLines: 2,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                        if (contentWidget != null) ...[
+                                          SizedBox(height: 2),
+                                          contentWidget,
+                                        ],
+                                        if (!isSupported) ...[
+                                          SizedBox(height: 4),
+                                          Text(
+                                            'This file is not supported on $platform',
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              color: Colors.grey.shade500,
+                                              fontStyle: FontStyle.italic,
+                                            ),
+                                          ),
+                                        ],
+                                      ],
+                                    ),
+                                  ),
+                                  if (trailingWidget != null) ...[
+                                    SizedBox(width: 12),
+                                    Opacity(
+                                      opacity: isSupported ? 1.0 : 0.4,
+                                      child: trailingWidget,
+                                    ),
+                                  ],
+                                ],
+                              ),
+                            ),
+                          );
+                        },
                       );
                     },
                   ),
@@ -1423,7 +2217,6 @@ class _ChatUITextFieldState extends State<ChatUITextField> with WidgetsBindingOb
           else if (extension=='.pdf'){
             mime_type='application/pdf';
           }
-          print("mime_type   $mime_type");
           final mimeParts = mime_type.split('/');
           request.files.add(await http.MultipartFile.fromPath('file', filePath, contentType: MediaType(mimeParts[0], mimeParts[1])));
         }
@@ -1482,7 +2275,7 @@ class _ChatUITextFieldState extends State<ChatUITextField> with WidgetsBindingOb
       });
     }
   }
-  
+/*   
 void _showCustomNotificationinstagram(BuildContext context) {
   OverlayEntry? overlayEntry;
   
@@ -1558,8 +2351,9 @@ void _showCustomNotificationinstagram(BuildContext context) {
       overlayEntry = null;
     }
   });
-}
-void _showCustomNotification(BuildContext context) {
+} */
+// Unified notification method that accepts a message
+/* void _showCustomNotification(BuildContext context, String message) {
   OverlayEntry? overlayEntry;
   
   overlayEntry = OverlayEntry(
@@ -1572,7 +2366,7 @@ void _showCustomNotification(BuildContext context) {
         child: Container(
           padding: EdgeInsets.all(10),
           decoration: BoxDecoration(
-            color: const Color(0xFFFF6B35), 
+            color: const Color(0xFFFF6B35),
             borderRadius: BorderRadius.circular(12),
             boxShadow: [
               BoxShadow(
@@ -1591,21 +2385,21 @@ void _showCustomNotification(BuildContext context) {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
-                        'Unsupported File Format',
-                        style: TextStyle(
-                          fontWeight: FontWeight.w300,
-                          fontSize: 16,
-                          color: Colors.white,
-                        ),
+                      'Unsupported File Format',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w300,
+                        fontSize: 16,
+                        color: Colors.white,
                       ),
-                      SizedBox(height: 4),
-                      Text(
-                        'The selected format is not supported by WhatsApp.',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.white,
-                        ),
+                    ),
+                    SizedBox(height: 4),
+                    Text(
+                      message,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.white,
                       ),
+                    ),
                   ],
                 ),
               ),
@@ -1614,7 +2408,7 @@ void _showCustomNotification(BuildContext context) {
                 onPressed: () {
                   if (overlayEntry != null && overlayEntry!.mounted) {
                     overlayEntry!.remove();
-                    overlayEntry = null; // Clear the reference
+                    overlayEntry = null;
                   }
                 },
               ),
@@ -1627,7 +2421,86 @@ void _showCustomNotification(BuildContext context) {
   
   Overlay.of(context).insert(overlayEntry!);
   
-  // Auto remove after 5 seconds with null check
+  // Auto remove after 5 seconds
+  Future.delayed(Duration(seconds: 5), () {
+    if (overlayEntry != null && overlayEntry!.mounted) {
+      overlayEntry!.remove();
+      overlayEntry = null;
+    }
+  });
+} */
+void _showCustomNotification(BuildContext context, String message) {
+  if (!mounted) return;
+  
+  OverlayEntry? overlayEntry;
+  
+  overlayEntry = OverlayEntry(
+    builder: (context) => Positioned(
+      bottom: 20,
+      left: 20,
+      right: 20,
+      child: Material(
+        color: Colors.transparent,
+        child: Container(
+          padding: EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: const Color(0xFFFF6B35),
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black26,
+                blurRadius: 10,
+              ),
+            ],
+          ),
+          child: Row(
+            children: [
+              Icon(Icons.error_outline, color: Colors.white),
+              SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      'Unsupported File Format',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w300,
+                        fontSize: 16,
+                        color: Colors.white,
+                      ),
+                    ),
+                    SizedBox(height: 4),
+                    Text(
+                      message,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              IconButton(
+                icon: Icon(Icons.close, color: Colors.white, size: 20),
+                onPressed: () {
+                  if (overlayEntry != null && overlayEntry!.mounted) {
+                    overlayEntry!.remove();
+                    overlayEntry = null;
+                  }
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    ),
+  );
+  
+  // Use root overlay to ensure it's inserted properly
+  Overlay.of(context, rootOverlay: true).insert(overlayEntry!);
+  
+  // Auto remove after 5 seconds
   Future.delayed(Duration(seconds: 5), () {
     if (overlayEntry != null && overlayEntry!.mounted) {
       overlayEntry!.remove();
@@ -1635,7 +2508,7 @@ void _showCustomNotification(BuildContext context) {
     }
   });
 }
-void _onIconPressed(
+/* void _onIconPressed(
   BuildContext ctx,
   ImageSource imageSource, {
   ImagePickerConfiguration? config,
@@ -1714,8 +2587,128 @@ void _onIconPressed(
   } catch (e) {
     widget.onImageSelected('', e.toString(), '');
   }
-}
-  
+} */
+  void _onIconPressed(
+    BuildContext ctx,
+    ImageSource imageSource, {
+    ImagePickerConfiguration? config,
+  }) async {
+    try {
+      // Get platform and page from SharedPreferences BEFORE picking image
+      final prefs = await SharedPreferences.getInstance();
+      final String? platform = prefs.getString('platform');
+      final String? page = prefs.getString('page');
+      
+      // Check if platform-specific validation is needed
+      bool needsWhatsAppValidation = page == 'chat' && 
+                                      (platform == 'fb_whatsapp' || platform == 'whatsapp');
+      bool needsInstagramValidation = page == 'chat' && 
+                                      (platform == 'instagram' || platform == 'Instagram');
+      bool needsTelegramValidation = page == 'chat' && 
+                                      (platform == 'telegram' || platform == 'Telegram');
+      bool needsFacebookValidation = page == 'chat' && 
+                                      (platform == 'facebook' || platform == 'Facebook');
+      
+      final XFile? image = await _imagePicker.pickImage(
+        source: imageSource,
+        maxHeight: config?.maxHeight,
+        maxWidth: config?.maxWidth,
+        imageQuality: config?.imageQuality,
+        preferredCameraDevice: config?.preferredCameraDevice ?? CameraDevice.rear,
+      );
+
+      String? imagePath = image?.path;
+      
+      // Allow custom processing of image path
+      if (config?.onImagePicked != null) {
+        String? updatedImagePath = await config?.onImagePicked!(imagePath);
+        if (updatedImagePath != null) imagePath = updatedImagePath;
+      }
+      
+      if (imagePath != null && imagePath.isNotEmpty) {
+        
+        String lowerPath = imagePath.toLowerCase();
+        
+        // WHATSAPP VALIDATION
+        if (needsWhatsAppValidation) {
+          // WhatsApp only supports JPG, JPEG, PNG for images
+          bool isValidFormat = lowerPath.endsWith('.jpg') || 
+                              lowerPath.endsWith('.jpeg') || 
+                              lowerPath.endsWith('.png');
+          
+          if (!isValidFormat) {
+            _showCustomNotification(ctx, 'WhatsApp only supports JPG, JPEG, and PNG images.');
+            return;
+          }
+        }
+        
+        // INSTAGRAM VALIDATION
+        else if (needsInstagramValidation) {
+          // Instagram only supports JPEG and PNG for images
+          bool isValidFormat = lowerPath.endsWith('.jpeg') || 
+                              lowerPath.endsWith('.png') ||
+                              lowerPath.endsWith('.jpg'); // Include jpg for Instagram
+          
+          if (!isValidFormat) {
+            _showCustomNotification(ctx, 'Instagram only supports JPEG and PNG images.');
+            return;
+          }
+        }
+        
+        // TELEGRAM VALIDATION
+        else if (needsTelegramValidation) {
+          // Telegram supports PNG, JPEG, 20?, GIF, WEBP
+          bool isValidFormat = lowerPath.endsWith('.png') || 
+                              lowerPath.endsWith('.jpeg') || 
+                              lowerPath.endsWith('.jpg') ||
+                              lowerPath.endsWith('.gif') || 
+                              lowerPath.endsWith('.webp') ||
+                              lowerPath.endsWith('.bmp'); // Adding BMP as it's common
+          
+          if (!isValidFormat) {
+            _showCustomNotification(ctx, 'Telegram supports PNG, JPEG, GIF, and WEBP images.');
+            return;
+          }
+        }
+        
+        // FACEBOOK VALIDATION
+        else if (needsFacebookValidation) {
+          // Facebook supports PNG, JPEG, GIF
+          bool isValidFormat = lowerPath.endsWith('.png') || 
+                              lowerPath.endsWith('.jpeg') || 
+                              lowerPath.endsWith('.jpg') ||
+                              lowerPath.endsWith('.gif');
+          
+          if (!isValidFormat) {
+            _showCustomNotification(ctx, 'Facebook supports PNG, JPEG, and GIF images.');
+            return;
+          }
+        }
+        
+        // Navigate to ImageViewerPage
+        Navigator.push(
+          ctx,
+          MaterialPageRoute(
+            builder: (context) => ImageViewerPage(
+              imagePath: imagePath ?? '',
+              onSend: (sentImagePath, message) {
+                widget.onImageSelected(sentImagePath, '', message ?? ''); 
+              },
+              padding: EdgeInsets.fromLTRB(
+                bottomPadding4,
+                bottomPadding4,
+                bottomPadding4,
+                bottomPadding4
+              ),
+              platform: platform??'',
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      widget.onImageSelected('', e.toString(), '');
+    }
+  }
   void _onChanged(String inputText) async 
   {
     if (inputText.startsWith('/')) 
