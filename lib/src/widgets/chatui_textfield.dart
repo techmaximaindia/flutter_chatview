@@ -994,7 +994,7 @@ void send_file_canned_responses(BuildContext context, String filePath, String? m
         contentType: MediaType(mimeParts[0], mimeParts[1])
       ));
       
-    } else if (platform == 'instagram' || platform == 'Instagram') {
+    } /* else if (platform == 'instagram' || platform == 'Instagram') {
       String media_type = "file";
       
       if (extension == '.jpg' || extension == '.png' || extension == '.jpeg') {
@@ -1015,7 +1015,41 @@ void send_file_canned_responses(BuildContext context, String filePath, String? m
         contentType: MediaType('application', media_type)
       ));
       
-    } else if (platform == 'telegram' || platform == 'Telegram') {
+    } */ else if(platform == 'instagram'){
+        String mime_type = 'application/octet-stream';
+
+        if (extension == '.png')
+        {
+          mime_type = 'image/png';
+        }
+        else if (extension == '.jpg' || extension == '.jpeg')
+        {
+          mime_type = 'image/jpeg';
+        }
+        else if (extension == '.mp4' || extension == '.mov' || extension == '.avi' || extension == '.webm')
+        {
+          mime_type = 'video/mp4';
+        }
+        else if (extension == '.m4a')
+        {
+          mime_type = 'audio/mp4';
+        }
+        else if (extension == '.aac')
+        {
+          mime_type = 'audio/aac';
+        }
+        else if (extension == '.wav')
+        {
+          mime_type = 'audio/wav';
+        }
+        else if (extension == '.pdf')
+        {
+          mime_type = 'application/pdf';
+        }
+
+        final mimeParts = mime_type.split('/');
+        request.files.add(await http.MultipartFile.fromPath('file', filePath, contentType: MediaType(mimeParts[0], mimeParts[1])));
+      } else if (platform == 'telegram' || platform == 'Telegram') {
       String media_type = "file";
       
       if (extension == '.jpg' || extension == '.png' || extension == '.jpeg' || 
@@ -1130,7 +1164,7 @@ bool _isFileSupportedForPlatform(String fileUrl, String platform, String page) {
   // INSTAGRAM SUPPORTED FORMATS
   else if (platform == 'instagram' || platform == 'Instagram') {
     return (extension == '.jpeg' || extension == '.png' || extension == '.jpg' ||
-            extension == '.mp4' || extension == '.mov' || extension == '.ogg' || 
+            extension == '.mp4' || extension == '.mov' ||
             extension == '.avi' || extension == '.webm' ||
             extension == '.wav' || extension == '.aac' || extension == '.mp4' || 
             extension == '.m4a');
@@ -2220,7 +2254,7 @@ bool _isFileSupportedForPlatform(String fileUrl, String platform, String page) {
           final mimeParts = mime_type.split('/');
           request.files.add(await http.MultipartFile.fromPath('file', filePath, contentType: MediaType(mimeParts[0], mimeParts[1])));
         }
-        else if(platform=='instagram'){
+       /*  else if(platform=='instagram'){
           String media_type = "file";
         
           if (extension == '.jpg' || extension == '.png' || extension == '.jpeg')
@@ -2239,6 +2273,41 @@ bool _isFileSupportedForPlatform(String fileUrl, String platform, String page) {
              media_type = "file";
           }
           request.files.add(await http.MultipartFile.fromPath('file', filePath, contentType: MediaType('application', media_type)));
+        } */
+        else if(platform == 'instagram'){
+          String mime_type = 'application/octet-stream';
+
+          if (extension == '.png')
+          {
+            mime_type = 'image/png';
+          }
+          else if (extension == '.jpg' || extension == '.jpeg')
+          {
+            mime_type = 'image/jpeg';
+          }
+          else if (extension == '.mp4' || extension == '.mov' || extension == '.avi' || extension == '.webm')
+          {
+            mime_type = 'video/mp4';
+          }
+          else if (extension == '.m4a')
+          {
+            mime_type = 'audio/mp4';
+          }
+          else if (extension == '.aac')
+          {
+            mime_type = 'audio/aac';
+          }
+          else if (extension == '.wav')
+          {
+            mime_type = 'audio/wav';
+          }
+          else if (extension == '.pdf')
+          {
+            mime_type = 'application/pdf';
+          }
+
+          final mimeParts = mime_type.split('/');
+          request.files.add(await http.MultipartFile.fromPath('file', filePath, contentType: MediaType(mimeParts[0], mimeParts[1])));
         }
         else{
           
