@@ -40,7 +40,7 @@ import '../utils/constants/constants.dart';
 import 'package:path_provider/path_provider.dart';
 import 'dart:io';
 import 'image_message_view.dart';
-import 'package:path/path.dart';
+//import 'package:path/path.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:socket_io_client/socket_io_client.dart' as IO;
 import 'socket_manager.dart';
@@ -57,7 +57,7 @@ class ChatUITextField extends StatefulWidget {
     Key? key,
     this.sendMessageConfig,
     /* required this.focusNode, */
-    this.autofocus = true,
+    this.autofocus = false,
     required this.textEditingController,
     required this.onPressed,
     required this.onRecordingComplete,
@@ -1837,7 +1837,7 @@ bool _isFileSupportedForPlatform(String fileUrl, String platform, String page) {
                                 
                                 if (response.statusCode == 200) {
                                   final documentDirectory = await getApplicationDocumentsDirectory();
-                                  final file = File(join(documentDirectory.path, fileName));
+                                  final file = File(p.join(documentDirectory.path, fileName));
                                   await file.writeAsBytes(response.bodyBytes);
 
                                   send_file_canned_responses(context, file.path, '');
@@ -2157,8 +2157,8 @@ bool _isFileSupportedForPlatform(String fileUrl, String platform, String page) {
           MaterialPageRoute(
             builder: (ctx) => AudioViewerPage(
               fileUrl: recordedPath,
-              onSend: (fileUrl, caption) {
-                send_file_tap(fileUrl, caption ?? '');
+              onSend: (fileUrl, caption,onComplete) {
+                send_file_tap(fileUrl, caption ?? '',onComplete);
               },
               platform: platform ?? '',
             ),
@@ -2172,8 +2172,8 @@ bool _isFileSupportedForPlatform(String fileUrl, String platform, String page) {
   {
     return ".${fileName.split('.').last}".toLowerCase();
   }
-  void send_file_tap(String filePath, String? message) async {
-
+  void send_file_tap(String filePath, String? message,VoidCallback onComplete) async {
+    ProcessingOverlay.show(context);
     if(filePath != '')
     {
       final prefs = await SharedPreferences.getInstance();
@@ -2330,6 +2330,18 @@ bool _isFileSupportedForPlatform(String fileUrl, String platform, String page) {
         final response = await request.send();
         final responseData = await response.stream.toBytes();
         final responseString = String.fromCharCodes(responseData);
+        if (response.statusCode == 200) {
+          // success - bar hidden, nothing else needed
+          ProcessingOverlay.hide();
+          onComplete(); 
+        } else {
+          ProcessingOverlay.hide();
+          onComplete(); 
+         // _showErrorSnackbar(context, 'Failed to send file. Please try again.');
+        }
+       /*  final response = await request.send();
+        final responseData = await response.stream.toBytes();
+        final responseString = String.fromCharCodes(responseData); */
       }
       setState(() {
         filePath='';
@@ -3223,7 +3235,7 @@ class _ImageViewerPageState extends State<ImageViewerPage> {
 }
 class AudioViewerPage extends StatefulWidget {
   final String fileUrl;
-  final Function(String, String?) onSend;
+  final Function(String, String?,VoidCallback) onSend;
   final String platform; 
 
   const AudioViewerPage({Key? key, required this.fileUrl, required this.onSend, required this.platform}) : super(key: key);
@@ -3543,7 +3555,7 @@ class _AudioViewerPageState extends State<AudioViewerPage> {
                       children: [
                         GestureDetector(
                           onTap: () {
-                            widget.onSend(widget.fileUrl, '');
+                            widget.onSend(widget.fileUrl, '',(){print('Audio sent with empty caption');});
                             Navigator.pop(context);
                           },
                           child: Container(
@@ -3579,7 +3591,7 @@ class _AudioViewerPageState extends State<AudioViewerPage> {
                         ),
                         GestureDetector(
                           onTap: () {
-                            widget.onSend(widget.fileUrl, _messageController.text.trim());
+                            widget.onSend(widget.fileUrl, _messageController.text.trim(),(){print('Audio sent withcaption');});
                             _messageController.clear();
                             Navigator.pop(context);
                           },
@@ -3600,5 +3612,54 @@ class _AudioViewerPageState extends State<AudioViewerPage> {
         ],
       ),
     );
+  }
+}
+
+class ProcessingOverlay {
+  static OverlayEntry? _overlayEntry;
+
+  static void show(BuildContext context) {
+    if (_overlayEntry != null) return;
+
+    _overlayEntry = OverlayEntry(
+      builder: (context) => Positioned(
+        bottom: 0,
+        left: 0,
+        right: 0,
+        child: Material(
+          color: Colors.transparent,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              LinearProgressIndicator(
+                backgroundColor: Colors.grey[300],
+                valueColor: AlwaysStoppedAnimation<Color>(Colors.blue),
+              ),
+              Container(
+                width: double.infinity,
+                color: Colors.black87,
+                padding: const EdgeInsets.symmetric(vertical: 10),
+                child: const Text(
+                  'Processing...',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    Overlay.of(context, rootOverlay: true).insert(_overlayEntry!);
+  }
+
+  static void hide() {
+    _overlayEntry?.remove();
+    _overlayEntry = null;
   }
 }
