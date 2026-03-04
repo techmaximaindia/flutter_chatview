@@ -121,13 +121,30 @@ class TextMessageView extends StatelessWidget {
                   borderRadius: _borderRadius(textMessage),
                 ),
                 child: SingleChildScrollView(
+                  child: (message.profilename == 'Summary' || !textMessage.isUrl)
+                      ? (message.profilename == 'Summary'
+                          ? Text(
+                              textMessage,
+                              style: _textStyle ??
+                                  textTheme.bodyMedium!.copyWith(
+                                    color: Colors.black,
+                                    fontSize: 14,
+                                  ),
+                            )
+                          : _buildMessageContent(context, textMessage, textTheme))
+                      : LinkPreview(
+                          linkPreviewConfig: _linkPreviewConfig,
+                          url: textMessage,
+                        ),
+                ),
+                /* child: SingleChildScrollView(
                   child: textMessage.isUrl
                       ? LinkPreview(
                           linkPreviewConfig: _linkPreviewConfig,
                           url: textMessage,
                         )
                       : _buildMessageContent(context, textMessage, textTheme),
-                ),
+                ), */
               ),
            /* Container(
               constraints: BoxConstraints(
@@ -273,18 +290,22 @@ class TextMessageView extends StatelessWidget {
     );
   }
   Widget _buildMessageContent(context,String textMessage, TextTheme textTheme) {
-    // Helper function to detect URLs in text and make them clickable
+     // Helper function to detect URLs in text and make them clickable
       InlineSpan _buildTextWithLinks(String text, [TextStyle? baseStyle]) {
         // URL pattern to match http/https links
-        final urlPattern = RegExp(
-          r'\b(?:https?|ftp):\/\/'  // Required protocol
-          r'(?:www\.)?'  // Optional www
-          r'(?:[\w\-]+\.)+[\w\-]{2,}'  // Domain
-          r'(?:\/[^\s]*)?',  // Optional path
+       /* final urlPattern = RegExp(
+          r'(?:(?:https?|ftp):\/\/)?(?:www\.)?[\w\-]+\.[\w\-]+(?:\/[^\s]*)?',
           caseSensitive: false,
           multiLine: false,
-        );
-        
+        ); */
+        final urlPattern = RegExp(
+        r'\b(?:https?|ftp):\/\/'  // Required protocol
+        r'(?:www\.)?'  // Optional www
+        r'(?:[\w\-]+\.)+[\w\-]{2,}'  // Domain
+        r'(?:\/[^\s]*)?',  // Optional path
+        caseSensitive: false,
+        multiLine: false,
+      );
         final matches = urlPattern.allMatches(text);
         if (matches.isEmpty) {
           // No URLs found, return plain text
@@ -387,6 +408,10 @@ class TextMessageView extends StatelessWidget {
 
   var message_options_full = message.cb_message_options_full;
     String? type = message_options_full?['type'];
+    String? ctaHeaderType = message_options_full?['cta_header_type'];
+    String? redirectUrl = message_options_full?['redirect_url'];
+    String? body = message_options_full?['body'] ?? '';
+    String? redirectText = message_options_full?['redirect_text'] ?? 'Click Here';
     /* List<String> buttonValues = List<String>.from(message_options_full?['button_values'] ?? []); */
     List<String> buttonValues = (message_options_full?['button_values'] as List<dynamic>?)
     ?.map((e) => e.toString())
@@ -456,31 +481,7 @@ class TextMessageView extends StatelessWidget {
         return SizedBox.shrink();
       }).toList(),
     );
-  }/*else if (containsHtmlTags) {
-    return Stack(
-      children: [
-        SizedBox(
-          height: 300,
-          child: IgnorePointer( 
-            child: WebViewExample(htmlContent: textMessage),
-          ),
-        ),
-        Positioned.fill(
-          child: GestureDetector(
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => ExpandedWebView(htmlContent: textMessage),
-                ),
-              );
-            },
-            child: Container(color: Colors.transparent), 
-          ),
-        ),
-      ],
-    );
-  }*/
+  }
     else if(containsHtmlTags){
       print("HTML TAG");
       return HtmlWidget(
@@ -506,40 +507,94 @@ class TextMessageView extends StatelessWidget {
         },
       );
     }
-    /*else if (parsedString.isNotEmpty && parsedString != textMessage && !urlRegExp.hasMatch(parsedString)) {
-    return Text(
-      parsedString, // Display stripped text
-      style: textTheme.bodyMedium?.copyWith(
-        color: Colors.black,
-        fontSize: 14,
-      ),
-    );
-  } else if (parsedString != textMessage) {
-    final textStyle = textTheme.bodyMedium!.copyWith(
-    color: Colors.black,
-    fontSize: 14,
-  );
-    return Html(
-      data: textMessage,
-      style: {
-        'body': Style.fromTextStyle(textStyle),
-        'a': Style.fromTextStyle(
-          textStyle.copyWith(
-            color: Colors.blue,
-            decoration: TextDecoration.underline,
+    // Handle CTA message with cta_header_type == 'text'
+  else if (message.cb_message_options_full != null && ctaHeaderType == 'text') {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (header?.isNotEmpty ?? false)
+          Text(
+            header!,
+            style: textTheme.bodyMedium?.copyWith(
+              fontWeight: FontWeight.bold,
+              color: Colors.black,
+            ),
           ),
-        ),
-      },
-      onLinkTap: (url, _, __) async {
-        if (url != null && url.isNotEmpty) {
-          final uri = Uri.parse(url);
-          if (await canLaunchUrl(uri)) {
-            await launchUrl(uri);
-          }
-        }
-      },
+        if (body?.isNotEmpty ?? false)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 4.0),
+            child: Text(
+              body!,
+              style: textTheme.bodyMedium!.copyWith(
+                color: Colors.black,
+                fontSize: 14,
+              ),
+            ),
+          ),
+        if (footer?.isNotEmpty ?? false)
+          Text(
+            footer!,
+            style: textTheme.bodyLarge?.copyWith(
+              fontSize: 13,
+              color: Color.fromARGB(255, 52, 58, 64),
+            ),
+          ),
+        const SizedBox(height: 8),
+        if (redirectUrl?.isNotEmpty ?? false)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 4.0),
+            child: ElevatedButton(
+              onPressed: () async {
+                try {
+                  final uri = Uri.parse(redirectUrl!);
+                  if (await canLaunchUrl(uri)) {
+                    await launchUrl(
+                      uri,
+                      mode: LaunchMode.externalApplication,
+                    );
+                  }
+                } catch (e) {
+                  print('Error launching URL: $e');
+                }
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.white,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                minimumSize: const Size(double.infinity, 48),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(
+                    Icons.link,
+                    color: Colors.blue,
+                    size: 16,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    redirectText ?? 'Click Here',
+                    style: textTheme.bodyMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color:Colors.blue
+                    ),
+                  ),
+                ],
+              ),
+              /* child: Text(
+                redirectText ?? 'Click Here',
+                style: textTheme.bodyMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color:Colors.blue
+                ),
+              ), */
+            ),
+          ),
+      ],
     );
-  }*/
+  }
  else if (message.cb_message_options_full != null && type == "button") {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -809,14 +864,6 @@ class TextMessageView extends StatelessWidget {
             fontSize: 14,
           ),
     );
-    /*return Text(
-      textMessage,
-      style: _textStyle ??
-          textTheme.bodyMedium!.copyWith(
-            color: Colors.black,
-            fontSize: 14,
-          ),
-    );*/
   }
 }
 
