@@ -296,165 +296,176 @@ class ImageMessageView extends StatelessWidget {
     ],
   );
 }
-/*Widget _buildMessageContent(context,String textMessage, TextTheme textTheme) 
-  {
-      // Helper function to detect URLs in text and make them clickable
-      InlineSpan _buildTextWithLinks(String text, [TextStyle? baseStyle]) {
-        // URL pattern to match http/https links
-        final urlPattern = RegExp(
-          r'(?:(?:https?|ftp):\/\/)?(?:www\.)?[\w\-]+\.[\w\-]+(?:\/[^\s]*)?',
-          caseSensitive: false,
-          multiLine: false,
+
+  Widget _buildMessageContent(context, String textMessage, TextTheme textTheme) {
+  InlineSpan _buildTextWithLinks(String text, [TextStyle? baseStyle]) {
+    // URL pattern to match http/https links
+    final urlPattern = RegExp(
+        r'\b(?:https?|ftp):\/\/'  // Required protocol
+        r'(?:www\.)?'  // Optional www
+        r'(?:[\w\-]+\.)+[\w\-]{2,}'  // Domain
+        r'(?:\/[^\s]*)?',  // Optional path
+        caseSensitive: false,
+        multiLine: false,
+      );
+    
+    final matches = urlPattern.allMatches(text);
+    if (matches.isEmpty) {
+      // No URLs found, return plain text
+      return TextSpan(text: text, style: baseStyle);
+    }
+    
+    List<TextSpan> spans = [];
+    int currentIndex = 0;
+    
+    for (final match in matches) {
+      // Add text before the URL
+      if (match.start > currentIndex) {
+        spans.add(
+          TextSpan(
+            text: text.substring(currentIndex, match.start),
+            style: baseStyle,
+          ),
         );
-        
-        final matches = urlPattern.allMatches(text);
-        if (matches.isEmpty) {
-          // No URLs found, return plain text
-          return TextSpan(text: text, style: baseStyle);
-        }
-        
-        List<TextSpan> spans = [];
-        int currentIndex = 0;
-        
-        for (final match in matches) {
-          // Add text before the URL
-          if (match.start > currentIndex) {
-            spans.add(
-              TextSpan(
-                text: text.substring(currentIndex, match.start),
-                style: baseStyle,
-              ),
-            );
-          }
-          
-          // Get the URL
-          String urlText = match.group(0)!;
-          // Ensure URL has proper scheme
-          if (!urlText.toLowerCase().startsWith('http')) {
-            urlText = 'https://$urlText';
-          }
-          
-          // Add the clickable URL
-          spans.add(
-            TextSpan(
-              text: match.group(0),
-              style: (baseStyle ?? const TextStyle()).copyWith(
-                color: Colors.blue,
-                decoration: TextDecoration.underline,
-              ),
-              recognizer: TapGestureRecognizer()
-                ..onTap = () async {
-                  try {
-                    final uri = Uri.parse(urlText);
-                    if (await canLaunchUrl(uri)) {
-                      await launchUrl(
-                        uri,
-                        mode: LaunchMode.externalApplication,
-                      );
-                    } else {
-                      // Try to launch without https prefix
-                      final fallbackUri = Uri.parse(
-                        urlText.startsWith('https://')
-                            ? urlText.replaceFirst('https://', 'http://')
-                            : urlText,
-                      );
-                      if (await canLaunchUrl(fallbackUri)) {
-                        await launchUrl(
-                          fallbackUri,
-                          mode: LaunchMode.externalApplication,
-                        );
-                      }
-                    }
-                  } catch (e) {
-                    print('Error launching URL: $e');
-                  }
-                },
-            ),
-          );
-          
-          currentIndex = match.end;
-        }
-        
-        // Add any remaining text after the last URL
-        if (currentIndex < text.length) {
-          spans.add(
-            TextSpan(
-              text: text.substring(currentIndex),
-              style: baseStyle,
-            ),
-          );
-        }
-        
-        return TextSpan(children: spans);
       }
       
-      // Helper function to create RichText widget with clickable links
-      Widget _buildRichText(String text, TextStyle style) {
-        return RichText(
-          text: _buildTextWithLinks(text, style),
-          textAlign: TextAlign.left,
-        );
+      // Get the URL
+      String urlText = match.group(0)!;
+      // Ensure URL has proper scheme
+      if (!urlText.toLowerCase().startsWith('http')) {
+        urlText = 'https://$urlText';
       }
-    final document = html_parser.parse(textMessage);
-    final String parsedString = document.body?.text ?? '';
-    String translated_title = message.translate_title??'';
-    String translated_content = message.translate_content??'';
-
-    final urlPattern = r'http[s]?://[^\s]+';
-    final urlRegExp = RegExp(urlPattern);
-    
-    final iframeTags = document.getElementsByTagName('iframe');
-    final iframeUrls = iframeTags.map((iframe) => iframe.attributes['src']).toList();
-
-    var message_options_full = message.cb_message_options_full;
-    String? type = message_options_full?['type'];
-    /* List<String> buttonValues = List<String>.from(message_options_full?['button_values'] ?? []); */
-   List<String> buttonValues = (message_options_full?['button_values'] as List<dynamic>?)
-    ?.map((e) => e.toString())
-    .toList() ?? [];
-
-    /* List<String> listDesc = List<String>.from(message_options_full?['list_desc'] ?? []); */
-    List<String> listDesc = (message_options_full?['list_desc'] as List<dynamic>?)
-    ?.map((e) => e.toString())
-    .toList() ?? [];
-
-    String? list_menu_header=message_options_full?['list_menu_header']??'';
-    String? list_header=message_options_full?['list_header']??'';
-    String? header=message_options_full?['header']??'';
-    String? footer=message_options_full?['footer']??'';
-
-    if (translated_title != '' && translated_content != '') 
-    {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            textMessage,
-            style: _textStyle ??
-              textTheme.bodyMedium!.copyWith(
-                color: Colors.black,
-                fontSize: 16,
-              ),
+      
+      // Add the clickable URL
+      spans.add(
+        TextSpan(
+          text: match.group(0),
+          style: (baseStyle ?? const TextStyle()).copyWith(
+            color: Colors.blue,
+            decoration: TextDecoration.underline,
+            decorationColor: Colors.blue,
           ),
-          SizedBox(height:4),
-          Text(
-            "Translation From $translated_title",
-            style: textTheme.bodyLarge?.copyWith(
-              fontWeight: FontWeight.bold,
-              color: Colors.black,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            translated_content,
-            style: textTheme.bodyMedium?.copyWith(
-              color: Colors.black87,
-            ),
-          ),
-        ],
+          recognizer: TapGestureRecognizer()
+            ..onTap = () async {
+              try {
+                final uri = Uri.parse(urlText);
+                if (await canLaunchUrl(uri)) {
+                  await launchUrl(
+                    uri,
+                    mode: LaunchMode.externalApplication,
+                  );
+                } else {
+                  // Try to launch without https prefix
+                  final fallbackUri = Uri.parse(
+                    urlText.startsWith('https://')
+                        ? urlText.replaceFirst('https://', 'http://')
+                        : urlText,
+                  );
+                  if (await canLaunchUrl(fallbackUri)) {
+                    await launchUrl(
+                      fallbackUri,
+                      mode: LaunchMode.externalApplication,
+                    );
+                  }
+                }
+              } catch (e) {
+                print('Error launching URL: $e');
+              }
+            },
+        ),
       );
-    }else if (iframeUrls.isNotEmpty) {
+      
+      currentIndex = match.end;
+    }
+    
+    // Add any remaining text after the last URL
+    if (currentIndex < text.length) {
+      spans.add(
+        TextSpan(
+          text: text.substring(currentIndex),
+          style: baseStyle,
+        ),
+      );
+    }
+    
+    return TextSpan(children: spans);
+  }
+  
+  // Helper function to create RichText widget with clickable links
+  Widget _buildRichText(String text, TextStyle style) {
+    return RichText(
+      text: _buildTextWithLinks(text, style),
+      textAlign: TextAlign.left,
+    );
+  }
+
+  final document = html_parser.parse(textMessage);
+  final String parsedString = document.body?.text ?? '';
+  String translated_title = message.translate_title ?? '';
+  String translated_content = message.translate_content ?? '';
+
+  final urlPattern = r'http[s]?://[^\s]+';
+  final urlRegExp = RegExp(urlPattern);
+  
+  final iframeTags = document.getElementsByTagName('iframe');
+  final iframeUrls = iframeTags.map((iframe) => iframe.attributes['src']).toList();
+
+  var message_options_full = message.cb_message_options_full;
+  String? type = message_options_full?['type'];
+  
+  List<String> buttonValues = (message_options_full?['button_values'] as List<dynamic>?)
+      ?.map((e) => e.toString())
+      .toList() ?? [];
+
+  List<String> listDesc = (message_options_full?['list_desc'] as List<dynamic>?)
+      ?.map((e) => e.toString())
+      .toList() ?? [];
+
+  String? list_menu_header = message_options_full?['list_menu_header'] ?? '';
+  String? list_header = message_options_full?['list_header'] ?? '';
+  String? header = message_options_full?['header'] ?? '';
+  String? footer = message_options_full?['footer'] ?? '';
+
+  String? ctaHeaderType = message_options_full?['cta_header_type'];
+  String? redirectUrl = message_options_full?['redirect_url'];
+  String? body = message_options_full?['body'] ?? '';
+  String? redirectText = message_options_full?['redirect_text'] ?? 'Click Here';
+  String? cta_media_type = message_options_full?['cta_media_type'];
+  final textStyle = _textStyle ??
+      textTheme.bodyMedium!.copyWith(
+        color: Colors.black,
+        fontSize: 14,
+      );
+
+  // Priority 1: Translation
+  if (translated_title != '' && translated_content != '') {
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildRichText(textMessage, textStyle),
+        SizedBox(height: 4),
+        Text(
+          "Translation From $translated_title",
+          style: textTheme.bodyLarge?.copyWith(
+            fontWeight: FontWeight.bold,
+            color: Colors.black,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          translated_content,
+          style: textTheme.bodyMedium?.copyWith(
+            color: Colors.black87,
+          ),
+        ),
+      ],
+    );
+  }
+  
+  // Priority 2: Iframe URLs
+  else if (iframeUrls.isNotEmpty) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: iframeUrls.map((url) {
         if (url != null) {
           final uri = Uri.parse(url);
@@ -477,96 +488,123 @@ class ImageMessageView extends StatelessWidget {
       }).toList(),
     );
   }
-  else if (parsedString.isNotEmpty && parsedString != textMessage && !urlRegExp.hasMatch(parsedString)) {
-    return Text(
-      parsedString, // Display stripped text
-      style: textTheme.bodyMedium?.copyWith(
-        color: Colors.black,
-        fontSize: 14,
-      ),
-    );
-  }  else if (parsedString != textMessage) {
-    final textStyle = textTheme.bodyMedium!.copyWith(
-    color: Colors.black,
-    fontSize: 14,
-  );
-    return HtmlWidget(
-        textMessage,
-        textStyle: const TextStyle(
-          color: Colors.black, 
-        ),
-        customStylesBuilder: (element) {
-          if (element.localName == 'img') {
-            return {
-              'max-width': '100%',
-              'height': 'auto',
-              'display': 'block',
-            };
-          }
-          if (element.localName == 'a') {
-            return {
-              'color': 'blue',
-              'text-decoration': 'underline',
-            };
-          }
-          return null;
-        },
-      );
-    /*return Html(
-      data: textMessage,
-      style: {
-        'body': Style.fromTextStyle(textStyle),
-        'a': Style.fromTextStyle(
-          textStyle.copyWith(
-            color: Colors.blue,
-            decoration: TextDecoration.underline,
+  // Handle CTA message with cta_header_type == 'text'
+  else if (message.cb_message_options_full != null && ctaHeaderType == 'media' && cta_media_type=='image') {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (header?.isNotEmpty ?? false)
+          Text(
+            header!,
+            style: textTheme.bodyMedium?.copyWith(
+              fontWeight: FontWeight.bold,
+              color: Colors.black,
+            ),
           ),
-        ),
-      },
-      onLinkTap: (url, _, __) async {
-        if (url != null && url.isNotEmpty) {
-          final uri = Uri.parse(url);
-          if (await canLaunchUrl(uri)) {
-            await launchUrl(uri);
-          }
-        }
-      },
-    );*/
-  }  
+        if (body?.isNotEmpty ?? false)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 4.0),
+            child: Text(
+              body!,
+              style: textTheme.bodyMedium!.copyWith(
+                color: Colors.black,
+                fontSize: 14,
+              ),
+            ),
+          ),
+        if (footer?.isNotEmpty ?? false)
+          Text(
+            footer!,
+            style: textTheme.bodyLarge?.copyWith(
+              fontSize: 13,
+              color: Color.fromARGB(255, 52, 58, 64),
+            ),
+          ),
+        const SizedBox(height: 8),
+        if (redirectUrl?.isNotEmpty ?? false)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 4.0),
+            child: ElevatedButton(
+              onPressed: () async {
+                try {
+                  final uri = Uri.parse(redirectUrl!);
+                  if (await canLaunchUrl(uri)) {
+                    await launchUrl(
+                      uri,
+                      mode: LaunchMode.externalApplication,
+                    );
+                  }
+                } catch (e) {
+                  print('Error launching URL: $e');
+                }
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.white,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                minimumSize: const Size(double.infinity, 48),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(
+                    Icons.link,
+                    color: Colors.blue,
+                    size: 16,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    redirectText ?? 'Click Here',
+                    style: textTheme.bodyMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color:Colors.blue
+                    ),
+                  ),
+                ],
+              ),
+              /* child: Text(
+                redirectText ?? 'Click Here',
+                style: textTheme.bodyMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color:Colors.blue
+                ),
+              ), */
+            ),
+          ),
+      ],
+    );
+  }
+  // Priority 3: Button type
   else if (message.cb_message_options_full != null && type == "button") {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          header??'',
-          style: textTheme.bodyMedium?.copyWith(
-            fontWeight: FontWeight.bold,
-            color: Colors.black,
+        if (header != null && header.isNotEmpty)
+          Text(
+            header,
+            style: textTheme.bodyMedium?.copyWith(
+              fontWeight: FontWeight.bold,
+              color: Colors.black,
+            ),
           ),
-        ),
-        Text(
-          textMessage,
-          style: textTheme.bodyMedium!.copyWith(
-            color: Colors.black,
-            fontSize: 14,
+        _buildRichText(textMessage, textStyle),
+        if (footer != null && footer.isNotEmpty)
+          Text(
+            footer,
+            style: textTheme.bodyLarge?.copyWith(
+              fontSize: 13,
+              color: Color.fromARGB(255, 52, 58, 64),
+            ),
           ),
-        ),
-        Text(
-          footer??'',
-          style: textTheme.bodyLarge?.copyWith(
-            fontSize: 13,
-            color: Color.fromARGB(255, 52, 58, 64),
-          ),
-        ),
         const SizedBox(height: 8),
-
-        if (buttonValues.isNotEmpty) 
+        if (buttonValues.isNotEmpty)
           ...buttonValues.map((option) {
             return Padding(
               padding: const EdgeInsets.symmetric(vertical: 4.0),
               child: ElevatedButton(
-                onPressed: () {
-                },
+                onPressed: () {},
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.white,
                   shape: RoundedRectangleBorder(
@@ -580,7 +618,7 @@ class ImageMessageView extends StatelessWidget {
                     const FaIcon(
                       FontAwesomeIcons.list,
                       color: Colors.blue,
-                      size: 10, 
+                      size: 10,
                     ),
                     const SizedBox(width: 4),
                     Text(
@@ -588,7 +626,7 @@ class ImageMessageView extends StatelessWidget {
                       style: textTheme.bodyMedium?.copyWith(
                         color: Colors.blue,
                         fontWeight: FontWeight.bold,
-                        fontSize:12
+                        fontSize: 12,
                       ),
                     ),
                   ],
@@ -598,10 +636,11 @@ class ImageMessageView extends StatelessWidget {
           }).toList(),
       ],
     );
-  } 
-  else if (message.cb_message_options_full != null && type == "list") 
-  {
-    
+  }
+  
+  // Priority 4: List type
+  else if (message.cb_message_options_full != null && type == "list") {
+    // ... [Keep your existing showCustomDialog function] ...
     void showCustomDialog(BuildContext buildcontext, String title, List<String> button, List<String> list) {
       showDialog(
         context: buildcontext,
@@ -736,364 +775,29 @@ class ImageMessageView extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          header?? '',
-          style: textTheme.bodyMedium?.copyWith(
-            fontWeight: FontWeight.bold,
-            color: Colors.black,
+        if (header != null && header.isNotEmpty)
+          Text(
+            header,
+            style: textTheme.bodyMedium?.copyWith(
+              fontWeight: FontWeight.bold,
+              color: Colors.black,
+            ),
           ),
-        ),
-        Text(
-          textMessage,
-          style: textTheme.bodyMedium!.copyWith(
-            color: Colors.black,
-            fontSize: 14,
+        _buildRichText(textMessage, textStyle),
+        if (footer != null && footer.isNotEmpty)
+          Text(
+            footer,
+            style: textTheme.bodyLarge?.copyWith(
+              fontSize: 13,
+              color: Color.fromARGB(255, 52, 58, 64),
+            ),
           ),
-        ),
-        Text(
-          footer?? '',
-          style: textTheme.bodyLarge?.copyWith(
-            fontSize: 13,
-            color: Color.fromARGB(255, 52, 58, 64),
-          ),
-        ),
         const SizedBox(height: 8),
         Padding(
           padding: const EdgeInsets.symmetric(vertical: 4.0),
           child: ElevatedButton(
             onPressed: () {
               showCustomDialog(context, list_menu_header!, buttonValues, listDesc);
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.white,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-              ),
-              minimumSize: const Size(double.infinity, 48),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min, 
-              children: [
-                const FaIcon(
-                  FontAwesomeIcons.list,
-                  color: Colors.blue,
-                  size: 10,
-                ),
-                const SizedBox(width: 4), 
-                Text(
-                  list_menu_header ?? '',
-                  style: textTheme.bodyMedium?.copyWith(
-                    color: Colors.blue,
-                    fontWeight: FontWeight.bold,
-                    fontSize:12
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-  else 
-  {
-    return _buildRichText(
-      textMessage,
-      _textStyle ??
-          textTheme.bodyMedium!.copyWith(
-            color: Colors.black,
-            fontSize: 14,
-          ),
-    );
-    /*return Text(
-      textMessage,
-      style: _textStyle ??
-          textTheme.bodyMedium!.copyWith(
-            color: Colors.black,
-            fontSize: 14,
-          ),
-    );*/
-  }
-}*/
-  Widget _buildMessageContent(context, String textMessage, TextTheme textTheme) {
-  InlineSpan _buildTextWithLinks(String text, [TextStyle? baseStyle]) {
-    // URL pattern to match http/https links
-    final urlPattern = RegExp(
-        r'\b(?:https?|ftp):\/\/'  // Required protocol
-        r'(?:www\.)?'  // Optional www
-        r'(?:[\w\-]+\.)+[\w\-]{2,}'  // Domain
-        r'(?:\/[^\s]*)?',  // Optional path
-        caseSensitive: false,
-        multiLine: false,
-      );
-    
-    final matches = urlPattern.allMatches(text);
-    if (matches.isEmpty) {
-      // No URLs found, return plain text
-      return TextSpan(text: text, style: baseStyle);
-    }
-    
-    List<TextSpan> spans = [];
-    int currentIndex = 0;
-    
-    for (final match in matches) {
-      // Add text before the URL
-      if (match.start > currentIndex) {
-        spans.add(
-          TextSpan(
-            text: text.substring(currentIndex, match.start),
-            style: baseStyle,
-          ),
-        );
-      }
-      
-      // Get the URL
-      String urlText = match.group(0)!;
-      // Ensure URL has proper scheme
-      if (!urlText.toLowerCase().startsWith('http')) {
-        urlText = 'https://$urlText';
-      }
-      
-      // Add the clickable URL
-      spans.add(
-        TextSpan(
-          text: match.group(0),
-          style: (baseStyle ?? const TextStyle()).copyWith(
-            color: Colors.blue,
-            decoration: TextDecoration.underline,
-            decorationColor: Colors.blue,
-          ),
-          recognizer: TapGestureRecognizer()
-            ..onTap = () async {
-              try {
-                final uri = Uri.parse(urlText);
-                if (await canLaunchUrl(uri)) {
-                  await launchUrl(
-                    uri,
-                    mode: LaunchMode.externalApplication,
-                  );
-                } else {
-                  // Try to launch without https prefix
-                  final fallbackUri = Uri.parse(
-                    urlText.startsWith('https://')
-                        ? urlText.replaceFirst('https://', 'http://')
-                        : urlText,
-                  );
-                  if (await canLaunchUrl(fallbackUri)) {
-                    await launchUrl(
-                      fallbackUri,
-                      mode: LaunchMode.externalApplication,
-                    );
-                  }
-                }
-              } catch (e) {
-                print('Error launching URL: $e');
-              }
-            },
-        ),
-      );
-      
-      currentIndex = match.end;
-    }
-    
-    // Add any remaining text after the last URL
-    if (currentIndex < text.length) {
-      spans.add(
-        TextSpan(
-          text: text.substring(currentIndex),
-          style: baseStyle,
-        ),
-      );
-    }
-    
-    return TextSpan(children: spans);
-  }
-  
-  // Helper function to create RichText widget with clickable links
-  Widget _buildRichText(String text, TextStyle style) {
-    return RichText(
-      text: _buildTextWithLinks(text, style),
-      textAlign: TextAlign.left,
-    );
-  }
-
-  final document = html_parser.parse(textMessage);
-  final String parsedString = document.body?.text ?? '';
-  String translated_title = message.translate_title ?? '';
-  String translated_content = message.translate_content ?? '';
-
-  final urlPattern = r'http[s]?://[^\s]+';
-  final urlRegExp = RegExp(urlPattern);
-  
-  final iframeTags = document.getElementsByTagName('iframe');
-  final iframeUrls = iframeTags.map((iframe) => iframe.attributes['src']).toList();
-
-  var message_options_full = message.cb_message_options_full;
-  String? type = message_options_full?['type'];
-  
-  List<String> buttonValues = (message_options_full?['button_values'] as List<dynamic>?)
-      ?.map((e) => e.toString())
-      .toList() ?? [];
-
-  List<String> listDesc = (message_options_full?['list_desc'] as List<dynamic>?)
-      ?.map((e) => e.toString())
-      .toList() ?? [];
-
-  String? list_menu_header = message_options_full?['list_menu_header'] ?? '';
-  String? list_header = message_options_full?['list_header'] ?? '';
-  String? header = message_options_full?['header'] ?? '';
-  String? footer = message_options_full?['footer'] ?? '';
-
-  final textStyle = _textStyle ??
-      textTheme.bodyMedium!.copyWith(
-        color: Colors.black,
-        fontSize: 14,
-      );
-
-  // Priority 1: Translation
-  if (translated_title != '' && translated_content != '') {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _buildRichText(textMessage, textStyle),
-        SizedBox(height: 4),
-        Text(
-          "Translation From $translated_title",
-          style: textTheme.bodyLarge?.copyWith(
-            fontWeight: FontWeight.bold,
-            color: Colors.black,
-          ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          translated_content,
-          style: textTheme.bodyMedium?.copyWith(
-            color: Colors.black87,
-          ),
-        ),
-      ],
-    );
-  }
-  
-  // Priority 2: Iframe URLs
-  else if (iframeUrls.isNotEmpty) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: iframeUrls.map((url) {
-        if (url != null) {
-          final uri = Uri.parse(url);
-          return GestureDetector(
-            onTap: () async {
-              if (await canLaunchUrl(uri)) {
-                await launchUrl(uri);
-              }
-            },
-            child: Text(
-              uri.toString(),
-              style: textTheme.bodyMedium?.copyWith(
-                color: Colors.blue,
-                decoration: TextDecoration.underline,
-              ),
-            ),
-          );
-        }
-        return SizedBox.shrink();
-      }).toList(),
-    );
-  }
-  
-  // Priority 3: Button type
-  else if (message.cb_message_options_full != null && type == "button") {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        if (header != null && header.isNotEmpty)
-          Text(
-            header,
-            style: textTheme.bodyMedium?.copyWith(
-              fontWeight: FontWeight.bold,
-              color: Colors.black,
-            ),
-          ),
-        _buildRichText(textMessage, textStyle),
-        if (footer != null && footer.isNotEmpty)
-          Text(
-            footer,
-            style: textTheme.bodyLarge?.copyWith(
-              fontSize: 13,
-              color: Color.fromARGB(255, 52, 58, 64),
-            ),
-          ),
-        const SizedBox(height: 8),
-        if (buttonValues.isNotEmpty)
-          ...buttonValues.map((option) {
-            return Padding(
-              padding: const EdgeInsets.symmetric(vertical: 4.0),
-              child: ElevatedButton(
-                onPressed: () {},
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  minimumSize: const Size(double.infinity, 48),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const FaIcon(
-                      FontAwesomeIcons.list,
-                      color: Colors.blue,
-                      size: 10,
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      option.trim(),
-                      style: textTheme.bodyMedium?.copyWith(
-                        color: Colors.blue,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 12,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            );
-          }).toList(),
-      ],
-    );
-  }
-  
-  // Priority 4: List type
-  else if (message.cb_message_options_full != null && type == "list") {
-    // ... [Keep your existing showCustomDialog function] ...
-    
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        if (header != null && header.isNotEmpty)
-          Text(
-            header,
-            style: textTheme.bodyMedium?.copyWith(
-              fontWeight: FontWeight.bold,
-              color: Colors.black,
-            ),
-          ),
-        _buildRichText(textMessage, textStyle),
-        if (footer != null && footer.isNotEmpty)
-          Text(
-            footer,
-            style: textTheme.bodyLarge?.copyWith(
-              fontSize: 13,
-              color: Color.fromARGB(255, 52, 58, 64),
-            ),
-          ),
-        const SizedBox(height: 8),
-        Padding(
-          padding: const EdgeInsets.symmetric(vertical: 4.0),
-          child: ElevatedButton(
-            onPressed: () {
-              // showCustomDialog(context, list_menu_header!, buttonValues, listDesc);
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.white,
