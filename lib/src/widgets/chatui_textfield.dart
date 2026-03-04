@@ -1057,8 +1057,7 @@ void send_file_canned_responses(BuildContext context, String filePath, String? m
         media_type = "image";
       } else if (extension == '.mp4' || extension == '.mov' || extension == '.webm') {
         media_type = "video";
-      } else if (extension == '.aac' || extension == '.m4a' || extension == '.wav' || 
-                extension == '.mp3' || extension == '.ogg' || extension == '.flac') {
+      } else if (extension == '.m4a' || extension == '.mp3' || extension == '.ogg') {
         media_type = "audio";
       } else if (extension == '.pdf') {
         media_type = "file";
@@ -1177,7 +1176,7 @@ bool _isFileSupportedForPlatform(String fileUrl, String platform, String page) {
             extension == '.mp4' || extension == '.avi' || extension == '.mov' || 
             extension == '.mkv' || extension == '.webm' ||
             extension == '.mp3' || extension == '.ogg' || extension == '.opus' || 
-            extension == '.m4a' || extension == '.flac' ||
+            extension == '.m4a' || 
             extension == '.txt' || extension == '.pdf' || extension == '.doc' || 
             extension == '.docx' || extension == '.xls' || extension == '.xlsx' || 
             extension == '.ppt' || extension == '.pptx');
@@ -2337,7 +2336,7 @@ bool _isFileSupportedForPlatform(String fileUrl, String platform, String page) {
         } else {
           ProcessingOverlay.hide();
           onComplete(); 
-         // _showErrorSnackbar(context, 'Failed to send file. Please try again.');
+         _showErrorSnackbar(context, 'Failed to send file.');
         }
        /*  final response = await request.send();
         final responseData = await response.stream.toBytes();
@@ -2532,8 +2531,8 @@ void _showCustomNotification(BuildContext context, String message) {
           MaterialPageRoute(
             builder: (context) => ImageViewerPage(
               imagePath: imagePath ?? '',
-              onSend: (sentImagePath, message) {
-                widget.onImageSelected(sentImagePath, '', message ?? ''); 
+              onSend: (sentImagePath, message,completed) {
+                widget.onImageSelected(sentImagePath, '', message ?? '',); 
               },
               padding: EdgeInsets.fromLTRB(
                 bottomPadding4,
@@ -2547,7 +2546,7 @@ void _showCustomNotification(BuildContext context, String message) {
         );
       }
     } catch (e) {
-      widget.onImageSelected('', e.toString(), '');
+      widget.onImageSelected('', e.toString(), '',);
     }
   }
   void _onChanged(String inputText) async 
@@ -2627,495 +2626,10 @@ void _showCustomNotification(BuildContext context, String message) {
 
 }
 
-/* class ImageViewerPage extends StatefulWidget {
-  final String? imagePath;
-  final Function(String, String?) onSend;
-  final String platform;
-  final EdgeInsetsGeometry padding;
 
-  const ImageViewerPage({Key? key, required this.imagePath, required this.onSend,required this.padding,required this.platform}) : super(key: key);
-
-  @override
-  _ImageViewerPageState createState() => _ImageViewerPageState();
-}
-
-class _ImageViewerPageState extends State<ImageViewerPage> {
-  final TextEditingController _messageController = TextEditingController();
-  
-  @override
-  void initState() {
-    super.initState();
-
-  }
-
-  @override
-  void dispose() {
-    _messageController.dispose();
-    super.dispose();
-  }
-
-
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.black,
-      appBar: AppBar(
-        backgroundColor: Colors.black,
-        title: const Text('Image Preview', style: TextStyle(color: Colors.white)),
-        centerTitle: true,
-        iconTheme: const IconThemeData(color: Colors.white),
-      ),
-      body: Column(
-        children: [
-          Expanded(
-            child: Center(
-              child: widget.imagePath != null && widget.imagePath!.isNotEmpty
-                  ? ClipRRect(
-                      borderRadius: BorderRadius.circular(15),
-                      child: Image.file(File(widget.imagePath!), fit: BoxFit.contain),
-                    )
-                  : const Text('No image selected', style: TextStyle(color: Colors.white70)),
-            ),
-          ),
-          
-           Container(
-                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                padding: EdgeInsets.symmetric(horizontal: 4),
-                decoration: BoxDecoration(
-                  color: Colors.grey[900],
-                  borderRadius: BorderRadius.circular(15),
-                ),
-                child: Row(
-                  children: [
-                    // Only show caption input if platform is NOT fb_whatsapp, facebook, or instagram
-                    if ( 
-                        widget.platform != 'facebook' && 
-                        widget.platform != 'instagram')
-                      Expanded(
-                        child: TextField(
-                          controller: _messageController,
-                          style: const TextStyle(color: Colors.white),
-                          maxLines: 5,
-                          minLines: 1,
-                          decoration: const InputDecoration(
-                            hintText: "Add a caption...",
-                            hintStyle: TextStyle(color: Colors.white54),
-                            border: InputBorder.none,
-                          ),
-                        ),
-                      ),
-                    
-                    // For fb_whatsapp, facebook, instagram - push send icon to the right
-                    if (
-                        widget.platform == 'facebook' || 
-                        widget.platform == 'instagram')
-                      Spacer(),
-                    
-                    GestureDetector(
-                      onTap: () {
-                        
-                        widget.onSend(widget.imagePath??'', _messageController.text.trim());
-                        _messageController.clear();
-                        Navigator.pop(context);
-                      },
-                      child: const Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 8),
-                        child: Icon(Icons.send, color: Colors.blue, size: 24),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-          
-        ],
-      ),
-    );
-  }
-}
-
-
-class AudioViewerPage extends StatefulWidget {
-  final String fileUrl;
-  final Function(String, String?) onSend;
-  final String platform; 
-
-  const AudioViewerPage({Key? key, required this.fileUrl, required this.onSend,required this.platform,}) : super(key: key);
-
-  @override
-  _AudioViewerPageState createState() => _AudioViewerPageState();
-}
-
-class _AudioViewerPageState extends State<AudioViewerPage> {
-  final TextEditingController _messageController = TextEditingController();
-  late audio.AudioPlayer _audioPlayer;
-  bool _isPlaying = false;
-  Duration _duration = Duration.zero;
-  Duration _position = Duration.zero;
-  bool _isLoading = true;
-  bool _isInitialized = false;
-  int? _fileSize;
-  bool _hasCompleted = false;
-  late bool _hideCaption;
-  
-  @override
-  void initState() {
-    super.initState();
-    _hideCaption = widget.platform == 'fb_whatsapp' || widget.platform == 'whatsapp' || widget.platform =='facebook' || widget.platform=='instagram';
-    _audioPlayer = audio.AudioPlayer();
-    _initAudioPlayer();
-    _getFileSize();
-  }
-
-  Future<void> _initAudioPlayer() async {
-    try {
-      // Stop any existing playback
-      await _audioPlayer.stop();
-      
-      // Reset state
-      setState(() {
-        _isLoading = true;
-        _isPlaying = false;
-        _position = Duration.zero;
-        _duration = Duration.zero;
-      });
-
-      // Set up listeners
-      _audioPlayer.onPlayerStateChanged.listen((audio.PlayerState state) {
-        setState(() {
-          _isPlaying = state == audio.PlayerState.playing;
-        });
-      });
-
-      _audioPlayer.onDurationChanged.listen((Duration duration) {
-        setState(() {
-          _duration = duration;
-          _isLoading = false;
-        });
-      });
-
-      _audioPlayer.onPositionChanged.listen((Duration position) {
-        setState(() {
-          _position = position;
-        });
-      });
-
-      _audioPlayer.onPlayerComplete.listen((_) {
-        setState(() {
-          _isPlaying = false;
-          _position = Duration.zero;
-          _hasCompleted = true; // Set completion flag
-        });
-      });
-
-      // Load audio file
-      await _audioPlayer.setSource(audio.DeviceFileSource(widget.fileUrl));
-      _isInitialized = true;
-    } catch (e) {
-      print('Error initializing audio player: $e');
-      setState(() {
-        _isLoading = false;
-      });
-    }
-  }
-
-  Future<void> _playPause() async {
-    if (!_isInitialized) {
-      await _initAudioPlayer();
-    }
-    
-    if (_isPlaying) {
-      await _audioPlayer.pause();
-    } else {
-      // If audio has completed, treat this as a replay
-      if (_hasCompleted) {
-        await _replayAudio();
-        setState(() {
-          _hasCompleted = false; // Reset completion flag
-        });
-      } else {
-        // Normal resume
-        if (_position >= _duration - Duration(milliseconds: 100) || _duration == Duration.zero) {
-          await _audioPlayer.seek(Duration.zero);
-        }
-        await _audioPlayer.resume();
-      }
-    }
-  }
-  Future<void> _seekAudio(double value) async {
-    if (!_isInitialized) return;
-    
-    final position = Duration(milliseconds: (value * _duration.inMilliseconds).round());
-    await _audioPlayer.seek(position);
-  }
-
-  Future<void> _replayAudio() async {
-    if (!_isInitialized) return;
-    
-    await _audioPlayer.stop();
-    await _audioPlayer.setSource(audio.DeviceFileSource(widget.fileUrl));
-    await _audioPlayer.resume();
-  }
-  Future<void> _getFileSize() async {
-    try {
-      final file = File(widget.fileUrl);
-      final exists = await file.exists();
-      if (exists) {
-        final stat = await file.stat();
-        setState(() {
-          _fileSize = stat.size;
-        });
-      }
-    } catch (e) {
-      print('Error getting file size: $e');
-    }
-  }
-  
-  String _formatDuration(Duration duration) {
-    String twoDigits(int n) => n.toString().padLeft(2, '0');
-    final hours = twoDigits(duration.inHours);
-    final minutes = twoDigits(duration.inMinutes.remainder(60));
-    final seconds = twoDigits(duration.inSeconds.remainder(60));
-    
-    return hours == '00' ? '$minutes:$seconds' : '$hours:$minutes:$seconds';
-  }
-  
-  String _getFileSizeText() {
-    if (_fileSize == null) return '';
-    
-    if (_fileSize! < 1024) {
-      return '${_fileSize} B';
-    } else if (_fileSize! < 1024 * 1024) {
-      return '${(_fileSize! / 1024).toStringAsFixed(1)} KB';
-    } else {
-      return '${(_fileSize! / (1024 * 1024)).toStringAsFixed(1)} MB';
-    }
-  }
-
-  @override
-  void dispose() {
-    _audioPlayer.stop();
-    _audioPlayer.dispose();
-    _messageController.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.black,
-      resizeToAvoidBottomInset: true,
-      appBar: AppBar(
-        backgroundColor: Colors.black,
-        title: const Text('Audio Preview', style: TextStyle(color: Colors.white)),
-        centerTitle: true,
-        iconTheme: const IconThemeData(color: Colors.white),
-      ),
-      body: Column(
-        children: [
-          Expanded(
-            child: Center(
-              child: Container(
-                margin: const EdgeInsets.all(20),
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: Colors.grey[900],
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    // Audio file name
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: Text(
-                        p.basename(widget.fileUrl),
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w400,
-                        ),
-                        textAlign: TextAlign.center,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    
-                    // Audio file size
-                    if (_fileSize != null)
-                      Text(
-                        'File size: ${_getFileSizeText()}',
-                        style: const TextStyle(
-                          color: Colors.white70,
-                          fontSize: 12,
-                        ),
-                      ),
-                    const SizedBox(height: 20),
-                    
-                    // Audio player controls
-                    _isLoading 
-                        ? const CircularProgressIndicator(color: Colors.blue)
-                        : Column(
-                          children: [
-                            // Progress bar
-                            SliderTheme(
-                              data: SliderTheme.of(context).copyWith(
-                                activeTrackColor: Colors.blue,
-                                inactiveTrackColor: Colors.grey[700],
-                                trackHeight: 4.0,
-                                thumbColor: Colors.blue,
-                                overlayColor: Colors.blue.withAlpha(32),
-                                thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 8.0),
-                                overlayShape: const RoundSliderOverlayShape(overlayRadius: 14.0),
-                              ),
-                              child: Slider(
-                                value: _duration.inMilliseconds == 0 
-                                    ? 0 
-                                    : (_position.inMilliseconds / _duration.inMilliseconds).clamp(0.0, 1.0),
-                                onChanged: _seekAudio,
-                                onChangeEnd: _seekAudio,
-                              ),
-                            ),
-                            
-                            // Time indicators
-                            Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                              child: Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Text(
-                                    _formatDuration(_position),
-                                    style: const TextStyle(
-                                      color: Colors.white70,
-                                      fontSize: 12,
-                                    ),
-                                  ),
-                                  Text(
-                                    _formatDuration(_duration),
-                                    style: const TextStyle(
-                                      color: Colors.white70,
-                                      fontSize: 12,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(height: 20),
-                            GestureDetector(
-                              onTap: _playPause,
-                              child: Container(
-                                padding: const EdgeInsets.all(16),
-                                decoration: BoxDecoration(
-                                  color: Colors.blue,
-                                  shape: BoxShape.circle,
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.blue.withOpacity(0.5),
-                                      blurRadius: 10,
-                                      spreadRadius: 2,
-                                    ),
-                                  ],
-                                ),
-                                child: Icon(
-                                  _hasCompleted 
-                                      ? Icons.replay  // Show replay icon when completed
-                                      : (_isPlaying ? Icons.pause : Icons.play_arrow), // Show play/pause otherwise
-                                  color: Colors.white,
-                                  size: 30,
-                                ),
-                              ),
-                            ),
-                            //const SizedBox(height: 10),
-                            
-                          ],
-                        ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-         
-                if (!_hideCaption) ...[
-                  Container(
-                    margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                    padding: const EdgeInsets.symmetric(horizontal: 4),
-                    decoration: BoxDecoration(
-                      color: Colors.grey[900],
-                      borderRadius: BorderRadius.circular(15),
-                    ),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: TextField(
-                            controller: _messageController,
-                            style: const TextStyle(color: Colors.white),
-                            maxLines: 5,
-                            minLines: 1,
-                            decoration: const InputDecoration(
-                              hintText: "Add a caption...",
-                              hintStyle: TextStyle(color: Colors.white54),
-                              border: InputBorder.none,
-                              contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                            ),
-                          ),
-                        ),
-                        GestureDetector(
-                          onTap: () {
-                            widget.onSend(widget.fileUrl, _messageController.text.trim());
-                            _messageController.clear();
-                            Navigator.pop(context);
-                          },
-                          child: const Padding(
-                            padding: EdgeInsets.symmetric(horizontal: 8),
-                            child: Icon(Icons.send, color: Colors.blue, size: 24),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ]else...[
-                    Container(
-                      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                      padding: const EdgeInsets.symmetric(horizontal: 4),
-                      decoration: BoxDecoration(
-                        color: Colors.grey[900],
-                        borderRadius: BorderRadius.circular(15),
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.end,
-                        children: [
-                          GestureDetector(
-                            onTap: () {
-                              // Pass empty string as caption for WhatsApp
-                              widget.onSend(widget.fileUrl, '');
-                              Navigator.pop(context);
-                            },
-                            child: Container(
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                color: Colors.blue,
-                                borderRadius: BorderRadius.circular(50),
-                              ),
-                              child: const Icon(Icons.send, color: Colors.white, size: 24),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ]
-                
-          
-        ],
-      ),
-    );
-  }
-}
-
- */
 class ImageViewerPage extends StatefulWidget {
   final String? imagePath;
-  final Function(String, String?) onSend;
+  final Function(String, String?,VoidCallback) onSend;
   final String platform;
   final EdgeInsetsGeometry padding;
 
@@ -3210,7 +2724,7 @@ class _ImageViewerPageState extends State<ImageViewerPage> {
                     const Spacer(),
                   GestureDetector(
                     onTap: () {
-                      widget.onSend(widget.imagePath ?? '', _messageController.text.trim());
+                      widget.onSend(widget.imagePath ?? '', _messageController.text.trim(),(){});
                       _messageController.clear();
                       Navigator.pop(context);
                     },
