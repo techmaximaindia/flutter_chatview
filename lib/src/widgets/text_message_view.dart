@@ -42,8 +42,9 @@ import 'send_message_widget.dart';
 import 'swipe_to_reply.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 //import 'package:webview_flutter/webview_flutter.dart';
-//import 'package:flutter_widget_from_html/flutter_widget_from_html.dart';
-import 'package:flutter_widget_from_html_core/flutter_widget_from_html_core.dart';
+import 'package:flutter_widget_from_html/flutter_widget_from_html.dart';
+//import 'package:flutter_widget_from_html_core/flutter_widget_from_html_core.dart';
+/* import 'package:flutter_widget_from_html/flutter_widget_from_html.dart'; */
 import 'dart:convert';
 import 'WebViewExample.dart';
 import 'package:flutter/gestures.dart';
@@ -96,7 +97,17 @@ class TextMessageView extends StatelessWidget {
   final RepliedMessageConfiguration? repliedMessageConfig;
 
   final ReplyPopupConfiguration? replyPopupConfig; */
-
+ /*  bool _isValidHtml(String text) {
+    final hasOpenClose = RegExp(
+      r'<(html|head|body|div|p|span|table|tr|td|th|ul|ol|li|h[1-6]|br|hr|img|a|b|i|u|strong|em|blockquote|pre|code|font|center|style|thead|tbody|tfoot|figure|section|article|header|footer|nav|main)\b[^>]*>',
+      caseSensitive: false,
+    ).hasMatch(text);
+    final hasMultipleTags = RegExp(r'<[^>]+>.*<[^>]+>', dotAll: true).hasMatch(text);
+    final hasHtmlStructure = text.trim().startsWith('<') ||
+        RegExp(r'<(html|body|div|p|table|ul|ol)\b', caseSensitive: false).hasMatch(text);
+    return hasOpenClose && (hasMultipleTags || hasHtmlStructure);
+  } */
+  
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
@@ -427,7 +438,10 @@ class TextMessageView extends StatelessWidget {
     String? list_header=message_options_full?['list_header']??'';
     String? header=message_options_full?['header']??'';
     String? footer=message_options_full?['footer']??'';
-    final bool containsHtmlTags = RegExp(r'<[^>]+>').hasMatch(textMessage);
+    // Add this outside the build method, inside the class
+ 
+    //final bool containsHtmlTags = _isValidHtml(textMessage);
+     final bool containsHtmlTags = RegExp(r'<[^>]+>').hasMatch(textMessage);
 
   if (translated_title.isNotEmpty && translated_content.isNotEmpty) {
     return Column(
@@ -482,31 +496,31 @@ class TextMessageView extends StatelessWidget {
       }).toList(),
     );
   }
-    else if(containsHtmlTags){
-      print("HTML TAG");
-      return HtmlWidget(
-        textMessage,
-        textStyle: const TextStyle(
-          color: Colors.black, 
-        ),
-        customStylesBuilder: (element) {
-          if (element.localName == 'img') {
-            return {
-              'max-width': '100%',
-              'height': 'auto',
-              'display': 'block',
-            };
-          }
-          if (element.localName == 'a') {
-            return {
-              'color': 'blue',
-              'text-decoration': 'underline',
-            };
-          }
-          return null;
-        },
-      );
-    }
+  else if (containsHtmlTags) {
+    print("HTML TAG");
+    return HtmlWidget(
+      textMessage,
+      textStyle: const TextStyle(
+        color: Colors.black,
+      ),
+      customStylesBuilder: (element) {
+        if (element.localName == 'img') {
+          return {
+            'max-width': '100%',
+            'height': 'auto',
+            'display': 'block',
+          };
+        }
+        if (element.localName == 'a') {
+          return {
+            'color': 'blue',
+            'text-decoration': 'underline',
+          };
+        }
+        return null;
+      },
+    );
+  }
     // Handle CTA message with cta_header_type == 'text'
   else if (message.cb_message_options_full != null && ctaHeaderType == 'text') {
     return Column(
