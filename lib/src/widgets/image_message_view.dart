@@ -36,8 +36,8 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:html/parser.dart' as html_parser;
 //import 'package:flutter_html/flutter_html.dart';
 import 'package:url_launcher/url_launcher.dart';
-//import 'package:flutter_widget_from_html/flutter_widget_from_html.dart';
-import 'package:flutter_widget_from_html_core/flutter_widget_from_html_core.dart';
+import 'package:flutter_widget_from_html/flutter_widget_from_html.dart';
+//import 'package:flutter_widget_from_html_core/flutter_widget_from_html_core.dart';
 import 'package:flutter/gestures.dart';
 class ImageMessageView extends StatelessWidget {
   const ImageMessageView({
@@ -833,7 +833,29 @@ class ImageMessageView extends StatelessWidget {
   
   // Priority 5: HTML content (with tags but not just URLs)
   else if (parsedString != textMessage && !urlRegExp.hasMatch(parsedString)) {
-    return HtmlWidget(
+      return HtmlWidget(
+        textMessage,
+        textStyle: const TextStyle(
+          color: Colors.black,
+        ),
+        customStylesBuilder: (element) {
+          if (element.localName == 'img') {
+            return {
+              'max-width': '100%',
+              'height': 'auto',
+              'display': 'block',
+            };
+          }
+          if (element.localName == 'a') {
+            return {
+              'color': 'blue',
+              'text-decoration': 'underline',
+            };
+          }
+          return null;
+        },
+      );
+    /* return HtmlWidget(
       textMessage,
       textStyle: const TextStyle(
         color: Colors.black,
@@ -854,7 +876,7 @@ class ImageMessageView extends StatelessWidget {
         }
         return null;
       },
-    );
+    ); */
   }
   
   // Priority 6: Default - Plain text or text with URLs
