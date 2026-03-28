@@ -149,7 +149,7 @@ class ChatViewAppBar extends StatelessWidget {
       mainAxisSize:MainAxisSize.min,
       children:[
           Material(
-            elevation: elevation ?? 1,
+            elevation: elevation ?? 0,
             child: InkWell( // Add InkWell for tap effect
               onTap: () async {
                 final prefs = await SharedPreferences.getInstance();
@@ -405,18 +405,19 @@ class ChatViewAppBar extends StatelessWidget {
     
     // Create a badge for each label
     return labels.map((label) {
+      final badgeColor = _getLabelColor(label);
       return Container(
-        padding: EdgeInsets.symmetric(horizontal: 12, vertical: 3), //2  font size 9 ,3 fontsize 10 ,3 font size 12
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
         decoration: BoxDecoration(
-          color: Colors.blue,
-          // color: _getLabelColor(label),
-          borderRadius: BorderRadius.circular(10),
+          color: badgeColor.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(color: badgeColor.withOpacity(0.4)),
         ),
         child: Text(
           label,
           style: TextStyle(
-            color: Colors.white,
-            fontSize: 12,
+            color: badgeColor,
+            fontSize: 11,
             fontWeight: FontWeight.w500,
           ),
         ),

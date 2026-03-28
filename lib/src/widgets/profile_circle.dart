@@ -71,21 +71,18 @@ class ProfileCircle extends StatelessWidget {
         onTap: onTap,
         child:imageUrl != null && imageUrl !=''
             ? CircleAvatar(
-                /* backgroundColor: Color.fromRGBO(108, 117, 125,2), */
-                //backgroundColor:Color(0xFF6C757D),
-                backgroundColor:Colors.white,
-                radius: circleRadius ?? 16,
+                backgroundColor: const Color(0xFFE8E8E8),
+                radius: circleRadius ?? 18,
                 backgroundImage: NetworkImage(imageUrl!),
               )
             : CircleAvatar(
-                /* backgroundColor: Color.fromRGBO(108, 117, 125,2), */
-                backgroundColor:Color(0xFF6C757D),
-                radius: circleRadius ?? 16,
+                backgroundColor: const Color(0xFF6C757D),
+                radius: circleRadius ?? 18,
                 child: Text(
-                  user_names != null && user_names!.isNotEmpty 
+                  user_names != null && user_names!.isNotEmpty
                       ? user_names![0].toUpperCase()
-                      : '', 
-                  style: TextStyle(color: Colors.white),
+                      : '',
+                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 14),
                 ),
               ),
       ),

@@ -33,6 +33,7 @@ import 'share_icon.dart';
 import 'package:intl/intl.dart';
 import 'text_message_view.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'message_metadata_row.dart';
 import 'package:html/parser.dart' as html_parser;
 //import 'package:flutter_html/flutter_html.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -192,105 +193,11 @@ class ImageMessageView extends StatelessWidget {
               ),
           ),
             SizedBox(height: 3),
-            if (isMessageBySender) ...[
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  if (message.profilename == 'Bot') ...[
-                    Icon(
-                      Icons.smart_toy_outlined,
-                      size: 10,
-                      color: Colors.black54,
-                    ),
-                    SizedBox(width: 4),
-                    Text(
-                      'Bot',
-                      style: TextStyle(fontSize: 10, color: Colors.black54),
-                    ),
-                    SizedBox(width: 4),
-                  ] else if(message.profilename=='Summary') ...[
-                    FaIcon(
-                      FontAwesomeIcons.magicWandSparkles,
-                      color: Colors.black,
-                      size: 10,
-                    ),
-                    SizedBox(width: 4),
-                    Text(
-                      message.profilename ?? '',
-                      style: TextStyle(
-                        fontSize: 10,
-                        color: Colors.black54,
-                      ),
-                    ),
-                    SizedBox(width: 4),
-                  ] 
-                  else ...[
-                    Icon(
-                      Icons.person,
-                      size: 10,
-                      color: Colors.black54,
-                    ),
-                    SizedBox(width: 4),
-                    Text(
-                      message.profilename ?? '',
-                      style: TextStyle(
-                        fontSize: 10,
-                        color: Colors.black54,
-                      ),
-                    ),
-                    SizedBox(width: 4),
-                  ],
-                  Icon(
-                    Icons.access_time,
-                    size: 10,
-                    color: Colors.black54,
-                  ),
-                  SizedBox(width: 4),
-                  Text(
-                    formattedTime,
-                    style: TextStyle(
-                      fontSize: 10,
-                      color: Colors.black54,
-                    ),
-                  ),
-                ],
-              ),
-            ] else ...[
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  if ((message.profilename ?? '').isNotEmpty) ...[
-                    Icon(
-                      Icons.person,
-                      size: 10,
-                      color: Colors.black54,
-                    ),
-                    SizedBox(width: 4),
-                    Text(
-                      message.profilename!,
-                      style: TextStyle(
-                        fontSize: 10,
-                        color: Colors.black54,
-                      ),
-                    ),
-                    SizedBox(width: 4),
-                  ],
-                  Icon(
-                    Icons.access_time,
-                    size: 10,
-                    color: Colors.black54,
-                  ),
-                  SizedBox(width: 4),
-                  Text(
-                    formattedTime,
-                    style: TextStyle(
-                      fontSize: 10,
-                      color: Colors.black54,
-                    ),
-                  ),
-                ],
-              ),
-            ],
+            MessageMetadataRow(
+              profileName: message.profilename,
+              createdAt: message.createdAt,
+              isMessageBySender: isMessageBySender,
+            ),
         ],
       ),
     ],

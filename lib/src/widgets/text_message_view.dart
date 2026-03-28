@@ -41,6 +41,7 @@ import 'chat_list_widget.dart';
 import 'send_message_widget.dart';
 import 'swipe_to_reply.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'message_metadata_row.dart';
 //import 'package:webview_flutter/webview_flutter.dart';
 import 'package:flutter_widget_from_html/flutter_widget_from_html.dart';
 //import 'package:flutter_widget_from_html_core/flutter_widget_from_html_core.dart';
@@ -49,7 +50,7 @@ import 'dart:convert';
 import 'WebViewExample.dart';
 import 'package:flutter/gestures.dart';
 
-class TextMessageView extends StatelessWidget {
+class TextMessageView extends StatefulWidget {
   const TextMessageView({
     Key? key,
     required this.isMessageBySender,
@@ -61,9 +62,6 @@ class TextMessageView extends StatelessWidget {
     this.highlightMessage = false,
     this.highlightColor,
     this.currentUser,
-    
-/*     this.replyPopupConfig,
-    this.repliedMessageConfig, */
   }) : super(key: key);
 
   /// Represents current message is sent by current user.
@@ -92,11 +90,25 @@ class TextMessageView extends StatelessWidget {
 
   /// Represents the current user.
   final ChatUser? currentUser;
-  /* final ReplyMessageCallBack? onReplyTap; */
-/* 
-  final RepliedMessageConfiguration? repliedMessageConfig;
 
-  final ReplyPopupConfiguration? replyPopupConfig; */
+  @override
+  State<TextMessageView> createState() => _TextMessageViewState();
+}
+
+class _TextMessageViewState extends State<TextMessageView> {
+  bool _showTranslation = false;
+
+  // Forward getters to widget properties
+  bool get isMessageBySender => widget.isMessageBySender;
+  Message get message => widget.message;
+  double? get chatBubbleMaxWidth => widget.chatBubbleMaxWidth;
+  ChatBubble? get inComingChatBubbleConfig => widget.inComingChatBubbleConfig;
+  ChatBubble? get outgoingChatBubbleConfig => widget.outgoingChatBubbleConfig;
+  MessageReactionConfiguration? get messageReactionConfig => widget.messageReactionConfig;
+  bool get highlightMessage => widget.highlightMessage;
+  Color? get highlightColor => widget.highlightColor;
+  ChatUser? get currentUser => widget.currentUser;
+
  /*  bool _isValidHtml(String text) {
     final hasOpenClose = RegExp(
       r'<(html|head|body|div|p|span|table|tr|td|th|ul|ol|li|h[1-6]|br|hr|img|a|b|i|u|strong|em|blockquote|pre|code|font|center|style|thead|tbody|tfoot|figure|section|article|header|footer|nav|main)\b[^>]*>',
@@ -197,106 +209,12 @@ class TextMessageView extends StatelessWidget {
           ],
         ),
         
-        SizedBox(height: 3),
-         if (isMessageBySender) ...[
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (message.profilename == 'Bot') ...[
-                Icon(
-                  Icons.smart_toy_outlined,
-                  size: 10,
-                  color: Colors.black54,
-                ),
-                SizedBox(width: 4),
-                Text(
-                  'Bot',
-                  style: TextStyle(fontSize: 10, color: Colors.black54),
-                ),
-                SizedBox(width: 4),
-              ] else if(message.profilename=='Summary') ...[
-                FaIcon(
-                  FontAwesomeIcons.magicWandSparkles,
-                  color: Colors.black,
-                  size: 10,
-                ),
-                SizedBox(width: 4),
-                Text(
-                  message.profilename ?? '',
-                  style: TextStyle(
-                    fontSize: 10,
-                    color: Colors.black54,
-                  ),
-                ),
-                SizedBox(width: 4),
-              ] 
-              else ...[
-                Icon(
-                  Icons.person,
-                  size: 10,
-                  color: Colors.black54,
-                ),
-                SizedBox(width: 4),
-                Text(
-                  message.profilename ?? '',
-                  style: TextStyle(
-                    fontSize: 10,
-                    color: Colors.black54,
-                  ),
-                ),
-                SizedBox(width: 4),
-              ],
-              Icon(
-                Icons.access_time,
-                size: 10,
-                color: Colors.black54,
-              ),
-              SizedBox(width: 4),
-              Text(
-                formattedTime,
-                style: TextStyle(
-                  fontSize: 10,
-                  color: Colors.black54,
-                ),
-              ),
-            ],
-          ),
-        ] else ...[
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if ((message.profilename ?? '').isNotEmpty) ...[
-                Icon(
-                  Icons.person,
-                  size: 10,
-                  color: Colors.black54,
-                ),
-                SizedBox(width: 4),
-                Text(
-                  message.profilename!,
-                  style: TextStyle(
-                    fontSize: 10,
-                    color: Colors.black54,
-                  ),
-                ),
-                SizedBox(width: 4),
-              ],
-              Icon(
-                Icons.access_time,
-                size: 10,
-                color: Colors.black54,
-              ),
-              SizedBox(width: 4),
-              Text(
-                formattedTime,
-                style: TextStyle(
-                  fontSize: 10,
-                  color: Colors.black54,
-                ),
-              ),
-            ],
-          ),
-        ],
+        const SizedBox(height: 3),
+        MessageMetadataRow(
+          profileName: message.profilename,
+          createdAt: message.createdAt,
+          isMessageBySender: isMessageBySender,
+        ),
       ],
     );
   }
@@ -444,30 +362,44 @@ class TextMessageView extends StatelessWidget {
      final bool containsHtmlTags = RegExp(r'<[^>]+>').hasMatch(textMessage);
 
   if (translated_title.isNotEmpty && translated_content.isNotEmpty) {
+    final displayText = _showTranslation ? translated_content : textMessage;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          textMessage,
-          style: _textStyle ??
-              textTheme.bodyMedium!.copyWith(
-                color: Colors.black,
-                fontSize: 16,
-              ),
-        ),
-        SizedBox(height: 4),
-        Text(
-          "Translation From $translated_title",
-          style: textTheme.bodyLarge?.copyWith(
-            fontWeight: FontWeight.bold,
+        _buildRichText(
+          displayText,
+          _textStyle ?? textTheme.bodyMedium!.copyWith(
             color: Colors.black,
+            fontSize: 14,
           ),
         ),
-        const SizedBox(height: 4),
-        Text(
-          translated_content,
-          style: textTheme.bodyMedium?.copyWith(
-            color: Colors.black87,
+        const SizedBox(height: 6),
+        GestureDetector(
+          onTap: () {
+            setState(() { _showTranslation = !_showTranslation; });
+          },
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: const Color(0xFF3B7DDD).withOpacity(0.08),
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(color: const Color(0xFF3B7DDD).withOpacity(0.2)),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.translate, size: 12, color: const Color(0xFF3B7DDD)),
+                const SizedBox(width: 4),
+                Text(
+                  _showTranslation ? 'Show original' : 'Translated from $translated_title',
+                  style: const TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w500,
+                    color: Color(0xFF3B7DDD),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ],
@@ -1227,25 +1159,19 @@ class TextMessageView extends StatelessWidget {
       : inComingChatBubbleConfig?.textStyle;
 
   BorderRadiusGeometry _borderRadius(String message) => isMessageBySender
-      ? outgoingChatBubbleConfig?.borderRadius ??
-          (message.length < 37
-              ? BorderRadius.circular(17)
-              : BorderRadius.circular(replyBorderRadius2))
-      : inComingChatBubbleConfig?.borderRadius ??
-          (message.length < 29
-              ? BorderRadius.circular(17)
-              : BorderRadius.circular(replyBorderRadius2));
+      ? outgoingChatBubbleConfig?.borderRadius ?? BorderRadius.circular(16)
+      : inComingChatBubbleConfig?.borderRadius ?? BorderRadius.circular(16);
 
   /* Color get _color => isMessageBySender
       ? outgoingChatBubbleConfig?.color ?? Colors.purple
       : inComingChatBubbleConfig?.color ?? Colors.white; */
     Color get _color {
       if (message.profilename == 'Summary') {
-        return Color.fromRGBO(255, 193, 7, 1.0);
+        return const Color.fromRGBO(255, 193, 7, 1.0);
       }
       return isMessageBySender
-          ? outgoingChatBubbleConfig?.color ?? Color(0xFF90CAF9)
-          : inComingChatBubbleConfig?.color ?? Colors.white;
+          ? outgoingChatBubbleConfig?.color ?? const Color(0xFFE8F0FE)
+          : inComingChatBubbleConfig?.color ?? const Color(0xFFF5F5F5);
     }
 
 }

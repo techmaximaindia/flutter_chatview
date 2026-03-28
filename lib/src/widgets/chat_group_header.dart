@@ -41,10 +41,23 @@ class ChatGroupHeader extends StatelessWidget {
     return Padding(
       padding: groupSeparatorConfig?.padding ??
           const EdgeInsets.symmetric(vertical: 12),
-      child: Text(
-        day.getDay,
-        textAlign: TextAlign.center,
-        style: groupSeparatorConfig?.textStyle ?? const TextStyle(fontSize: 17),
+      child: Center(
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+          decoration: BoxDecoration(
+            color: const Color(0xFFE9ECEF),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Text(
+            day.getDay,
+            textAlign: TextAlign.center,
+            style: groupSeparatorConfig?.textStyle ?? const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+              color: Color(0xFF6C757D),
+            ),
+          ),
+        ),
       ),
     );
   }
