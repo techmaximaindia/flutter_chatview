@@ -201,7 +201,7 @@ class _TextMessageViewState extends State<TextMessageView> {
             ),*/
             if (message.reaction.reactions.isNotEmpty)
               ReactionWidget(
-                key: key,
+                key: widget.key,
                 isMessageBySender: isMessageBySender,
                 reaction: message.reaction,
                 messageReactionConfig: messageReactionConfig,
