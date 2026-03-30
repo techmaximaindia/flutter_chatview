@@ -153,6 +153,7 @@ class _ChatUITextFieldState extends State<ChatUITextField> with WidgetsBindingOb
   String? current_page;
   final ScrollController _scrollController = ScrollController();
   final ValueNotifier<bool> _isSendEnabled = ValueNotifier<bool>(false);
+  final ValueNotifier<bool> _isLoadingAI = ValueNotifier<bool>(false);
 
   
   
@@ -411,8 +412,9 @@ class _ChatUITextFieldState extends State<ChatUITextField> with WidgetsBindingOb
       if (response.statusCode == 200) {
         String responseBody = await response.stream.bytesToString();
         Map<String, dynamic> decodedResponse = json.decode(responseBody);
+        //debugPrint("AI RESPONSE :$decodedResponse",wrapWidth: 1024);
         if (decodedResponse['success'] == 'false') {
-          return decodedResponse['ai_error_message'];
+            throw Exception(decodedResponse['ai_error_message'] ?? 'Failed to generate AI response');
         } else {
           var aiResponse = json.decode(decodedResponse['ai_response']);
          // return aiResponse['answer'];
@@ -436,10 +438,10 @@ class _ChatUITextFieldState extends State<ChatUITextField> with WidgetsBindingOb
 
         }
       } else {
-        throw "Failed to generate AI response";
+        throw Exception("Failed to generate AI response");
       }
     } catch (e) {
-      return "";
+     throw Exception(e.toString());
     }
   }
   Future<void> sendMessage(String message,) async 
@@ -507,38 +509,335 @@ class _ChatUITextFieldState extends State<ChatUITextField> with WidgetsBindingOb
     }
   }
 
-  void  _show_dialog_fetch_response(BuildContext context,String message)  {
+Future<List<Map<String, String>>> fetch_ai_languages() async {
+    try {
+      final prefs       = await SharedPreferences.getInstance();
+      final String? uuid       = prefs.getString('uuid');
+      final String? team_alias = prefs.getString('team_alias');
   
-    bool _isEditing = false;
-    bool _isExpanded = false; 
-     
-    widget.messageController.clear();
+      final url = base_url + 'api/v2/ai/languages/';
+  
+      final response = await http.get(
+        Uri.parse(url),
+        headers: {
+          'Content-Type':  'application/json',
+          'Authorization': '$uuid|$team_alias',
+        },
+      ).timeout(const Duration(seconds: 10));
+  
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        if (data['status'] == 'success' && data['data'] != null) {
+          final List<Map<String, String>> languages = [];
+          for (var lang in data['data']) {
+            languages.add({
+              'code': lang['language_code']?.toString() ?? '',
+              'name': lang['language_name']?.toString() ?? '',
+            });
+          }
+  
+          // Cache to prefs for offline fallback
+          await prefs.setString('cached_ai_languages', json.encode(languages));
+  
+          return languages;
+        }
+      }
+    } catch (e) {
+      //debugPrint('fetch_ai_languages error: $e');
+    }
+  
+    // ── Fallback 1: cached languages from prefs ────────────────────────────────
+    try {
+      final prefs  = await SharedPreferences.getInstance();
+      final cached = prefs.getString('cached_ai_languages');
+      if (cached != null) {
+        final List<dynamic> decoded = json.decode(cached);
+        return decoded.map<Map<String, String>>((item) => {
+          'code': item['code']?.toString() ?? '',
+          'name': item['name']?.toString() ?? '',
+        }).toList();
+      }
+    } catch (e) {
+      //debugPrint('fetch_ai_languages cache read error: $e');
+    }
+  
+    // ── Fallback 2: hardcoded list if API and cache both fail ──────────────────
+    return [
+      {'code': 'en', 'name': 'English'},
+      {'code': 'es', 'name': 'Spanish'},
+      {'code': 'fr', 'name': 'French'},
+      {'code': 'de', 'name': 'German'},
+      {'code': 'it', 'name': 'Italian'},
+      {'code': 'pt', 'name': 'Portuguese'},
+      {'code': 'ru', 'name': 'Russian'},
+      {'code': 'ja', 'name': 'Japanese'},
+      {'code': 'ko', 'name': 'Korean'},
+      {'code': 'zh', 'name': 'Chinese'},
+      {'code': 'ar', 'name': 'Arabic'},
+      {'code': 'hi', 'name': 'Hindi'},
+      {'code': 'nl', 'name': 'Dutch'},
+      {'code': 'pl', 'name': 'Polish'},
+      {'code': 'tr', 'name': 'Turkish'},
+      {'code': 'vi', 'name': 'Vietnamese'},
+      {'code': 'th', 'name': 'Thai'},
+      {'code': 'sw', 'name': 'Swahili'},
+    ];
+  }
+ 
+Future<String> call_ai_translate(String text, String target_language) async {
+  try {
+    final prefs       = await SharedPreferences.getInstance();
+    final String? uuid       = prefs.getString('uuid');
+    final String? team_alias = prefs.getString('team_alias');
+
+    final url = base_url + 'api/v2/ai/translate/';
+
+    final response = await http.post(
+      Uri.parse(url),
+      headers: {
+        'Content-Type':  'application/json',
+        'Authorization': '$uuid|$team_alias',
+      },
+      body: json.encode({
+        'text':            text,
+        'target_language': target_language,
+      }),
+    ).timeout(const Duration(seconds: 15));
+    //print('ORIGINAL RESPONSE $text');
+    print('TRANSLATED RESPONSE $target_language');
+    if (response.statusCode == 200) {
+      final data = json.decode(response.body);
+      if (data['status'] == 'success' && data['data'] != null) {
+        debugPrint('call_ai_translate response: ${data['data']}', wrapWidth: 1024);
+        return data['data']['translated_text'] ?? text;
+      }
+      // 200 but error body
+      //debugPrint('call_ai_translate error body: ${response.body}', wrapWidth: 1024);
+      throw Exception('Translation failed');
+    }
+
+    // Non-200 — extract error message from body
+    debugPrint('Statuscode: ${response.statusCode}', wrapWidth: 1024);
+    debugPrint('call_ai_translate response: ${response.body}', wrapWidth: 1024);
+    try {
+      final errData = json.decode(response.body);
+      final message = errData['error']?['message']?.toString();
+      throw Exception(message ?? 'Translation failed');
+    } catch (e) {
+      if (e is Exception) rethrow;
+      throw Exception('Translation failed');
+    }
+
+  } catch (e) {
+    rethrow; // ← rethrow so _triggerTranslation catch block receives it
+  }
+}
+void _show_dialog_fetch_response(BuildContext context, String message) async {
+  bool _isResponseReady = false;
+  bool _isTranslating = false;
+  bool _isRegenerating = false;
+  bool _isEditing = false;
+  String _originalResponse = "";
+  String _translatedText = "";
+  String? _selectedLanguage;
+  int _currentPage = 0;
+  bool _translationFailed = false;
+  bool _isDisposed = false; 
+  bool _isAiError = false;
+  final PageController _pageController = PageController();
+  final TextEditingController _translatedController = TextEditingController();
+  final ScrollController _scrollController = ScrollController();
+
+  widget.messageController.clear();
+  _isSendEnabled.value = false;
+  _isLoadingAI.value = true;
+
+  // ── Kick off BOTH fetches in parallel ─────────────────────────────────────
+  final prefs_page = await SharedPreferences.getInstance();
+  final bool _isChatPage = prefs_page.getString('page') == 'chat';
+
+  final languagesFuture = _isChatPage ? fetch_ai_languages() : Future.value(<Map<String, String>>[]);
+  final aiFuture = call_ai_assist(context, message);
+
+  // ── Await languages before opening sheet (cached = near-instant) ──────────
+  final List<Map<String, String>> _availableLanguages = await languagesFuture;
+
+  // ── AI resolves in background while sheet is already open ─────────────────
+ /*  aiFuture.then((response) {
+    _originalResponse = response;
+    _translatedText = response;
+    widget.messageController.text = response;
+    _isSendEnabled.value = response.isNotEmpty;
+    _isLoadingAI.value = false;
+  }).catchError((error) {
+    _originalResponse = "Failed to fetch response.";
+    widget.messageController.text = "Failed to fetch response.";
     _isSendEnabled.value = false;
+    _isLoadingAI.value = false;
+  }); */
+  aiFuture.then((response) {
+    _originalResponse = response;
+    _translatedText = response;
+    if (!_isDisposed && mounted) { // ← GUARD WITH _isDisposed
+      widget.messageController.text = response;
+      _isSendEnabled.value = response.isNotEmpty;
+      _isLoadingAI.value = false;
+    }
+  }).catchError((error) {
+    final errorMsg = error.toString().replaceFirst('Exception: ', '');
+    _originalResponse = errorMsg;
+    _isAiError = true;
+    if (!_isDisposed && mounted) {
+      widget.messageController.text = errorMsg;
+      _isSendEnabled.value = false;
+      _isLoadingAI.value = false;
+    }
+  });
 
-    call_ai_assist(context,message).then((response) {
-        widget.messageController.text = response; 
-         _isSendEnabled.value = response.isNotEmpty;
-      }).catchError((error) {
-        widget.messageController.text = "Failed to fetch response.";
-        _isSendEnabled.value = false;
-      });
+  showModalBottomSheet(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: Colors.transparent,
+    builder: (BuildContext context) {
+      return StatefulBuilder(
+        builder: (context, setState) {
 
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (BuildContext context) {
-        return StatefulBuilder(
-          builder: (context, setState) {
-            return SafeArea(
-              child: ClipRRect(
-                borderRadius: BorderRadius.only(
-                  topLeft: Radius.circular(20.0),
-                  topRight: Radius.circular(20.0),
+          // ── Listen for AI response ready ────────────────────────────────
+          void _onLoadingChanged() {
+            if (!_isResponseReady && !_isLoadingAI.value) {
+              if (mounted) setState(() => _isResponseReady = true);
+            }
+          }
+          if (!_isResponseReady) {
+            _isLoadingAI.removeListener(_onLoadingChanged);
+            _isLoadingAI.addListener(_onLoadingChanged);
+          }
+
+          // ── Regenerate ──────────────────────────────────────────────────
+          Future<void> _regenerateResponse() async {
+            if (_isRegenerating || _isDisposed) return;
+            setState(() {
+              _isRegenerating = true;
+              _isEditing = false;
+              _isTranslating = false;
+              _translationFailed = false;
+              _isAiError = false;
+              _selectedLanguage = null;
+              _currentPage = 0;
+            });
+            widget.messageController.clear();
+            _isSendEnabled.value = false;
+
+            call_ai_assist(context, message).then((response) {
+              if (!_isDisposed && mounted) {
+                setState(() {
+                  _originalResponse = response;
+                  _translatedText = response;
+                  widget.messageController.text = response;
+                  _isSendEnabled.value = response.isNotEmpty;
+                  _isRegenerating = false;
+                  _translatedController.clear();
+                  _pageController.jumpToPage(0);
+                });
+              }
+            }).catchError((error) {
+              final errorMsg = error.toString().replaceFirst('Exception: ', '');
+              if (!_isDisposed && mounted) {  // File 1
+                setState(() {
+                  _originalResponse = errorMsg;
+                  widget.messageController.text = errorMsg;
+                  _isSendEnabled.value = false;
+                  _isRegenerating = false;
+                  _isAiError = true;  // ← hide button on regenerate error too
+                });
+              }
+            });
+          }
+
+          // ── Get language name from preloaded list ───────────────────────
+          String _getLanguageNameFromCode(String code) {
+            final language = _availableLanguages.firstWhere(
+              (lang) => lang['code'] == code,
+              orElse: () => {'name': code},
+            );
+            return language['name'] ?? code;
+          }
+
+          // ── Trigger translation ─────────────────────────────────────────
+          Future<void> _triggerTranslation(String lang) async {
+            if (_isTranslating || _isDisposed) return;
+            if (_selectedLanguage == lang && !_translationFailed) {
+              if (_currentPage != 1) {
+                _pageController.animateToPage(1,
+                    duration: const Duration(milliseconds: 350),
+                    curve: Curves.easeInOut);
+              }
+              return;
+            }
+            setState(() {
+              _selectedLanguage = lang;
+              _isTranslating = true;
+              _translationFailed = false;
+              _currentPage = 1;
+            });
+            _pageController.animateToPage(1,
+                duration: const Duration(milliseconds: 350),
+                curve: Curves.easeInOut);
+
+            try {
+              final translated = await call_ai_translate(_originalResponse, lang);
+              
+
+              if (!_isDisposed && mounted) {
+                setState(() {
+                  _translatedText = translated;
+                  _translatedController.text = translated;
+                  _isTranslating = false;
+                  _translationFailed = false;
+                  _isSendEnabled.value = true;
+                });
+              }
+            } catch (e) {
+              //debugPrint('Translation error: $e');
+              final errorMsg = e.toString().replaceFirst('Exception: ', '');
+              if (!_isDisposed && mounted) {   // File 1 uses _isDisposed guard
+                setState(() {
+                  _translatedText = errorMsg;
+                  _translatedController.text = errorMsg;
+                  _isTranslating = false;
+                  _translationFailed = true;
+                });
+              }
+            }
+          }
+
+          // ── Send original ───────────────────────────────────────────────
+          void _sendOriginal() {
+            widget.messageController.text = _originalResponse; 
+            widget.ai_send_pressed();
+            //widget.messageController.clear();
+            Navigator.of(context).pop();
+          }
+
+          // ── Send translated ─────────────────────────────────────────────
+          void _sendTranslated() {
+            if (_translatedText.isNotEmpty) {
+              widget.messageController.text = _translatedText;
+            }
+            widget.ai_send_pressed();
+            Navigator.of(context).pop();
+            //widget.messageController.clear();
+          }
+
+          return SafeArea(
+            child: ClipRRect(
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(20.0),
+                topRight: Radius.circular(20.0),
               ),
               child: Container(
-                height: _isExpanded ? MediaQuery.of(context).size.height : MediaQuery.of(context).size.height * 0.8,
-                decoration: BoxDecoration(
+                height: MediaQuery.of(context).size.height * 0.85,
+                decoration: const BoxDecoration(
                   gradient: LinearGradient(
                     colors: [Color(0xFF6366F1), Color(0xFF820AFF)],
                     stops: [0.0, 0.8],
@@ -548,226 +847,660 @@ class _ChatUITextFieldState extends State<ChatUITextField> with WidgetsBindingOb
                 ),
                 child: Column(
                   children: [
+
+                    // ── Header ────────────────────────────────────────────
                     Container(
                       height: 60,
-                      padding: EdgeInsets.symmetric(horizontal: 16.0),
+                      padding: const EdgeInsets.symmetric(horizontal: 16.0),
                       child: Stack(
                         alignment: Alignment.center,
                         children: [
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              Row(
-                                children: [
-                                  TextButton(
-                                    onPressed: () {
-                                      setState(() {
-                                        _isEditing = !_isEditing;
-                                      });
-                                    },
+                              // Edit / Done button
+                              ValueListenableBuilder<bool>(
+                                valueListenable: _isLoadingAI,
+                                builder: (context, isLoading, _) {
+                                  /* final bool canEdit = !isLoading &&
+                                      !_isTranslating &&
+                                      _isResponseReady &&
+                                      !_isRegenerating &&
+                                      !_translationFailed; */
+                                  final bool canEdit = !isLoading &&
+                                    _isResponseReady &&
+                                    !_isRegenerating &&
+                                    _currentPage == 0;
+                                  return TextButton(
+                                    onPressed: canEdit
+                                        ? () => setState(() => _isEditing = !_isEditing)
+                                        : null,
                                     child: Row(
-                                      mainAxisSize: MainAxisSize.min, 
+                                      mainAxisSize: MainAxisSize.min,
                                       children: [
                                         Text(
-                                          'Edit',
+                                          _isEditing ? 'Done' : 'Edit',
                                           style: TextStyle(
-                                            color: _isEditing ? Colors.white : Colors.white,
+                                            color: canEdit
+                                                ? Colors.white
+                                                : Colors.white38,
+                                            fontWeight: FontWeight.w500,
                                           ),
                                         ),
-                                        if (_isEditing) ...[
-                                          SizedBox(width: 3),
-                                          Icon(
-                                            Icons.check_circle,
-                                            color: Colors.white,
-                                            size: 18,
-                                          ),
+                                        if (_isEditing && canEdit) ...[
+                                          const SizedBox(width: 4),
+                                          const Icon(Icons.check_circle,
+                                              color: Colors.white, size: 18),
                                         ],
                                       ],
                                     ),
-                                  ),
-                                ],
+                                  );
+                                },
                               ),
+                              // Cancel button
                               TextButton(
+                              onPressed: () {
+                                widget.messageController.clear();
+                                Navigator.of(context).pop(); // ← just pop, nothing else
+                              },
+                              child: const Text('Cancel', style: TextStyle(color: Colors.white)),
+                            ),
+                              /* TextButton(
                                 onPressed: () {
                                   widget.messageController.clear();
+                                  _isLoadingAI.value = false;
                                   Navigator.of(context).pop();
                                 },
-                                child: const Text(
-                                  'Cancel',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                  ),
-                                ),
-                              ),
+                                child: const Text('Cancel',
+                                    style: TextStyle(color: Colors.white)),
+                              ), */
                             ],
                           ),
-                          Row
-                            (
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: 
-                              [
-                                RichText(
-                                  text: TextSpan(
-                                    children: [
-                                      WidgetSpan(
-                                        child: FaIcon(
-                                          FontAwesomeIcons.magicWandSparkles,
-                                          color: Colors.white,
-                                          size: 16,
-                                        ),
-                                        alignment: PlaceholderAlignment.middle,
-                                      ),
-                                      WidgetSpan(
-                                        child: SizedBox(width: 5),
-                                      ),
-                                      TextSpan(
-                                        text: "MaxIA",
-                                        style: TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 18,
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            ),
+                          // Title
+                          RichText(
+                            text: const TextSpan(children: [
+                              WidgetSpan(
+                                child: FaIcon(
+                                    FontAwesomeIcons.magicWandSparkles,
+                                    color: Colors.white,
+                                    size: 16),
+                                alignment: PlaceholderAlignment.middle,
+                              ),
+                              WidgetSpan(child: SizedBox(width: 5)),
+                              TextSpan(
+                                text: "MaxIA",
+                                style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.w600),
+                              ),
+                            ]),
+                          ),
                         ],
                       ),
                     ),
-                    /* Divider(color: Colors.white54, thickness: 1), */
-                    Expanded
-                    (
-                      child: Padding
-                      (
-                        padding: const EdgeInsets.all(16.0),
-                        child: SingleChildScrollView
-                        (
-                          controller: _scrollController,
-                          child: Card
-                          (
-                            color: Colors.white,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(20),
-                              side: BorderSide(
-                                color: Color(0xFF6366F1),
-                                width: 3,
-                              ),
+
+                    // ── Language dropdown — always visible, always populated ──
+                    if (_isChatPage)
+                      Container(
+                        margin: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 14, vertical: 10),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.15),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.translate,
+                                color: Colors.white, size: 18),
+                            const SizedBox(width: 8),
+                            const Text(
+                              'Translate to',
+                              style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w500),
                             ),
-                            elevation: 5,
-                            child: Padding
-                            (
-                              padding: const EdgeInsets.all(16.0),
-                              child: Column
-                              (
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: 
-                                [
-                                  TextField
-                                  (
-                                    controller: widget.messageController,
-                                    maxLines: null,
-                                    decoration: const InputDecoration
-                                    (
-                                      border: InputBorder.none,
-                                    ),
-                                    enabled: _isEditing,
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 10, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                // ── Dropdown is ready immediately ───────────
+                                child: DropdownButton<String>(
+                                  value: _selectedLanguage,
+                                  hint: const Text(
+                                    'Select language…',
                                     style: TextStyle(
-                                      color:Colors.black, 
-                                    ),
-                                    onChanged:(text){
-                                      setState(() {
-                                        _isSendEnabled.value = text.trim().isNotEmpty;
-                                      });
-                                    }
+                                        fontSize: 13,
+                                        color: Colors.black54),
                                   ),
-                                ],
+                                  isExpanded: true,
+                                  isDense: true,
+                                  dropdownColor: Colors.white,
+                                  iconEnabledColor: Colors.black,
+                                  underline: const SizedBox(),
+                                  icon: const Icon(Icons.arrow_drop_down,
+                                      size: 20, color: Colors.black),
+                                  style: const TextStyle(
+                                      fontSize: 13, color: Colors.black),
+                                  onChanged: _isTranslating || !_isResponseReady
+                                      ? null
+                                      : (String? v) {
+                                          if (v != null) _triggerTranslation(v);
+                                        },
+                                  items: _availableLanguages
+                                      .map<DropdownMenuItem<String>>(
+                                          (Map<String, String> language) {
+                                    return DropdownMenuItem<String>(
+                                      value: language['code'],
+                                      child: Text(
+                                        language['name'] ??
+                                            language['code'] ??
+                                            '',
+                                        style: const TextStyle(
+                                            fontSize: 13,
+                                            color: Colors.black),
+                                      ),
+                                    );
+                                  }).toList(),
+                                ),
                               ),
                             ),
-                          ),
+                            if (_isTranslating) ...[
+                              const SizedBox(width: 8),
+                              const SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(
+                                    strokeWidth: 2, color: Colors.white),
+                              ),
+                            ],
+                          ],
                         ),
                       ),
-                    ),
-                    Column(
-                      children: [
-                        Container(
-                          height: 60,
-                          padding: EdgeInsets.only(left: 8.0, right: 8.0, bottom: 20.0),
-                          child: Center(
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Expanded(
-                                  child: SizedBox(
-                                    width: double.infinity,
-                                    child: Padding(
-                                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                                      child:ValueListenableBuilder<bool>
-                                      (
-                                        valueListenable: _isSendEnabled,
-                                        builder: (context, isSendEnabled, child) 
-                                        {
-                                         return ElevatedButton
-                                         (
-                                            onPressed: _isSendEnabled.value==true 
-                                            ?() async {
-                                              final value = await SharedPreferences.getInstance();
-                                              final String? page = value.getString('page');
 
-                                              /* if (page == 'chat') { */
-                                                /* widget.onPressed(); */
-                                                widget.ai_send_pressed();
-                                                /* sendMessage(_messageController.text); */
-                                              /* } else { */
-                                                /* send_ticket_Message(_messageController.text); */
-                                              /* } */
-                                              /* _messageController.clear(); */
-                                              widget.messageController.clear();
-                                              Navigator.of(context).pop();
-                                            }
-                                            :null,
-                                            style: ElevatedButton.styleFrom(
-                                              backgroundColor: Colors.white,
-                                              elevation: 0,
-                                              shadowColor: Colors.transparent,
-                                              minimumSize: const Size(double.infinity, 58),
-                                            ),
-                                            child: const Text(
-                                              'Send',
-                                              style: TextStyle(
-                                                fontSize: 16,
-                                                fontWeight: FontWeight.w600,
-                                                color: Colors.blue,
+                    // ── Pager dots ────────────────────────────────────────
+                    if (_isChatPage && _isResponseReady && _selectedLanguage != null)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 6),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            AnimatedContainer(
+                              duration: const Duration(milliseconds: 250),
+                              width: 7,
+                              height: 7,
+                              decoration: BoxDecoration(
+                                color: Colors.white.withOpacity(
+                                    _currentPage == 0 ? 1.0 : 0.35),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                            AnimatedContainer(
+                              duration: const Duration(milliseconds: 250),
+                              width: 7,
+                              height: 7,
+                              decoration: BoxDecoration(
+                                color: Colors.white.withOpacity(
+                                    _currentPage == 1 ? 1.0 : 0.35),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              _currentPage == 0 ? 'Original' : 'Translated',
+                              style: const TextStyle(
+                                  fontSize: 11, color: Colors.white70),
+                            ),
+                          ],
+                        ),
+                      ),
+
+                    // ── Body ─────────────────────────────────────────────
+                    Expanded(
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+                        child: ValueListenableBuilder<bool>(
+                          valueListenable: _isLoadingAI,
+                          builder: (context, isLoading, _) {
+
+                            // Shimmer while AI is fetching
+                            if (isLoading) {
+                              return Card(
+                                color: Colors.white,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(20),
+                                  side: const BorderSide(
+                                      color: Color(0xFF6366F1), width: 3),
+                                ),
+                                elevation: 5,
+                                child: Padding(
+                                  padding: const EdgeInsets.all(16),
+                                  child: _buildLoadingShimmer(),
+                                ),
+                              );
+                            }
+
+                            return PageView(
+                              controller: _pageController,
+                              physics: (_isChatPage && _selectedLanguage != null)
+                                  ? const BouncingScrollPhysics()
+                                  : const NeverScrollableScrollPhysics(),
+                              onPageChanged: (page) =>
+                                  setState(() => _currentPage = page),
+                              children: [
+
+                                // ── Page 0 : Original ─────────────────────
+                                Card(
+                                  color: Colors.white,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(20),
+                                    side: const BorderSide(
+                                        color: Color(0xFF6366F1), width: 3),
+                                  ),
+                                  elevation: 5,
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(16),
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Row(
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.spaceBetween,
+                                          children: [
+                                            Row(children: const [
+                                              Icon(Icons.check_circle_outline,
+                                                  size: 13,
+                                                  color: Color(0xFF6366F1)),
+                                              SizedBox(width: 5),
+                                              Text('Original',
+                                                  style: TextStyle(
+                                                      fontSize: 11,
+                                                      color: Color(0xFF6366F1),
+                                                      fontWeight:
+                                                          FontWeight.w500)),
+                                            ]),
+                                            if (!_isRegenerating)
+                                              TextButton.icon(
+                                                onPressed: _regenerateResponse,
+                                                icon: const Icon(Icons.refresh,
+                                                    size: 16,
+                                                    color: Color(0xFF6366F1)),
+                                                label: const Text('Regenerate',
+                                                    style: TextStyle(
+                                                        fontSize: 12,
+                                                        color: Color(
+                                                            0xFF6366F1))),
+                                                style: TextButton.styleFrom(
+                                                  padding:
+                                                      const EdgeInsets.symmetric(
+                                                          horizontal: 8,
+                                                          vertical: 4),
+                                                  minimumSize: Size.zero,
+                                                  tapTargetSize:
+                                                      MaterialTapTargetSize
+                                                          .shrinkWrap,
+                                                ),
+                                              ),
+                                          ],
+                                        ),
+                                        const Divider(
+                                            height: 16, thickness: 0.5),
+                                        Expanded(
+                                          child: _isRegenerating
+                                              ? Center(
+                                                  child: Column(
+                                                    mainAxisAlignment:
+                                                        MainAxisAlignment
+                                                            .center,
+                                                    children: [
+                                                      const CircularProgressIndicator(
+                                                        valueColor: AlwaysStoppedAnimation<Color>(
+                                                            Color(0xFF6366F1)),
+                                                        strokeWidth: 2,
+                                                      ),
+                                                      const SizedBox(
+                                                          height: 12),
+                                                      Text('Regenerating...',
+                                                          style: TextStyle(
+                                                              fontSize: 13,
+                                                              color: Colors
+                                                                  .grey[600])),
+                                                    ],
+                                                  ),
+                                                )
+                                              : SingleChildScrollView(
+                                                  controller: _scrollController,
+                                                  child: TextField(
+                                                    controller:
+                                                        widget.messageController,
+                                                    maxLines: null,
+                                                    enabled: _isEditing,
+                                                    decoration:
+                                                        const InputDecoration(
+                                                      border: InputBorder.none,
+                                                      hintText:
+                                                          'AI response will appear here…',
+                                                      hintStyle: TextStyle(
+                                                          color: Colors.grey,
+                                                          fontSize: 14),
+                                                    ),
+                                                    style: const TextStyle(
+                                                        color: Colors.black,
+                                                        fontSize: 14,
+                                                        height: 1.6),
+                                                    onChanged: (text) {
+                                                      _originalResponse = text;
+                                                      _isSendEnabled.value =
+                                                          text
+                                                              .trim()
+                                                              .isNotEmpty;
+                                                    },
+                                                  ),
+                                                ),
+                                        ),
+                                        const SizedBox(height: 12),
+                                        if (!_isAiError)
+                                          ValueListenableBuilder<bool>(
+                                            valueListenable: _isSendEnabled,
+                                            builder: (context, canSend, _) =>
+                                                SizedBox(
+                                              width: double.infinity,
+                                              child: ElevatedButton(
+                                                onPressed: canSend &&
+                                                        !_isRegenerating
+                                                    ? _sendOriginal
+                                                    : null,
+                                                style: ElevatedButton.styleFrom(
+                                                  backgroundColor:
+                                                      const Color(0xFF6366F1),
+                                                  foregroundColor: Colors.white,
+                                                  padding:
+                                                      const EdgeInsets.symmetric(
+                                                          vertical: 12),
+                                                  shape: RoundedRectangleBorder(
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                              12)),
+                                                ),
+                                                child: const Text('Send Message',
+                                                    style: TextStyle(
+                                                        fontSize: 14,
+                                                        fontWeight:
+                                                            FontWeight.w600)),
                                               ),
                                             ),
-                                          );
-                                        },
-                                      ),
+                                          ),
+                                      ],
                                     ),
                                   ),
                                 ),
+
+                                // ── Page 1 : Translated ───────────────────
+                                if (_isChatPage)
+                                  Card(
+                                    color: Colors.white,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(20),
+                                      side: const BorderSide(
+                                          color: Color(0xFF820AFF), width: 3),
+                                    ),
+                                    elevation: 5,
+                                    child: Padding(
+                                      padding: const EdgeInsets.all(16),
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Row(
+                                            children: [
+                                              const Icon(Icons.translate,
+                                                  size: 13,
+                                                  color: Color(0xFF820AFF)),
+                                              const SizedBox(width: 5),
+                                              Text(
+                                                _selectedLanguage != null
+                                                    ? 'Translated to ${_getLanguageNameFromCode(_selectedLanguage!)}'
+                                                    : 'Translated',
+                                                style: const TextStyle(
+                                                    fontSize: 11,
+                                                    color: Color(0xFF820AFF),
+                                                    fontWeight:
+                                                        FontWeight.w500),
+                                              ),
+                                            ],
+                                          ),
+                                          const Divider(
+                                              height: 16, thickness: 0.5),
+                                          Expanded(
+                                            child: _isTranslating
+                                                ? Center(
+                                                    child: Column(
+                                                      mainAxisAlignment:
+                                                          MainAxisAlignment
+                                                              .center,
+                                                      children: [
+                                                        const CircularProgressIndicator(
+                                                          valueColor: AlwaysStoppedAnimation<Color>(
+                                                              Color(0xFF6366F1)),
+                                                          strokeWidth: 2,
+                                                        ),
+                                                        const SizedBox(
+                                                            height: 12),
+                                                        Text('Translating...',
+                                                            style: TextStyle(
+                                                                fontSize: 13,
+                                                                color: Colors
+                                                                    .grey[600])),
+                                                      ],
+                                                    ),
+                                                  )
+                                                : _translationFailed
+                                                    ? Center(
+                                                        child: Column(
+                                                          mainAxisAlignment:
+                                                              MainAxisAlignment
+                                                                  .center,
+                                                          children: [
+                                                            const Icon(
+                                                                Icons
+                                                                    .error_outline,
+                                                                color: Colors.red,
+                                                                size: 48),
+                                                            const SizedBox(
+                                                                height: 12),
+                                                            const Text(
+                                                              'Translation failed. Please try again.',
+                                                              textAlign:
+                                                                  TextAlign
+                                                                      .center,
+                                                              style: TextStyle(
+                                                                  fontSize: 14,
+                                                                  color:
+                                                                      Colors.red),
+                                                            ),
+                                                            const SizedBox(
+                                                                height: 16),
+                                                            TextButton(
+                                                              onPressed: () {
+                                                                if (_selectedLanguage !=
+                                                                    null) {
+                                                                  _triggerTranslation(
+                                                                      _selectedLanguage!);
+                                                                }
+                                                              },
+                                                              child: const Text(
+                                                                'Retry Translation',
+                                                                style: TextStyle(
+                                                                  color: Color(
+                                                                      0xFF820AFF),
+                                                                  fontWeight:
+                                                                      FontWeight
+                                                                          .w600,
+                                                                ),
+                                                              ),
+                                                            ),
+                                                          ],
+                                                        ),
+                                                      )
+                                                    : SingleChildScrollView(
+                                                        child: TextField(
+                                                          controller:
+                                                              _translatedController,
+                                                          maxLines: null,
+                                                          enabled: false,
+                                                          decoration:
+                                                              const InputDecoration(
+                                                            border:
+                                                                InputBorder.none,
+                                                            hintText:
+                                                                'Translation will appear here…',
+                                                            hintStyle: TextStyle(
+                                                                color:
+                                                                    Colors.grey,
+                                                                fontSize: 14),
+                                                          ),
+                                                          style: const TextStyle(
+                                                              color: Colors.black,
+                                                              fontSize: 14,
+                                                              height: 1.6),
+                                                        ),
+                                                      ),
+                                          ),
+                                          const SizedBox(height: 12),
+                                          if (!_translationFailed)
+                                            ValueListenableBuilder<bool>(
+                                              valueListenable: _isSendEnabled,
+                                              builder: (context, canSend, _) =>
+                                                  SizedBox(
+                                                width: double.infinity,
+                                                child: ElevatedButton(
+                                                  onPressed: !_isTranslating &&
+                                                          !_translationFailed &&
+                                                          _translatedText
+                                                              .trim()
+                                                              .isNotEmpty
+                                                      ? _sendTranslated
+                                                      : null,
+                                                  style: ElevatedButton.styleFrom(
+                                                    backgroundColor:
+                                                        const Color(0xFF820AFF),
+                                                    foregroundColor: Colors.white,
+                                                    padding:
+                                                        const EdgeInsets.symmetric(
+                                                            vertical: 12),
+                                                    shape: RoundedRectangleBorder(
+                                                        borderRadius:
+                                                            BorderRadius.circular(
+                                                                12)),
+                                                  ),
+                                                  child: const Text(
+                                                      'Send Translated',
+                                                      style: TextStyle(
+                                                          fontSize: 14,
+                                                          fontWeight:
+                                                              FontWeight.w600)),
+                                                ),
+                                              ),
+                                            ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+
                               ],
-                            ),
-                          ),
+                            );
+                          },
                         ),
-                      ],
+                      ),
                     ),
+
                   ],
                 ),
               ),
             ),
-            );
-          },
-        );
-      },
-    ).whenComplete(() {
-      /* _messageController.clear(); */
-      widget.messageController.clear();
+          );
+        },
+      );
+    },
+  ).whenComplete(() {
+    _isDisposed = true; // ← mark disposed FIRST
+
+    widget.messageController.clear();
+    if (mounted) {
       _isSendEnabled.value = false;
+      _isLoadingAI.value = false;
+    }
+
+    // ← delay dispose so Flutter finishes animations/rebuilds first
+    Future.microtask(() {
+      _pageController.dispose();
+      _translatedController.dispose();
+      _scrollController.dispose();
     });
-  } 
- 
+  });
+}
+
+// ── Custom shimmer for AI loading (using your pulsing dots) ─────────────────
+Widget _buildLoadingShimmer() {
+  return Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      Row(
+        children: [
+          const _PulsingDots(),
+          const SizedBox(width: 10),
+          Text(
+            'Generating response...',
+            style: TextStyle(
+              fontSize: 13,
+              color: const Color(0xFF6366F1),
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
+      const SizedBox(height: 20),
+      ...[0.95, 1.0, 0.78, 1.0, 0.62, 0.88, 0.45].map(
+        (w) => Padding(
+          padding: const EdgeInsets.only(bottom: 12),
+          child: _ShimmerLine(widthFactor: w),
+        ),
+      ),
+    ],
+  );
+}
+
+// ── Language name helper ─────────────────────────────────────────────────────
+String _getLanguageName(String languageCode) {
+  switch (languageCode) {
+    case 'es': return 'Spanish';
+    case 'fr': return 'French';
+    case 'de': return 'German';
+    case 'it': return 'Italian';
+    case 'pt': return 'Portuguese';
+    case 'ru': return 'Russian';
+    case 'ja': return 'Japanese';
+    case 'ko': return 'Korean';
+    case 'zh': return 'Chinese';
+    case 'ar': return 'Arabic';
+    case 'hi': return 'Hindi';
+    case 'nl': return 'Dutch';
+    case 'pl': return 'Polish';
+    case 'tr': return 'Turkish';
+    default:   return 'Language';
+  }
+}
+
  // Update the validation method to return error message or null
 Future<String?> _validateFileForPlatform(String fileUrl, String platform, String page) async {
 
@@ -3176,4 +3909,100 @@ class ProcessingOverlay {
     _overlayEntry?.remove();
     _overlayEntry = null;
   }
+}
+class _ShimmerLine extends StatefulWidget {
+  final double widthFactor;
+  const _ShimmerLine({required this.widthFactor});
+
+  @override
+  State<_ShimmerLine> createState() => _ShimmerLineState();
+}
+
+class _ShimmerLineState extends State<_ShimmerLine>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 1200),
+  )..repeat(reverse: true);
+
+  late final Animation<double> _anim = Tween<double>(begin: 0.2, end: 0.65)
+      .animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut));
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => AnimatedBuilder(
+        animation: _anim,
+        builder: (_, __) => FractionallySizedBox(
+          widthFactor: widget.widthFactor,
+          alignment: Alignment.centerLeft,
+          child: Container(
+            height: 13,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(8),
+              color: const Color(0xFF6366F1).withOpacity(_anim.value),
+            ),
+          ),
+        ),
+      );
+}
+
+class _PulsingDots extends StatefulWidget {
+  const _PulsingDots();
+
+  @override
+  State<_PulsingDots> createState() => _PulsingDotsState();
+}
+
+class _PulsingDotsState extends State<_PulsingDots>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 1200),
+  )..repeat();
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  Widget _dot(double delay) => AnimatedBuilder(
+        animation: _ctrl,
+        builder: (_, __) {
+          final t = ((_ctrl.value - delay) % 1.0);
+          final scale = t < 0.4
+              ? 0.6 + (t / 0.4) * 0.4
+              : t < 0.8
+                  ? 1.0 - ((t - 0.4) / 0.4) * 0.4
+                  : 0.6;
+          return Transform.scale(
+            scale: scale,
+            child: Container(
+              width: 7,
+              height: 7,
+              decoration: const BoxDecoration(
+                color: Color(0xFF6366F1),
+                shape: BoxShape.circle,
+              ),
+            ),
+          );
+        },
+      );
+
+  @override
+  Widget build(BuildContext context) => Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _dot(0.0),
+          const SizedBox(width: 4),
+          _dot(0.2),
+          const SizedBox(width: 4),
+          _dot(0.4),
+        ],
+      );
 }
