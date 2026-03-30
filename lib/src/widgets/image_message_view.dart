@@ -812,8 +812,10 @@ class ImageMessageView extends StatelessWidget {
         return Color.fromRGBO(255, 193, 7, 1.0);
       }
       return isMessageBySender
-          ? Color(0xFF90CAF9)
-          : Colors.white;
+          ? outgoingChatBubbleConfig?.color ?? const Color(0xFFE8F0FE)
+          : inComingChatBubbleConfig?.color ?? const Color(0xFFF5F5F5);
+         /*  ? Color(0xFF90CAF9)
+          : Colors.white; */
     }
 
 }
