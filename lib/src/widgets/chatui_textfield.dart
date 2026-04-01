@@ -1,3 +1,4 @@
+
 /*
  * Copyright (c) 2022 Simform Solutions
  *
@@ -40,23 +41,23 @@ import '../utils/constants/constants.dart';
 import 'package:path_provider/path_provider.dart';
 import 'dart:io';
 import 'image_message_view.dart';
-//import 'package:path/path.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:socket_io_client/socket_io_client.dart' as IO;
 import 'socket_manager.dart';
 import 'send_message_widget.dart';
-import 'package:flutter/gestures.dart'; // For TapGestureRecognizer
-import 'package:url_launcher/url_launcher.dart'; // For launching URLs
+import 'package:flutter/gestures.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:audioplayers/audioplayers.dart' as audio;
 import 'package:permission_handler/permission_handler.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:path/path.dart' as p;
+import 'max_ia_prompt_dialog.dart';
+import 'max_ia_response_bottom_sheet.dart';
 
 class ChatUITextField extends StatefulWidget {
   const ChatUITextField({
     Key? key,
     this.sendMessageConfig,
-    /* required this.focusNode, */
     this.autofocus = false,
     required this.textEditingController,
     required this.onPressed,
@@ -65,74 +66,42 @@ class ChatUITextField extends StatefulWidget {
     required this.onAIPressed,
     required this.messageController,
     required this.ai_send_pressed,
-    this.onAIStreamingResponse, 
-    /* this.reply_message_id,
-    this.reply_messages, */
+    this.onAIStreamingResponse,
   }) : super(key: key);
 
-  /// Provides configuration of default text field in chat.
   final SendMessageConfiguration? sendMessageConfig;
-
-/*   /// Provides focusNode for focusing text field.
-  final FocusNode focusNode; */
-
-  /// Provides functions which handles text field.
   final TextEditingController textEditingController;
-
-  final Function(String)? onAIStreamingResponse; 
-  /// Provides callback when user tap on text field.
+  final Function(String)? onAIStreamingResponse;
   final VoidCallBack onPressed;
-
-  /// Provides callback once voice is recorded.
   final Function(String?) onRecordingComplete;
-
-  /// Provides callback when user select images from camera/gallery.
   final StringsCallBack onImageSelected;
-
   final bool autofocus;
-  
   final VoidCallBack onAIPressed;
-
   final TextEditingController messageController;
-
   final VoidCallBack ai_send_pressed;
-/* 
-  final String? reply_message_id;
-  
-  final String? reply_messages; */
-  
 
   @override
   State<ChatUITextField> createState() => _ChatUITextFieldState();
 }
 
-class _ChatUITextFieldState extends State<ChatUITextField> with WidgetsBindingObserver{
- 
-  /* final TextEditingController _messageController = TextEditingController(text: ""); */
-
+class _ChatUITextFieldState extends State<ChatUITextField>
+    with WidgetsBindingObserver {
   final ValueNotifier<String> _inputText = ValueNotifier('');
-
   final ImagePicker _imagePicker = ImagePicker();
-
-  /* RecorderController? controller; */
-  
   late final RecorderController recorderController;
-  
   Timer? _recordingTimer;
   int _recordingSeconds = 0;
   String _timerText = "00:00";
-
-
   ValueNotifier<bool> isRecording = ValueNotifier(false);
+  
+  // Add this flag to track if widget is still mounted
+  bool _isMounted = false;
 
   SendMessageConfiguration? get sendMessageConfig => widget.sendMessageConfig;
-
   VoiceRecordingConfiguration? get voiceRecordingConfig =>
       widget.sendMessageConfig?.voiceRecordingConfiguration;
-
   ImagePickerIconsConfiguration? get imagePickerIconsConfig =>
       sendMessageConfig?.imagePickerIconsConfig;
-
   TextFieldConfiguration? get textFieldConfig =>
       sendMessageConfig?.textFieldConfig;
 
@@ -142,6 +111,8 @@ class _ChatUITextFieldState extends State<ChatUITextField> with WidgetsBindingOb
             BorderRadius.circular(textFieldBorderRadius),
       );
 
+  bool _isDisposed = false;
+
   ValueNotifier<TypeWriterStatus> composingStatus =
       ValueNotifier(TypeWriterStatus.typed);
 
@@ -149,92 +120,73 @@ class _ChatUITextFieldState extends State<ChatUITextField> with WidgetsBindingOb
   OverlayEntry? _suggestionOverlay;
   final LayerLink _layerLink = LayerLink();
   List<Map<String, String>> suggestions = [];
-  String apiStatusMessage = ''; 
+  String apiStatusMessage = '';
   String? current_page;
   final ScrollController _scrollController = ScrollController();
   final ValueNotifier<bool> _isSendEnabled = ValueNotifier<bool>(false);
   final ValueNotifier<bool> _isLoadingAI = ValueNotifier<bool>(false);
 
-  
-  
-
   @override
   void initState() {
-     WidgetsBinding.instance.addObserver(this);
+    super.initState();
+    _isMounted = true;
+    WidgetsBinding.instance.addObserver(this);
     attachListeners();
     if (defaultTargetPlatform == TargetPlatform.iOS ||
         defaultTargetPlatform == TargetPlatform.android) {
       recorderController = RecorderController()
-    ..androidEncoder = AndroidEncoder.aac
-    ..androidOutputFormat = AndroidOutputFormat.mpeg4
-    ..iosEncoder = IosEncoder.kAudioFormatMPEG4AAC
-    ..sampleRate = 16000; 
-      //controller = RecorderController();
+        ..androidEncoder = AndroidEncoder.aac
+        ..androidOutputFormat = AndroidOutputFormat.mpeg4
+        ..iosEncoder = IosEncoder.kAudioFormatMPEG4AAC
+        ..sampleRate = 16000;
     }
     debouncer = Debouncer(
         sendMessageConfig?.textFieldConfig?.compositionThresholdTime ??
             const Duration(seconds: 1));
-    super.initState();
-
-    
-    /* SocketManager().connectSocket(
-      onMessageReceived: (incomingText) {
-        setState(() {
-          /* _messageController.text += incomingText;
-          _messageController.selection = TextSelection.fromPosition(
-            TextPosition(offset: _messageController.text.length),
-          ); */
-          widget.messageController.text += incomingText;
-          widget.messageController.selection = TextSelection.fromPosition(
-            TextPosition(offset: widget.messageController.text.length),
-          );
-        });
-        _isSendEnabled.value = true;
-        _scrollToBottom();
-      },
-      /* source: 'chat', */
-    ); */
     _loadPreferences();
   }
+
   @override
   void didUpdateWidget(ChatUITextField oldWidget) {
     super.didUpdateWidget(oldWidget);
-    
-    // ✅ ADD THIS: Handle AI streaming when callback is triggered
-    if (widget.onAIStreamingResponse != null) {
-      // The callback will be invoked from ChatPage
-      // You don't need to do anything here, just ensure the callback exists
-    }
   }
+
   void _startTimer() {
     _recordingTimer?.cancel();
     _recordingSeconds = 0;
     _updateTimerText();
-    _recordingTimer = Timer.periodic(Duration(seconds: 1), (timer) {
+    _recordingTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!_isMounted || _isDisposed) {
+        timer.cancel();
+        return;
+      }
       _recordingSeconds++;
       _updateTimerText();
     });
   }
 
   void _updateTimerText() {
+    if (_isDisposed || !_isMounted) return;
     final minutes = (_recordingSeconds ~/ 60).toString().padLeft(2, '0');
     final seconds = (_recordingSeconds % 60).toString().padLeft(2, '0');
-    _timerText = "$minutes:$seconds";
-    setState(() {});
+    if (_isMounted) {
+      setState(() => _timerText = "$minutes:$seconds");
+    }
   }
 
   void _stopTimer() {
     _recordingTimer?.cancel();
     _recordingTimer = null;
     _recordingSeconds = 0;
-    _timerText = "00:00";
-    setState(() {});
+    if (_isMounted && !_isDisposed) {
+      setState(() => _timerText = "00:00");
+    }
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    // When app goes to inactive or paused state (like when swiping down)
-    if (state == AppLifecycleState.inactive || state == AppLifecycleState.paused) {
+    if (state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.paused) {
       _stopRecordingIfActive();
     }
   }
@@ -245,143 +197,115 @@ class _ChatUITextFieldState extends State<ChatUITextField> with WidgetsBindingOb
         await recorderController.stop();
         isRecording.value = false;
       } catch (e) {
-        print('Error stopping recording: $e');
         isRecording.value = false;
       }
     }
   }
 
   Future<void> _loadPreferences() async {
-   final prefs = await SharedPreferences.getInstance();
-    current_page = prefs.getString('page')??''; 
-  }
-  void _scrollToBottom() {
-    if (_scrollController.hasClients) {
-      _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
+    final prefs = await SharedPreferences.getInstance();
+    if (!_isDisposed && _isMounted) {
+      current_page = prefs.getString('page') ?? '';
     }
   }
 
   @override
-  void dispose() async {
+  void dispose() {
+    _isMounted = false;
+    _isDisposed = true;
     debouncer.dispose();
     composingStatus.dispose();
     isRecording.dispose();
     _inputText.dispose();
+    _isSendEnabled.dispose();
+    _isLoadingAI.dispose();
     recorderController.stop();
     WidgetsBinding.instance.removeObserver(this);
-     _stopRecordingIfActive();
+    _stopRecordingIfActive();
     _suggestionOverlay?.remove();
-   /* /*  try { */
-      SocketManager().disconnectSocket();
-    /* } catch (e) {
-      print('Socket disconnection error: $e');
-    } */ */
-
-    // Fire and forget any async operations
+    _suggestionOverlay = null;
     SharedPreferences.getInstance().then((prefs) {
       prefs.remove('conversation_id');
       prefs.remove('ticket_id');
-      _loadPreferences(); // if this is async, consider moving it elsewhere
     });
     super.dispose();
   }
- 
+
   void attachListeners() {
     composingStatus.addListener(() {
       widget.sendMessageConfig?.textFieldConfig?.onMessageTyping
           ?.call(composingStatus.value);
     });
   }
+
   List<dynamic> responses = [];
-  Future<List<Map<String, String>>> fetch_canned_responses(String? shortcode) async 
-  {
-    if (shortcode == null) 
-    {
-      print('Shortcode is null');
-      return Future.value([]); 
-    }
+
+  Future<List<Map<String, String>>> fetch_canned_responses(
+      String? shortcode) async {
+    if (shortcode == null) return Future.value([]);
     final prefs = await SharedPreferences.getInstance();
     final String? uuid = prefs.getString('uuid');
-    final String? team_alias= prefs.getString('team_alias');
-    final url = base_url+'api/canned_responses/';
+    final String? team_alias = prefs.getString('team_alias');
+    final url = base_url + 'api/canned_responses/';
     var headers = {
       'Authorization': '$uuid|$team_alias',
       'Content-Type': 'application/json',
     };
     var request = http.Request('POST', Uri.parse(url));
-    request.body = json.encode({
-      "short_code": shortcode,
-      "source":"mobileapp"
-    });
+    request.body =
+        json.encode({"short_code": shortcode, "source": "mobileapp"});
     request.headers.addAll(headers);
-
     http.StreamedResponse response = await request.send();
-
-    if (response.statusCode == 200) 
-    {
+    if (response.statusCode == 200) {
       String responseBody = await response.stream.bytesToString();
       Map<String, dynamic> decodedResponse = json.decode(responseBody);
-      if (decodedResponse.containsKey('data') && decodedResponse['data'] != null) 
-      {
+      if (decodedResponse.containsKey('data') &&
+          decodedResponse['data'] != null) {
         List<Map<String, String>> todos = (decodedResponse['data'] as List)
             .map((item) => {
-                  "short_code": item['short_code'].toString()??'',
-                  "content": item['content'].toString()??'',
+                  "short_code": item['short_code'].toString(),
+                  "content": item['content'].toString(),
                   "media_type": item['media_type']?.toString() ?? '',
                   "media_url": item['media_url']?.toString() ?? '',
                 })
             .toList();
         return todos;
-      } 
-      else 
-      {
-        print('Key "data" not found or is null');
+      } else {
         return [];
       }
-    } 
-    else if (response.statusCode == 404) 
-    {
-      print('Status code 404: Not found');
-      return Future.value([]); 
-    } 
-    else 
-    {
-      print(response.reasonPhrase);
+    } else if (response.statusCode == 404) {
+      return Future.value([]);
+    } else {
       return [];
     }
   }
-  
-  void _removeSuggestionOverlay() 
-  {
+
+  void _removeSuggestionOverlay() {
     _suggestionOverlay?.remove();
     _suggestionOverlay = null;
   }
 
- Future<String> call_ai_assist(BuildContext context,String text) async {
+  Future<String> call_ai_assist(BuildContext context, String text) async {
     try {
       final prefs = await SharedPreferences.getInstance();
       final String? uuid = prefs.getString('uuid');
-      final String? team_alias= prefs.getString('team_alias');
+      final String? team_alias = prefs.getString('team_alias');
       final url = base_url + 'api/reply/';
-      final String? cb_lead_id = prefs.getString('cb_lead_id');
-      final String? platform = prefs.getString('platform');
       final String? conversation_id = prefs.getString('conversation_id');
       final String? cb_lead_name = prefs.getString('cb_lead_name');
       final String? ticket_id = prefs.getString('ticket_id');
       final String? ticket_name = prefs.getString('ticket_name');
-
-      final String? page=prefs.getString('page');
+      final String? page = prefs.getString('page');
 
       String source;
       String? alias;
       String? from_name;
 
-      if(page=='chat'){
+      if (page == 'chat') {
         source = "chat";
         alias = conversation_id;
         from_name = cb_lead_name;
-      }
-      else{
+      } else {
         source = "ticket";
         alias = ticket_id;
         from_name = ticket_name;
@@ -403,8 +327,8 @@ class _ChatUITextFieldState extends State<ChatUITextField> with WidgetsBindingOb
           "suggestion": text,
           "message_id": "",
           "query": "",
-          "response_mode":'streaming',
-          "ref_element":"button"
+          "response_mode": 'streaming',
+          "ref_element": "button"
         }
       });
       request.headers.addAll(headers);
@@ -412,19 +336,16 @@ class _ChatUITextFieldState extends State<ChatUITextField> with WidgetsBindingOb
       if (response.statusCode == 200) {
         String responseBody = await response.stream.bytesToString();
         Map<String, dynamic> decodedResponse = json.decode(responseBody);
-        //debugPrint("AI RESPONSE :$decodedResponse",wrapWidth: 1024);
         if (decodedResponse['success'] == 'false') {
-            throw Exception(decodedResponse['ai_error_message'] ?? 'Failed to generate AI response');
+          throw Exception(decodedResponse['ai_error_message'] ??
+              'Failed to generate AI response');
         } else {
           var aiResponse = json.decode(decodedResponse['ai_response']);
-         // return aiResponse['answer'];
-           /*return source == "ticket"
-              ? json.decode(aiResponse['answer'])['body']
-              : aiResponse['answer'];*/
           try {
             if (source == "ticket") {
               var decodedAnswer = json.decode(aiResponse['answer']);
-              if (decodedAnswer is Map && decodedAnswer.containsKey('response')) {
+              if (decodedAnswer is Map &&
+                  decodedAnswer.containsKey('response')) {
                 return decodedAnswer['response'];
               } else {
                 return aiResponse['answer'];
@@ -435,17 +356,16 @@ class _ChatUITextFieldState extends State<ChatUITextField> with WidgetsBindingOb
           } catch (e) {
             return aiResponse['answer'];
           }
-
         }
       } else {
         throw Exception("Failed to generate AI response");
       }
     } catch (e) {
-     throw Exception(e.toString());
+      throw Exception(e.toString());
     }
   }
-  Future<void> sendMessage(String message,) async 
-  {
+
+  Future<void> sendMessage(String message) async {
     final prefs = await SharedPreferences.getInstance();
     final String? cb_lead_id = prefs.getString('cb_lead_id');
     final String? platform = prefs.getString('platform');
@@ -454,15 +374,15 @@ class _ChatUITextFieldState extends State<ChatUITextField> with WidgetsBindingOb
       "cb_lead_id": cb_lead_id,
       "platform": platform,
       "message_body": message,
-      "conversation_id":conversation_id,
+      "conversation_id": conversation_id,
       "cb_message_source": 'android',
-      "reply_message_id": '', 
+      "reply_message_id": '',
     };
     String jsonData = json.encode(data);
     final String? uuid = prefs.getString('uuid');
-    final String? team_alias= prefs.getString('team_alias');
+    final String? team_alias = prefs.getString('team_alias');
     String url = base_url + 'api/send_message/';
-    var response = await http.post(
+    await http.post(
       Uri.parse(url),
       headers: {
         "Content-Type": "application/json",
@@ -470,61 +390,43 @@ class _ChatUITextFieldState extends State<ChatUITextField> with WidgetsBindingOb
       },
       body: jsonData,
     );
-    if (response.statusCode == 200) {
-
-    } 
-    else {
-
-    }
   }
-    Future<void> send_ticket_Message(String message,) async {
-    final prefs = await SharedPreferences.getInstance();
-      final String? ticket_id = prefs.getString('ticket_id');
-    final String? ticket_name = prefs.getString('ticket_name');
-    final String? platform = prefs.getString('platform');
-    Map<String, dynamic> data = 
-    {
-    "ticket_alias": ticket_id,
-    "message_body": message,
-    "source":'mobileapp'
-  };
 
+  Future<void> send_ticket_Message(String message) async {
+    final prefs = await SharedPreferences.getInstance();
+    final String? ticket_id = prefs.getString('ticket_id');
+    Map<String, dynamic> data = {
+      "ticket_alias": ticket_id,
+      "message_body": message,
+      "source": 'mobileapp'
+    };
     String jsonData = json.encode(data);
     final String? uuid = prefs.getString('uuid');
-       final String? team_alias= prefs.getString('team_alias');
+    final String? team_alias = prefs.getString('team_alias');
     String url = base_url + 'api/ticket/response/';
-    var response = await http.post(
-        Uri.parse(url),
-        headers: 
-        {
-          "Content-Type": "application/json",
-          "Authorization": "$uuid|$team_alias"
-        },
-        body: jsonData,
-      );
-    if (response.statusCode == 200) {
-    } 
-    else {
-
-    }
+    await http.post(
+      Uri.parse(url),
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": "$uuid|$team_alias"
+      },
+      body: jsonData,
+    );
   }
 
-Future<List<Map<String, String>>> fetch_ai_languages() async {
+  /* Future<List<Map<String, String>>> fetch_ai_languages() async {
     try {
-      final prefs       = await SharedPreferences.getInstance();
-      final String? uuid       = prefs.getString('uuid');
+      final prefs = await SharedPreferences.getInstance();
+      final String? uuid = prefs.getString('uuid');
       final String? team_alias = prefs.getString('team_alias');
-  
       final url = base_url + 'api/v2/ai/languages/';
-  
       final response = await http.get(
         Uri.parse(url),
         headers: {
-          'Content-Type':  'application/json',
+          'Content-Type': 'application/json',
           'Authorization': '$uuid|$team_alias',
         },
       ).timeout(const Duration(seconds: 10));
-  
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         if (data['status'] == 'success' && data['data'] != null) {
@@ -535,33 +437,133 @@ Future<List<Map<String, String>>> fetch_ai_languages() async {
               'name': lang['language_name']?.toString() ?? '',
             });
           }
-  
-          // Cache to prefs for offline fallback
           await prefs.setString('cached_ai_languages', json.encode(languages));
-  
+          return languages;
+        }
+      }
+    } catch (e) {}
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final cached = prefs.getString('cached_ai_languages');
+      if (cached != null) {
+        final List<dynamic> decoded = json.decode(cached);
+        return decoded
+            .map<Map<String, String>>((item) => {
+                  'code': item['code']?.toString() ?? '',
+                  'name': item['name']?.toString() ?? '',
+                })
+            .toList();
+      }
+    } catch (e) {}
+    return [
+      {'code': 'en', 'name': 'English'},
+      {'code': 'es', 'name': 'Spanish'},
+      {'code': 'fr', 'name': 'French'},
+      {'code': 'de', 'name': 'German'},
+      {'code': 'it', 'name': 'Italian'},
+      {'code': 'pt', 'name': 'Portuguese'},
+      {'code': 'ru', 'name': 'Russian'},
+      {'code': 'ja', 'name': 'Japanese'},
+      {'code': 'ko', 'name': 'Korean'},
+      {'code': 'zh', 'name': 'Chinese'},
+      {'code': 'ar', 'name': 'Arabic'},
+      {'code': 'hi', 'name': 'Hindi'},
+      {'code': 'nl', 'name': 'Dutch'},
+      {'code': 'pl', 'name': 'Polish'},
+      {'code': 'tr', 'name': 'Turkish'},
+      {'code': 'vi', 'name': 'Vietnamese'},
+      {'code': 'th', 'name': 'Thai'},
+      {'code': 'sw', 'name': 'Swahili'},
+    ];
+  }  */
+
+  Future<String> call_ai_translate(String text, String target_language) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final String? uuid = prefs.getString('uuid');
+      final String? team_alias = prefs.getString('team_alias');
+      final url = base_url + 'api/v2/ai/translate/';
+      final response = await http.post(
+        Uri.parse(url),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': '$uuid|$team_alias',
+        },
+        body: json.encode({
+          'text': text,
+          'target_language': target_language,
+        }),
+      ).timeout(const Duration(seconds: 15));
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        if (data['status'] == 'success' && data['data'] != null) {
+          return data['data']['translated_text'] ?? text;
+        }
+        throw Exception('Translation failed');
+      }
+      try {
+        final errData = json.decode(response.body);
+        final message = errData['error']?['message']?.toString();
+        throw Exception(message ?? 'Translation failed');
+      } catch (e) {
+        if (e is Exception) rethrow;
+        throw Exception('Translation failed');
+      }
+    } catch (e) {
+      rethrow;
+    }
+  }
+  Future<List<Map<String, String>>> fetch_ai_languages() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final String? uuid = prefs.getString('uuid');
+      final String? team_alias = prefs.getString('team_alias');
+      final url = base_url + 'api/v2/ai/languages/';
+      
+      
+      final response = await http.get(
+        Uri.parse(url),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': '$uuid|$team_alias',
+        },
+      ).timeout(const Duration(seconds: 10));
+    
+      
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        if (data['status'] == 'success' && data['data'] != null) {
+          final List<Map<String, String>> languages = [];
+          for (var lang in data['data']) {
+            languages.add({
+              'code': lang['language_code']?.toString() ?? '',
+              'name': lang['language_name']?.toString() ?? '',
+            });
+          }
+          await prefs.setString('cached_ai_languages', json.encode(languages));
           return languages;
         }
       }
     } catch (e) {
-      //debugPrint('fetch_ai_languages error: $e');
+      print('Error fetching languages: $e');
     }
-  
-    // ── Fallback 1: cached languages from prefs ────────────────────────────────
+    
+    // Return cached languages or default
     try {
-      final prefs  = await SharedPreferences.getInstance();
+      final prefs = await SharedPreferences.getInstance();
       final cached = prefs.getString('cached_ai_languages');
       if (cached != null) {
         final List<dynamic> decoded = json.decode(cached);
-        return decoded.map<Map<String, String>>((item) => {
+        final languages = decoded.map<Map<String, String>>((item) => {
           'code': item['code']?.toString() ?? '',
           'name': item['name']?.toString() ?? '',
         }).toList();
+        return languages;
       }
     } catch (e) {
-      //debugPrint('fetch_ai_languages cache read error: $e');
+      print('Error loading cached languages: $e');
     }
-  
-    // ── Fallback 2: hardcoded list if API and cache both fail ──────────────────
+    
     return [
       {'code': 'en', 'name': 'English'},
       {'code': 'es', 'name': 'Spanish'},
@@ -583,1093 +585,203 @@ Future<List<Map<String, String>>> fetch_ai_languages() async {
       {'code': 'sw', 'name': 'Swahili'},
     ];
   }
- 
-Future<String> call_ai_translate(String text, String target_language) async {
-  try {
-    final prefs       = await SharedPreferences.getInstance();
-    final String? uuid       = prefs.getString('uuid');
-    final String? team_alias = prefs.getString('team_alias');
-
-    final url = base_url + 'api/v2/ai/translate/';
-
-    final response = await http.post(
-      Uri.parse(url),
-      headers: {
-        'Content-Type':  'application/json',
-        'Authorization': '$uuid|$team_alias',
-      },
-      body: json.encode({
-        'text':            text,
-        'target_language': target_language,
-      }),
-    ).timeout(const Duration(seconds: 15));
-    //print('ORIGINAL RESPONSE $text');
-    print('TRANSLATED RESPONSE $target_language');
-    if (response.statusCode == 200) {
-      final data = json.decode(response.body);
-      if (data['status'] == 'success' && data['data'] != null) {
-        debugPrint('call_ai_translate response: ${data['data']}', wrapWidth: 1024);
-        return data['data']['translated_text'] ?? text;
-      }
-      // 200 but error body
-      //debugPrint('call_ai_translate error body: ${response.body}', wrapWidth: 1024);
-      throw Exception('Translation failed');
-    }
-
-    // Non-200 — extract error message from body
-    debugPrint('Statuscode: ${response.statusCode}', wrapWidth: 1024);
-    debugPrint('call_ai_translate response: ${response.body}', wrapWidth: 1024);
-    try {
-      final errData = json.decode(response.body);
-      final message = errData['error']?['message']?.toString();
-      throw Exception(message ?? 'Translation failed');
-    } catch (e) {
-      if (e is Exception) rethrow;
-      throw Exception('Translation failed');
-    }
-
-  } catch (e) {
-    rethrow; // ← rethrow so _triggerTranslation catch block receives it
-  }
-}
-void _show_dialog_fetch_response(BuildContext context, String message) async {
-  bool _isResponseReady = false;
-  bool _isTranslating = false;
-  bool _isRegenerating = false;
-  bool _isEditing = false;
-  String _originalResponse = "";
-  String _translatedText = "";
-  String? _selectedLanguage;
-  int _currentPage = 0;
-  bool _translationFailed = false;
-  bool _isDisposed = false; 
-  bool _isAiError = false;
-  final PageController _pageController = PageController();
-  final TextEditingController _translatedController = TextEditingController();
-  final ScrollController _scrollController = ScrollController();
-
-  widget.messageController.clear();
-  _isSendEnabled.value = false;
-  _isLoadingAI.value = true;
-
-  // ── Kick off BOTH fetches in parallel ─────────────────────────────────────
-  final prefs_page = await SharedPreferences.getInstance();
-  final bool _isChatPage = prefs_page.getString('page') == 'chat';
-
-  final languagesFuture = _isChatPage ? fetch_ai_languages() : Future.value(<Map<String, String>>[]);
-  final aiFuture = call_ai_assist(context, message);
-
-  // ── Await languages before opening sheet (cached = near-instant) ──────────
-  final List<Map<String, String>> _availableLanguages = await languagesFuture;
-
-  // ── AI resolves in background while sheet is already open ─────────────────
- /*  aiFuture.then((response) {
-    _originalResponse = response;
-    _translatedText = response;
-    widget.messageController.text = response;
-    _isSendEnabled.value = response.isNotEmpty;
-    _isLoadingAI.value = false;
-  }).catchError((error) {
-    _originalResponse = "Failed to fetch response.";
-    widget.messageController.text = "Failed to fetch response.";
-    _isSendEnabled.value = false;
-    _isLoadingAI.value = false;
-  }); */
-  aiFuture.then((response) {
-    _originalResponse = response;
-    _translatedText = response;
-    if (!_isDisposed && mounted) { // ← GUARD WITH _isDisposed
-      widget.messageController.text = response;
-      _isSendEnabled.value = response.isNotEmpty;
-      _isLoadingAI.value = false;
-    }
-  }).catchError((error) {
-    final errorMsg = error.toString().replaceFirst('Exception: ', '');
-    _originalResponse = errorMsg;
-    _isAiError = true;
-    if (!_isDisposed && mounted) {
-      widget.messageController.text = errorMsg;
-      _isSendEnabled.value = false;
-      _isLoadingAI.value = false;
-    }
-  });
-
-  showModalBottomSheet(
-    context: context,
-    isScrollControlled: true,
-    backgroundColor: Colors.transparent,
-    builder: (BuildContext context) {
-      return StatefulBuilder(
-        builder: (context, setState) {
-
-          // ── Listen for AI response ready ────────────────────────────────
-          void _onLoadingChanged() {
-            if (!_isResponseReady && !_isLoadingAI.value) {
-              if (mounted) setState(() => _isResponseReady = true);
-            }
-          }
-          if (!_isResponseReady) {
-            _isLoadingAI.removeListener(_onLoadingChanged);
-            _isLoadingAI.addListener(_onLoadingChanged);
-          }
-
-          // ── Regenerate ──────────────────────────────────────────────────
-          Future<void> _regenerateResponse() async {
-            if (_isRegenerating || _isDisposed) return;
-            setState(() {
-              _isRegenerating = true;
-              _isEditing = false;
-              _isTranslating = false;
-              _translationFailed = false;
-              _isAiError = false;
-              _selectedLanguage = null;
-              _currentPage = 0;
-            });
-            widget.messageController.clear();
-            _isSendEnabled.value = false;
-
-            call_ai_assist(context, message).then((response) {
-              if (!_isDisposed && mounted) {
-                setState(() {
-                  _originalResponse = response;
-                  _translatedText = response;
-                  widget.messageController.text = response;
-                  _isSendEnabled.value = response.isNotEmpty;
-                  _isRegenerating = false;
-                  _translatedController.clear();
-                  _pageController.jumpToPage(0);
-                });
-              }
-            }).catchError((error) {
-              final errorMsg = error.toString().replaceFirst('Exception: ', '');
-              if (!_isDisposed && mounted) {  // File 1
-                setState(() {
-                  _originalResponse = errorMsg;
-                  widget.messageController.text = errorMsg;
-                  _isSendEnabled.value = false;
-                  _isRegenerating = false;
-                  _isAiError = true;  // ← hide button on regenerate error too
-                });
-              }
-            });
-          }
-
-          // ── Get language name from preloaded list ───────────────────────
-          String _getLanguageNameFromCode(String code) {
-            final language = _availableLanguages.firstWhere(
-              (lang) => lang['code'] == code,
-              orElse: () => {'name': code},
-            );
-            return language['name'] ?? code;
-          }
-
-          // ── Trigger translation ─────────────────────────────────────────
-          Future<void> _triggerTranslation(String lang) async {
-            if (_isTranslating || _isDisposed) return;
-            if (_selectedLanguage == lang && !_translationFailed) {
-              if (_currentPage != 1) {
-                _pageController.animateToPage(1,
-                    duration: const Duration(milliseconds: 350),
-                    curve: Curves.easeInOut);
-              }
-              return;
-            }
-            setState(() {
-              _selectedLanguage = lang;
-              _isTranslating = true;
-              _translationFailed = false;
-              _currentPage = 1;
-            });
-            _pageController.animateToPage(1,
-                duration: const Duration(milliseconds: 350),
-                curve: Curves.easeInOut);
-
-            try {
-              final translated = await call_ai_translate(_originalResponse, lang);
-              
-
-              if (!_isDisposed && mounted) {
-                setState(() {
-                  _translatedText = translated;
-                  _translatedController.text = translated;
-                  _isTranslating = false;
-                  _translationFailed = false;
-                  _isSendEnabled.value = true;
-                });
-              }
-            } catch (e) {
-              //debugPrint('Translation error: $e');
-              final errorMsg = e.toString().replaceFirst('Exception: ', '');
-              if (!_isDisposed && mounted) {   // File 1 uses _isDisposed guard
-                setState(() {
-                  _translatedText = errorMsg;
-                  _translatedController.text = errorMsg;
-                  _isTranslating = false;
-                  _translationFailed = true;
-                });
-              }
-            }
-          }
-
-          // ── Send original ───────────────────────────────────────────────
-          void _sendOriginal() {
-            widget.messageController.text = _originalResponse; 
-            widget.ai_send_pressed();
-            //widget.messageController.clear();
-            Navigator.of(context).pop();
-          }
-
-          // ── Send translated ─────────────────────────────────────────────
-          void _sendTranslated() {
-            if (_translatedText.isNotEmpty) {
-              widget.messageController.text = _translatedText;
-            }
-            widget.ai_send_pressed();
-            Navigator.of(context).pop();
-            //widget.messageController.clear();
-          }
-
-          return SafeArea(
-            child: ClipRRect(
-              borderRadius: const BorderRadius.only(
-                topLeft: Radius.circular(20.0),
-                topRight: Radius.circular(20.0),
-              ),
-              child: Container(
-                height: MediaQuery.of(context).size.height * 0.85,
-                decoration: const BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [Color(0xFF6366F1), Color(0xFF820AFF)],
-                    stops: [0.0, 0.8],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                ),
-                child: Column(
-                  children: [
-
-                    // ── Header ────────────────────────────────────────────
-                    Container(
-                      height: 60,
-                      padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                      child: Stack(
-                        alignment: Alignment.center,
-                        children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              // Edit / Done button
-                              ValueListenableBuilder<bool>(
-                                valueListenable: _isLoadingAI,
-                                builder: (context, isLoading, _) {
-                                  /* final bool canEdit = !isLoading &&
-                                      !_isTranslating &&
-                                      _isResponseReady &&
-                                      !_isRegenerating &&
-                                      !_translationFailed; */
-                                  final bool canEdit = !isLoading &&
-                                    _isResponseReady &&
-                                    !_isRegenerating &&
-                                    _currentPage == 0;
-                                  return TextButton(
-                                    onPressed: canEdit
-                                        ? () => setState(() => _isEditing = !_isEditing)
-                                        : null,
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Text(
-                                          _isEditing ? 'Done' : 'Edit',
-                                          style: TextStyle(
-                                            color: canEdit
-                                                ? Colors.white
-                                                : Colors.white38,
-                                            fontWeight: FontWeight.w500,
-                                          ),
-                                        ),
-                                        if (_isEditing && canEdit) ...[
-                                          const SizedBox(width: 4),
-                                          const Icon(Icons.check_circle,
-                                              color: Colors.white, size: 18),
-                                        ],
-                                      ],
-                                    ),
-                                  );
-                                },
-                              ),
-                              // Cancel button
-                              TextButton(
-                              onPressed: () {
-                                widget.messageController.clear();
-                                Navigator.of(context).pop(); // ← just pop, nothing else
-                              },
-                              child: const Text('Cancel', style: TextStyle(color: Colors.white)),
-                            ),
-                              /* TextButton(
-                                onPressed: () {
-                                  widget.messageController.clear();
-                                  _isLoadingAI.value = false;
-                                  Navigator.of(context).pop();
-                                },
-                                child: const Text('Cancel',
-                                    style: TextStyle(color: Colors.white)),
-                              ), */
-                            ],
-                          ),
-                          // Title
-                          RichText(
-                            text: const TextSpan(children: [
-                              WidgetSpan(
-                                child: FaIcon(
-                                    FontAwesomeIcons.magicWandSparkles,
-                                    color: Colors.white,
-                                    size: 16),
-                                alignment: PlaceholderAlignment.middle,
-                              ),
-                              WidgetSpan(child: SizedBox(width: 5)),
-                              TextSpan(
-                                text: "MaxIA",
-                                style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.w600),
-                              ),
-                            ]),
-                          ),
-                        ],
-                      ),
-                    ),
-
-                    // ── Language dropdown — always visible, always populated ──
-                    if (_isChatPage)
-                      Container(
-                        margin: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 14, vertical: 10),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.15),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Row(
-                          children: [
-                            const Icon(Icons.translate,
-                                color: Colors.white, size: 18),
-                            const SizedBox(width: 8),
-                            const Text(
-                              'Translate to',
-                              style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w500),
-                            ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 10, vertical: 4),
-                                decoration: BoxDecoration(
-                                  color: Colors.white,
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                // ── Dropdown is ready immediately ───────────
-                                child: DropdownButton<String>(
-                                  value: _selectedLanguage,
-                                  hint: const Text(
-                                    'Select language…',
-                                    style: TextStyle(
-                                        fontSize: 13,
-                                        color: Colors.black54),
-                                  ),
-                                  isExpanded: true,
-                                  isDense: true,
-                                  dropdownColor: Colors.white,
-                                  iconEnabledColor: Colors.black,
-                                  underline: const SizedBox(),
-                                  icon: const Icon(Icons.arrow_drop_down,
-                                      size: 20, color: Colors.black),
-                                  style: const TextStyle(
-                                      fontSize: 13, color: Colors.black),
-                                  onChanged: _isTranslating || !_isResponseReady
-                                      ? null
-                                      : (String? v) {
-                                          if (v != null) _triggerTranslation(v);
-                                        },
-                                  items: _availableLanguages
-                                      .map<DropdownMenuItem<String>>(
-                                          (Map<String, String> language) {
-                                    return DropdownMenuItem<String>(
-                                      value: language['code'],
-                                      child: Text(
-                                        language['name'] ??
-                                            language['code'] ??
-                                            '',
-                                        style: const TextStyle(
-                                            fontSize: 13,
-                                            color: Colors.black),
-                                      ),
-                                    );
-                                  }).toList(),
-                                ),
-                              ),
-                            ),
-                            if (_isTranslating) ...[
-                              const SizedBox(width: 8),
-                              const SizedBox(
-                                width: 16,
-                                height: 16,
-                                child: CircularProgressIndicator(
-                                    strokeWidth: 2, color: Colors.white),
-                              ),
-                            ],
-                          ],
-                        ),
-                      ),
-
-                    // ── Pager dots ────────────────────────────────────────
-                    if (_isChatPage && _isResponseReady && _selectedLanguage != null)
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 6),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            AnimatedContainer(
-                              duration: const Duration(milliseconds: 250),
-                              width: 7,
-                              height: 7,
-                              decoration: BoxDecoration(
-                                color: Colors.white.withOpacity(
-                                    _currentPage == 0 ? 1.0 : 0.35),
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                            ),
-                            const SizedBox(width: 6),
-                            AnimatedContainer(
-                              duration: const Duration(milliseconds: 250),
-                              width: 7,
-                              height: 7,
-                              decoration: BoxDecoration(
-                                color: Colors.white.withOpacity(
-                                    _currentPage == 1 ? 1.0 : 0.35),
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Text(
-                              _currentPage == 0 ? 'Original' : 'Translated',
-                              style: const TextStyle(
-                                  fontSize: 11, color: Colors.white70),
-                            ),
-                          ],
-                        ),
-                      ),
-
-                    // ── Body ─────────────────────────────────────────────
-                    Expanded(
-                      child: Padding(
-                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
-                        child: ValueListenableBuilder<bool>(
-                          valueListenable: _isLoadingAI,
-                          builder: (context, isLoading, _) {
-
-                            // Shimmer while AI is fetching
-                            if (isLoading) {
-                              return Card(
-                                color: Colors.white,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(20),
-                                  side: const BorderSide(
-                                      color: Color(0xFF6366F1), width: 3),
-                                ),
-                                elevation: 5,
-                                child: Padding(
-                                  padding: const EdgeInsets.all(16),
-                                  child: _buildLoadingShimmer(),
-                                ),
-                              );
-                            }
-
-                            return PageView(
-                              controller: _pageController,
-                              physics: (_isChatPage && _selectedLanguage != null)
-                                  ? const BouncingScrollPhysics()
-                                  : const NeverScrollableScrollPhysics(),
-                              onPageChanged: (page) =>
-                                  setState(() => _currentPage = page),
-                              children: [
-
-                                // ── Page 0 : Original ─────────────────────
-                                Card(
-                                  color: Colors.white,
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(20),
-                                    side: const BorderSide(
-                                        color: Color(0xFF6366F1), width: 3),
-                                  ),
-                                  elevation: 5,
-                                  child: Padding(
-                                    padding: const EdgeInsets.all(16),
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Row(
-                                          mainAxisAlignment:
-                                              MainAxisAlignment.spaceBetween,
-                                          children: [
-                                            Row(children: const [
-                                              Icon(Icons.check_circle_outline,
-                                                  size: 13,
-                                                  color: Color(0xFF6366F1)),
-                                              SizedBox(width: 5),
-                                              Text('Original',
-                                                  style: TextStyle(
-                                                      fontSize: 11,
-                                                      color: Color(0xFF6366F1),
-                                                      fontWeight:
-                                                          FontWeight.w500)),
-                                            ]),
-                                            if (!_isRegenerating)
-                                              TextButton.icon(
-                                                onPressed: _regenerateResponse,
-                                                icon: const Icon(Icons.refresh,
-                                                    size: 16,
-                                                    color: Color(0xFF6366F1)),
-                                                label: const Text('Regenerate',
-                                                    style: TextStyle(
-                                                        fontSize: 12,
-                                                        color: Color(
-                                                            0xFF6366F1))),
-                                                style: TextButton.styleFrom(
-                                                  padding:
-                                                      const EdgeInsets.symmetric(
-                                                          horizontal: 8,
-                                                          vertical: 4),
-                                                  minimumSize: Size.zero,
-                                                  tapTargetSize:
-                                                      MaterialTapTargetSize
-                                                          .shrinkWrap,
-                                                ),
-                                              ),
-                                          ],
-                                        ),
-                                        const Divider(
-                                            height: 16, thickness: 0.5),
-                                        Expanded(
-                                          child: _isRegenerating
-                                              ? Center(
-                                                  child: Column(
-                                                    mainAxisAlignment:
-                                                        MainAxisAlignment
-                                                            .center,
-                                                    children: [
-                                                      const CircularProgressIndicator(
-                                                        valueColor: AlwaysStoppedAnimation<Color>(
-                                                            Color(0xFF6366F1)),
-                                                        strokeWidth: 2,
-                                                      ),
-                                                      const SizedBox(
-                                                          height: 12),
-                                                      Text('Regenerating...',
-                                                          style: TextStyle(
-                                                              fontSize: 13,
-                                                              color: Colors
-                                                                  .grey[600])),
-                                                    ],
-                                                  ),
-                                                )
-                                              : SingleChildScrollView(
-                                                  controller: _scrollController,
-                                                  child: TextField(
-                                                    controller:
-                                                        widget.messageController,
-                                                    maxLines: null,
-                                                    enabled: _isEditing,
-                                                    decoration:
-                                                        const InputDecoration(
-                                                      border: InputBorder.none,
-                                                      hintText:
-                                                          'AI response will appear here…',
-                                                      hintStyle: TextStyle(
-                                                          color: Colors.grey,
-                                                          fontSize: 14),
-                                                    ),
-                                                    style: const TextStyle(
-                                                        color: Colors.black,
-                                                        fontSize: 14,
-                                                        height: 1.6),
-                                                    onChanged: (text) {
-                                                      _originalResponse = text;
-                                                      _isSendEnabled.value =
-                                                          text
-                                                              .trim()
-                                                              .isNotEmpty;
-                                                    },
-                                                  ),
-                                                ),
-                                        ),
-                                        const SizedBox(height: 12),
-                                        if (!_isAiError)
-                                          ValueListenableBuilder<bool>(
-                                            valueListenable: _isSendEnabled,
-                                            builder: (context, canSend, _) =>
-                                                SizedBox(
-                                              width: double.infinity,
-                                              child: ElevatedButton(
-                                                onPressed: canSend &&
-                                                        !_isRegenerating
-                                                    ? _sendOriginal
-                                                    : null,
-                                                style: ElevatedButton.styleFrom(
-                                                  backgroundColor:
-                                                      const Color(0xFF6366F1),
-                                                  foregroundColor: Colors.white,
-                                                  padding:
-                                                      const EdgeInsets.symmetric(
-                                                          vertical: 12),
-                                                  shape: RoundedRectangleBorder(
-                                                      borderRadius:
-                                                          BorderRadius.circular(
-                                                              12)),
-                                                ),
-                                                child: const Text('Send Message',
-                                                    style: TextStyle(
-                                                        fontSize: 14,
-                                                        fontWeight:
-                                                            FontWeight.w600)),
-                                              ),
-                                            ),
-                                          ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-
-                                // ── Page 1 : Translated ───────────────────
-                                if (_isChatPage)
-                                  Card(
-                                    color: Colors.white,
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(20),
-                                      side: const BorderSide(
-                                          color: Color(0xFF820AFF), width: 3),
-                                    ),
-                                    elevation: 5,
-                                    child: Padding(
-                                      padding: const EdgeInsets.all(16),
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          Row(
-                                            children: [
-                                              const Icon(Icons.translate,
-                                                  size: 13,
-                                                  color: Color(0xFF820AFF)),
-                                              const SizedBox(width: 5),
-                                              Text(
-                                                _selectedLanguage != null
-                                                    ? 'Translated to ${_getLanguageNameFromCode(_selectedLanguage!)}'
-                                                    : 'Translated',
-                                                style: const TextStyle(
-                                                    fontSize: 11,
-                                                    color: Color(0xFF820AFF),
-                                                    fontWeight:
-                                                        FontWeight.w500),
-                                              ),
-                                            ],
-                                          ),
-                                          const Divider(
-                                              height: 16, thickness: 0.5),
-                                          Expanded(
-                                            child: _isTranslating
-                                                ? Center(
-                                                    child: Column(
-                                                      mainAxisAlignment:
-                                                          MainAxisAlignment
-                                                              .center,
-                                                      children: [
-                                                        const CircularProgressIndicator(
-                                                          valueColor: AlwaysStoppedAnimation<Color>(
-                                                              Color(0xFF6366F1)),
-                                                          strokeWidth: 2,
-                                                        ),
-                                                        const SizedBox(
-                                                            height: 12),
-                                                        Text('Translating...',
-                                                            style: TextStyle(
-                                                                fontSize: 13,
-                                                                color: Colors
-                                                                    .grey[600])),
-                                                      ],
-                                                    ),
-                                                  )
-                                                : _translationFailed
-                                                    ? Center(
-                                                        child: Column(
-                                                          mainAxisAlignment:
-                                                              MainAxisAlignment
-                                                                  .center,
-                                                          children: [
-                                                            const Icon(
-                                                                Icons
-                                                                    .error_outline,
-                                                                color: Colors.red,
-                                                                size: 48),
-                                                            const SizedBox(
-                                                                height: 12),
-                                                            const Text(
-                                                              'Translation failed. Please try again.',
-                                                              textAlign:
-                                                                  TextAlign
-                                                                      .center,
-                                                              style: TextStyle(
-                                                                  fontSize: 14,
-                                                                  color:
-                                                                      Colors.red),
-                                                            ),
-                                                            const SizedBox(
-                                                                height: 16),
-                                                            TextButton(
-                                                              onPressed: () {
-                                                                if (_selectedLanguage !=
-                                                                    null) {
-                                                                  _triggerTranslation(
-                                                                      _selectedLanguage!);
-                                                                }
-                                                              },
-                                                              child: const Text(
-                                                                'Retry Translation',
-                                                                style: TextStyle(
-                                                                  color: Color(
-                                                                      0xFF820AFF),
-                                                                  fontWeight:
-                                                                      FontWeight
-                                                                          .w600,
-                                                                ),
-                                                              ),
-                                                            ),
-                                                          ],
-                                                        ),
-                                                      )
-                                                    : SingleChildScrollView(
-                                                        child: TextField(
-                                                          controller:
-                                                              _translatedController,
-                                                          maxLines: null,
-                                                          enabled: false,
-                                                          decoration:
-                                                              const InputDecoration(
-                                                            border:
-                                                                InputBorder.none,
-                                                            hintText:
-                                                                'Translation will appear here…',
-                                                            hintStyle: TextStyle(
-                                                                color:
-                                                                    Colors.grey,
-                                                                fontSize: 14),
-                                                          ),
-                                                          style: const TextStyle(
-                                                              color: Colors.black,
-                                                              fontSize: 14,
-                                                              height: 1.6),
-                                                        ),
-                                                      ),
-                                          ),
-                                          const SizedBox(height: 12),
-                                          if (!_translationFailed)
-                                            ValueListenableBuilder<bool>(
-                                              valueListenable: _isSendEnabled,
-                                              builder: (context, canSend, _) =>
-                                                  SizedBox(
-                                                width: double.infinity,
-                                                child: ElevatedButton(
-                                                  onPressed: !_isTranslating &&
-                                                          !_translationFailed &&
-                                                          _translatedText
-                                                              .trim()
-                                                              .isNotEmpty
-                                                      ? _sendTranslated
-                                                      : null,
-                                                  style: ElevatedButton.styleFrom(
-                                                    backgroundColor:
-                                                        const Color(0xFF820AFF),
-                                                    foregroundColor: Colors.white,
-                                                    padding:
-                                                        const EdgeInsets.symmetric(
-                                                            vertical: 12),
-                                                    shape: RoundedRectangleBorder(
-                                                        borderRadius:
-                                                            BorderRadius.circular(
-                                                                12)),
-                                                  ),
-                                                  child: const Text(
-                                                      'Send Translated',
-                                                      style: TextStyle(
-                                                          fontSize: 14,
-                                                          fontWeight:
-                                                              FontWeight.w600)),
-                                                ),
-                                              ),
-                                            ),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-
-                              ],
-                            );
-                          },
-                        ),
-                      ),
-                    ),
-
-                  ],
-                ),
-              ),
-            ),
-          );
+  
+  void _showMaxIAPromptDialog(BuildContext outerContext, String inputText) {
+    if (_isDisposed || !_isMounted) return;
+    
+    showDialog(
+      context: outerContext,
+      barrierDismissible: true,
+      barrierColor: Colors.black.withOpacity(0.45),
+      builder: (dialogContext) => MaxIAPromptDialog(
+        typedText: inputText, // Pass the input text to the dialog
+        onGenerate: (promptText) {
+          // When user clicks generate, show the bottom sheet with API calls
+          _showMaxIAResponseSheet(outerContext, promptText);
         },
-      );
-    },
-  ).whenComplete(() {
-    _isDisposed = true; // ← mark disposed FIRST
-
-    widget.messageController.clear();
-    if (mounted) {
-      _isSendEnabled.value = false;
-      _isLoadingAI.value = false;
-    }
-
-    // ← delay dispose so Flutter finishes animations/rebuilds first
-    Future.microtask(() {
-      _pageController.dispose();
-      _translatedController.dispose();
-      _scrollController.dispose();
-    });
-  });
-}
-
-// ── Custom shimmer for AI loading (using your pulsing dots) ─────────────────
-Widget _buildLoadingShimmer() {
-  return Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    mainAxisSize: MainAxisSize.min,
-    children: [
-      Row(
-        children: [
-          const _PulsingDots(),
-          const SizedBox(width: 10),
-          Text(
-            'Generating response...',
-            style: TextStyle(
-              fontSize: 13,
-              color: const Color(0xFF6366F1),
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-        ],
       ),
-      const SizedBox(height: 20),
-      ...[0.95, 1.0, 0.78, 1.0, 0.62, 0.88, 0.45].map(
-        (w) => Padding(
-          padding: const EdgeInsets.only(bottom: 12),
-          child: _ShimmerLine(widthFactor: w),
+    );
+  }
+  
+  void _showMaxIAResponseSheet(BuildContext outerContext, String promptText) async {
+    if (_isDisposed || !_isMounted) return;
+
+    final prefs = await SharedPreferences.getInstance();
+    if (_isDisposed || !_isMounted) return;
+
+    final bool isChatPage = prefs.getString('page') == 'chat';
+    showModalBottomSheet(
+      context: outerContext,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      isDismissible: true,
+      useRootNavigator: true,
+      builder: (BuildContext sheetContext) => Padding(
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.of(sheetContext).viewInsets.bottom,
+        ),
+        child: MaxIAResponseBottomSheet(
+          promptText: promptText,
+          aiAssistCall: (text) => call_ai_assist(outerContext, text),
+          fetchLanguagesCall: fetch_ai_languages,
+          translateCall: (text, lang) => call_ai_translate(text, lang),
+          onSendPressed: () {
+            if (_isDisposed || !_isMounted) return;
+            final text = widget.messageController.text;
+            if (text.trim().isEmpty) return;
+            widget.textEditingController.text = text;
+            _inputText.value = text;
+            widget.onPressed();
+            // Clear both controllers after send
+            widget.messageController.clear();
+            _inputText.value = '';
+          },
+          /* onSendPressed: () {
+            if (_isDisposed || !_isMounted) return;
+            final text = widget.messageController.text.trim();
+            if (text.isEmpty) return;
+
+            // Just populate the visible input field — do NOT send
+            widget.textEditingController.text = text;
+            _inputText.value = text;
+
+            // Place cursor at end
+            widget.textEditingController.selection = TextSelection.fromPosition(
+              TextPosition(offset: text.length),
+            );
+
+            // Clean up the AI controller
+            widget.messageController.clear();
+          }, */
+          messageController: widget.messageController,
+          sendEnabledNotifier: _isSendEnabled,
+          loadingAINotifier: _isLoadingAI,
+          isChatPage: isChatPage,
         ),
       ),
-    ],
-  );
-}
-
-// ── Language name helper ─────────────────────────────────────────────────────
-String _getLanguageName(String languageCode) {
-  switch (languageCode) {
-    case 'es': return 'Spanish';
-    case 'fr': return 'French';
-    case 'de': return 'German';
-    case 'it': return 'Italian';
-    case 'pt': return 'Portuguese';
-    case 'ru': return 'Russian';
-    case 'ja': return 'Japanese';
-    case 'ko': return 'Korean';
-    case 'zh': return 'Chinese';
-    case 'ar': return 'Arabic';
-    case 'hi': return 'Hindi';
-    case 'nl': return 'Dutch';
-    case 'pl': return 'Polish';
-    case 'tr': return 'Turkish';
-    default:   return 'Language';
+    );
   }
-}
-
- // Update the validation method to return error message or null
-Future<String?> _validateFileForPlatform(String fileUrl, String platform, String page) async {
-
-  if (page != 'chat') {
-
-    return null; // Only validate for chat pages
-  }
-  
-  // Handle both URLs and file paths
-  String extension = ".${fileUrl.split('.').last}".toLowerCase();
-
-  
-  // WHATSAPP VALIDATION
-  if (platform == 'fb_whatsapp' || platform == 'whatsapp') {
-
-    // WhatsApp image validation
-    if (extension == '.jpg' || extension == '.jpeg' || extension == '.png') {
-
-      return null;
-    }
-    // WhatsApp video validation
-    else if (extension == '.mp4' || extension == '.3gp') {
-
-      return null;
-    }
-    // WhatsApp audio validation
-    else if (extension == '.aac' || extension == '.amr' || extension == '.mp3' || 
-             extension == '.m4a' || extension == '.ogg' || extension == '.oga') {
-      return null;
-    }
-    // WhatsApp document validation
-    else if (extension == '.txt' || extension == '.xls' || extension == '.xlsx' || 
-             extension == '.doc' || extension == '.docx' || extension == '.ppt' || 
-             extension == '.pptx' || extension == '.pdf') {
-
-      return null;
-    }
-    return 'WhatsApp does not support this file format.';
-  }
-  
-  // INSTAGRAM VALIDATION
-  else if (platform == 'instagram' || platform == 'Instagram') {
-
-    if (extension == '.jpeg' || extension == '.png' || extension == '.jpg') {
-      return null;
-    }
-    else if (extension == '.mp4' || extension == '.mov' || extension == '.ogg' || 
-             extension == '.avi' || extension == '.webm') {
-
-      return null;
-    }
-    else if (extension == '.wav' || extension == '.aac' || extension == '.mp4' || 
-             extension == '.m4a') {
-
-      return null;
-    }
-    
-
-    return 'Instagram does not support this file format.';
-  }
-  
-  // TELEGRAM VALIDATION
-  else if (platform == 'telegram' || platform == 'Telegram') {
-
-    if (extension == '.png' || extension == '.jpeg' || extension == '.jpg' || 
-        extension == '.gif' || extension == '.webp' || extension == '.bmp') {
-
-      return null;
-    }
-    else if (extension == '.mp4' || extension == '.avi' || extension == '.mov' || 
-             extension == '.mkv' || extension == '.webm') {
-
-      return null;
-    }
-    else if (extension == '.mp3' || extension == '.ogg' || extension == '.opus' || 
-             extension == '.m4a' || extension == '.flac') {
-
-      return null;
-    }
-    else if (extension == '.txt' || extension == '.pdf' || extension == '.doc' || 
-             extension == '.docx' || extension == '.xls' || extension == '.xlsx' || 
-             extension == '.ppt' || extension == '.pptx') {
-
-      return null;
-    }
-    
-
-    return 'Telegram does not support this file format.';
-  }
-  
-  // FACEBOOK VALIDATION
-  else if (platform == 'facebook' || platform == 'Facebook') {
-
-    if (extension == '.png' || extension == '.jpeg' || extension == '.jpg' || 
-        extension == '.gif') {
-
-      return null;
-    }
-    else if (extension == '.mp4' || extension == '.mov' || extension == '.avi' || 
-             extension == '.mkv' || extension == '.webm') {
-
-      return null;
-    }
-    else if (extension == '.mp3' || extension == '.m4a' || extension == '.ogg') {
-
-      return null;
-    }
-    
-
-    return 'Facebook does not support this file format.';
-  }
-
-  return null;
-}
-void _showErrorSnackbar(BuildContext context, String message) {
-  if (!mounted) return;
-  
-  ScaffoldMessenger.of(context).showSnackBar(
-    SnackBar(
-      content: Row(
-        children: [
-          Icon(Icons.error_outline, color: Colors.white, size: 20),
-          SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              message,
-              style: TextStyle(fontSize: 14,color: Colors.white),
+  Widget _buildLoadingShimmer() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Row(
+          children: [
+            const _PulsingDots(),
+            const SizedBox(width: 10),
+            Text(
+              'Generating response...',
+              style: TextStyle(
+                fontSize: 13,
+                color: const Color(0xFF6366F1),
+                fontWeight: FontWeight.w500,
+              ),
             ),
+          ],
+        ),
+        const SizedBox(height: 20),
+        ...[0.95, 1.0, 0.78, 1.0, 0.62, 0.88, 0.45].map(
+          (w) => Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: _ShimmerLine(widthFactor: w),
           ),
-        ],
+        ),
+      ],
+    );
+  }
+
+  Future<String?> _validateFileForPlatform(
+      String fileUrl, String platform, String page) async {
+    if (page != 'chat') return null;
+    String extension = ".${fileUrl.split('.').last}".toLowerCase();
+    if (platform == 'fb_whatsapp' || platform == 'whatsapp') {
+      if (['.jpg', '.jpeg', '.png', '.mp4', '.3gp', '.aac', '.amr', '.mp3',
+           '.m4a', '.ogg', '.oga', '.txt', '.xls', '.xlsx', '.doc', '.docx',
+           '.ppt', '.pptx', '.pdf'].contains(extension)) return null;
+      return 'WhatsApp does not support this file format.';
+    } else if (platform == 'instagram' || platform == 'Instagram') {
+      if (['.jpeg', '.png', '.jpg', '.mp4', '.mov', '.ogg', '.avi', '.webm',
+           '.wav', '.aac', '.m4a'].contains(extension)) return null;
+      return 'Instagram does not support this file format.';
+    } else if (platform == 'telegram' || platform == 'Telegram') {
+      if (['.png', '.jpeg', '.jpg', '.gif', '.webp', '.bmp', '.mp4', '.avi',
+           '.mov', '.mkv', '.webm', '.mp3', '.ogg', '.opus', '.m4a', '.flac',
+           '.txt', '.pdf', '.doc', '.docx', '.xls', '.xlsx', '.ppt',
+           '.pptx'].contains(extension)) return null;
+      return 'Telegram does not support this file format.';
+    } else if (platform == 'facebook' || platform == 'Facebook') {
+      if (['.png', '.jpeg', '.jpg', '.gif', '.mp4', '.mov', '.avi', '.mkv',
+           '.webm', '.mp3', '.m4a', '.ogg'].contains(extension)) return null;
+      return 'Facebook does not support this file format.';
+    }
+    return null;
+  }
+
+  void _showErrorSnackbar(BuildContext context, String message) {
+    if (!_isMounted || _isDisposed) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            const Icon(Icons.error_outline, color: Colors.white, size: 20),
+            const SizedBox(width: 12),
+            Expanded(
+                child: Text(message,
+                    style: const TextStyle(fontSize: 14, color: Colors.white))),
+          ],
+        ),
+        backgroundColor: const Color(0xFFFF6B35),
+        duration: const Duration(seconds: 4),
+        behavior: SnackBarBehavior.floating,
+        shape:
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        margin: const EdgeInsets.all(10),
       ),
-      backgroundColor: const Color(0xFFFF6B35),
-      duration: Duration(seconds: 4),
-      behavior: SnackBarBehavior.floating,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(10),
-      ),
-      margin: EdgeInsets.all(10),
-    ),
-  );
-}
-void send_file_canned_responses(BuildContext context, String filePath, String? message) async {
-  if (filePath != '') {
-    // Get platform information for validation
+    );
+  }
+
+  bool _isFileSupportedForPlatform(
+      String fileUrl, String platform, String page) {
+    if (page != 'chat') return true;
+    String extension = ".${fileUrl.split('.').last}".toLowerCase();
+    if (platform == 'fb_whatsapp' || platform == 'whatsapp') {
+      return ['.jpg', '.jpeg', '.png', '.mp4', '.3gp', '.aac', '.amr', '.mp3',
+              '.m4a', '.ogg', '.oga', '.txt', '.xls', '.xlsx', '.doc', '.docx',
+              '.ppt', '.pptx', '.pdf'].contains(extension);
+    } else if (platform == 'instagram' || platform == 'Instagram') {
+      return ['.jpeg', '.png', '.jpg', '.mp4', '.mov', '.avi', '.webm', '.wav',
+              '.aac', '.m4a'].contains(extension);
+    } else if (platform == 'telegram' || platform == 'Telegram') {
+      return ['.png', '.jpeg', '.jpg', '.gif', '.webp', '.bmp', '.mp4', '.avi',
+              '.mov', '.mkv', '.webm', '.mp3', '.ogg', '.opus', '.m4a', '.txt',
+              '.pdf', '.doc', '.docx', '.xls', '.xlsx', '.ppt',
+              '.pptx'].contains(extension);
+    } else if (platform == 'facebook' || platform == 'Facebook') {
+      return ['.png', '.jpeg', '.jpg', '.gif', '.mp4', '.mov', '.avi', '.mkv',
+              '.webm', '.mp3', '.m4a', '.ogg'].contains(extension);
+    }
+    return true;
+  }
+
+  void send_file_canned_responses(
+      BuildContext context, String filePath, String? message) async {
+    if (filePath == '') return;
     final prefs = await SharedPreferences.getInstance();
     final String? platform = prefs.getString('platform');
     final String? page = prefs.getString('page');
-    
-    // Validate file format based on platform
-    String? validationError = await _validateFileForPlatform(
-      filePath,
-      platform ?? '',
-      page ?? '',
-    );
-    
-
+    String? validationError =
+        await _validateFileForPlatform(filePath, platform ?? '', page ?? '');
     if (validationError != null) {
       _showErrorSnackbar(context, validationError);
-      return; // Stop if format is not supported
+      return;
     }
-    
-    // Continue with existing sending logic
     final String? uuid = prefs.getString('uuid');
     final String? team_alias = prefs.getString('team_alias');
     final String? cb_lead_id = prefs.getString('cb_lead_id');
     final String? conversation_id = prefs.getString('conversation_id');
     String url = base_url + 'api/send_image_message/';
     Map<String, String> headers = {"Authorization": "$uuid|$team_alias"};
-    
     var postUri = Uri.parse(url);
     var request = http.MultipartRequest("POST", postUri);
     request.fields['cb_lead_id'] = cb_lead_id ?? '';
@@ -1678,782 +790,137 @@ void send_file_canned_responses(BuildContext context, String filePath, String? m
     request.fields['conversation_id'] = conversation_id ?? '';
     request.fields['cb_message_source'] = 'android';
     request.headers.addAll(headers);
-    
-    String extension = getFileExtension(filePath);
-    
-    // Platform-specific file handling
-    if (platform == 'fb_whatsapp' || platform == 'whatsapp') {
-      var mime_type = 'image/png';
-      if (extension == '.jpg' || extension == '.jpeg') {
-        mime_type = 'image/jpeg';
-      } else if (extension == '.png') {
-        mime_type = 'image/png';
-      } else if (extension == '.aac') {
-        mime_type = 'audio/aac';
-      } else if (extension == '.amr') {
-        mime_type = 'audio/amr';
-      } else if (extension == '.mp3') {
-        mime_type = 'audio/mpeg';
-      } else if (extension == '.m4a') {
-        mime_type = 'audio/mp4';
-      } else if (extension == '.ogg' || extension == '.oga') {
-        mime_type = 'audio/ogg';
-      } else if (extension == '.3gp') {
-        mime_type = 'video/3gpp';
-      } else if (extension == '.mp4') {
-        mime_type = 'video/mp4';
-      } else if (extension == '.txt') {
-        mime_type = 'text/plain';
-      } else if (extension == '.xls') {
-        mime_type = 'application/vnd.ms-excel';
-      } else if (extension == '.xlsx') {
-        mime_type = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
-      } else if (extension == '.doc') {
-        mime_type = 'application/msword';
-      } else if (extension == '.docx') {
-        mime_type = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
-      } else if (extension == '.ppt') {
-        mime_type = 'application/vnd.ms-powerpoint';
-      } else if (extension == '.pptx') {
-        mime_type = 'application/vnd.openxmlformats-officedocument.presentationml.presentation';
-      } else if (extension == '.pdf') {
-        mime_type = 'application/pdf';
-      }
-      
-      final mimeParts = mime_type.split('/');
-      request.files.add(await http.MultipartFile.fromPath(
-        'file', 
-        filePath, 
-        contentType: MediaType(mimeParts[0], mimeParts[1])
-      ));
-      
-    } /* else if (platform == 'instagram' || platform == 'Instagram') {
-      String media_type = "file";
-      
-      if (extension == '.jpg' || extension == '.png' || extension == '.jpeg') {
-        media_type = "image";
-      } else if (extension == '.mp4' || extension == '.mov' || extension == '.ogg' || 
-                extension == '.avi' || extension == '.webm') {
-        media_type = "video";
-      } else if (extension == '.wav' || extension == '.aac' || extension == '.mp4' || 
-                extension == '.m4a') {
-        media_type = "audio";
-      } else if (extension == '.pdf') {
-        media_type = "file";
-      }
-
-      request.files.add(await http.MultipartFile.fromPath(
-        'file', 
-        filePath, 
-        contentType: MediaType('application', media_type)
-      ));
-      
-    } */ else if(platform == 'instagram'){
-        String mime_type = 'application/octet-stream';
-
-        if (extension == '.png')
-        {
-          mime_type = 'image/png';
-        }
-        else if (extension == '.jpg' || extension == '.jpeg')
-        {
-          mime_type = 'image/jpeg';
-        }
-        else if (extension == '.mp4' || extension == '.mov' || extension == '.avi' || extension == '.webm')
-        {
-          mime_type = 'video/mp4';
-        }
-        else if (extension == '.m4a')
-        {
-          mime_type = 'audio/mp4';
-        }
-        else if (extension == '.aac')
-        {
-          mime_type = 'audio/aac';
-        }
-        else if (extension == '.wav')
-        {
-          mime_type = 'audio/wav';
-        }
-        else if (extension == '.pdf')
-        {
-          mime_type = 'application/pdf';
-        }
-
-        final mimeParts = mime_type.split('/');
-        request.files.add(await http.MultipartFile.fromPath('file', filePath, contentType: MediaType(mimeParts[0], mimeParts[1])));
-      } else if (platform == 'telegram' || platform == 'Telegram') {
-      String media_type = "file";
-      
-      if (extension == '.jpg' || extension == '.png' || extension == '.jpeg' || 
-          extension == '.gif' || extension == '.webp') {
-        media_type = "image";
-      } else if (extension == '.mp4' || extension == '.mov' || extension == '.webm') {
-        media_type = "video";
-      } else if (extension == '.m4a' || extension == '.mp3' || extension == '.ogg') {
-        media_type = "audio";
-      } else if (extension == '.pdf') {
-        media_type = "file";
-      }
-
-      request.files.add(await http.MultipartFile.fromPath(
-        'file', 
-        filePath, 
-        contentType: MediaType('application', media_type)
-      ));
-      
-    } else if (platform == 'facebook' || platform == 'Facebook') {
-      String media_type = "file";
-      
-      if (extension == '.jpg' || extension == '.png' || extension == '.jpeg' || 
-          extension == '.gif') {
-        media_type = "image";
-      } else if (extension == '.mp4' || extension == '.ogg' || extension == '.avi' || 
-                extension == '.mov' || extension == '.webm' || extension == '.3gp') {
-        media_type = "video";
-      } else if (extension == '.aac' || extension == '.m4a' || extension == '.wav') {
-        media_type = "audio";
-      } else {
-        media_type = "file";
-      }
-
-      request.files.add(await http.MultipartFile.fromPath(
-        'file', 
-        filePath, 
-        contentType: MediaType('application', media_type)
-      ));
-      
-    } else {
-      // Generic platform handling
-      String media_type = "file";
-      
-      if (extension == '.jpg' || extension == '.png' || extension == '.jpeg' || 
-          extension == '.gif' || extension == '.bmp' || extension == '.webp' || 
-          extension == '.heic' || extension == '.heif' || extension == '.svg' || 
-          extension == '.tiff' || extension == '.tif' || extension == '.ico' || 
-          extension == '.raw') {
-        media_type = "image";
-      } else if (extension == '.mp4' || extension == '.avi' || extension == '.mov' || 
-                extension == '.wmv' || extension == '.flv' || extension == '.mkv' || 
-                extension == '.webm' || extension == '.3gp' || extension == '.m4v' || 
-                extension == '.ts' || extension == '.mts' || extension == '.m2ts') {
-        media_type = "video";
-      } else if (extension == '.mp3' || extension == '.wav' || extension == '.aac' || 
-                extension == '.oga' || extension == '.ogg' || extension == '.opus' || 
-                extension == '.m4a' || extension == '.flac' || extension == '.amr' || 
-                extension == '.wma' || extension == '.caf' || extension == '.aiff' || 
-                extension == '.aif' || extension == '.mid' || extension == '.midi' || 
-                extension == '.3ga') {
-        media_type = "audio";
-      }
-
-      request.files.add(await http.MultipartFile.fromPath(
-        'file', 
-        filePath, 
-        contentType: MediaType('application', media_type)
-      ));
-    }
-    
+    request.files.add(await http.MultipartFile.fromPath('file', filePath));
     try {
       final response = await request.send();
-      final responseData = await response.stream.toBytes();
-      final responseString = String.fromCharCodes(responseData);
-
-      
-      if (response.statusCode == 200) {
-
-      } else {
- 
+      if (response.statusCode != 200) {
         _showErrorSnackbar(context, 'Failed to send file. Please try again.');
       }
     } catch (e) {
       _showErrorSnackbar(context, 'Failed to send file. Please try again.');
     }
-    
-    setState(() {
-      filePath = '';
+    if (_isMounted && !_isDisposed) setState(() {});
+  }
+
+  void _showCustomNotification(BuildContext context, String message) {
+    if (!_isMounted || _isDisposed) return;
+    OverlayEntry? overlayEntry;
+    overlayEntry = OverlayEntry(
+      builder: (context) => Positioned(
+        bottom: 20,
+        left: 20,
+        right: 20,
+        child: Material(
+          color: Colors.transparent,
+          child: Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+                color: const Color(0xFFFF6B35),
+                borderRadius: BorderRadius.circular(12),
+                boxShadow: const [
+                  BoxShadow(color: Colors.black26, blurRadius: 10)
+                ]),
+            child: Row(
+              children: [
+                const Icon(Icons.error_outline, color: Colors.white),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Text('Unsupported File Format',
+                          style: TextStyle(
+                              fontWeight: FontWeight.w300,
+                              fontSize: 16,
+                              color: Colors.white)),
+                      const SizedBox(height: 4),
+                      Text(message,
+                          style: const TextStyle(
+                              fontSize: 12, color: Colors.white)),
+                    ],
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.close, color: Colors.white, size: 20),
+                  onPressed: () {
+                    if (overlayEntry != null && overlayEntry!.mounted) {
+                      overlayEntry!.remove();
+                      overlayEntry = null;
+                    }
+                  },
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+    Overlay.of(context, rootOverlay: true).insert(overlayEntry!);
+    Future.delayed(const Duration(seconds: 5), () {
+      if (overlayEntry != null && overlayEntry!.mounted) {
+        overlayEntry!.remove();
+        overlayEntry = null;
+      }
     });
   }
-}
-  
- // Add this new method to check if file is supported without showing notifications
-bool _isFileSupportedForPlatform(String fileUrl, String platform, String page) {
-  if (page != 'chat') return true;
-  
-  String extension = ".${fileUrl.split('.').last}".toLowerCase();
-  
-  // WHATSAPP SUPPORTED FORMATS
-  if (platform == 'fb_whatsapp' || platform == 'whatsapp') {
-    return (extension == '.jpg' || extension == '.jpeg' || extension == '.png' ||
-            extension == '.mp4' || extension == '.3gp' ||
-            extension == '.aac' || extension == '.amr' || extension == '.mp3' || 
-            extension == '.m4a' || extension == '.ogg' || extension == '.oga' ||
-            extension == '.txt' || extension == '.xls' || extension == '.xlsx' || 
-            extension == '.doc' || extension == '.docx' || extension == '.ppt' || 
-            extension == '.pptx' || extension == '.pdf');
-  }
-  
-  // INSTAGRAM SUPPORTED FORMATS
-  else if (platform == 'instagram' || platform == 'Instagram') {
-    return (extension == '.jpeg' || extension == '.png' || extension == '.jpg' ||
-            extension == '.mp4' || extension == '.mov' ||
-            extension == '.avi' || extension == '.webm' ||
-            extension == '.wav' || extension == '.aac' || extension == '.mp4' || 
-            extension == '.m4a');
-  }
-  
-  // TELEGRAM SUPPORTED FORMATS
-  else if (platform == 'telegram' || platform == 'Telegram') {
-    return (extension == '.png' || extension == '.jpeg' || extension == '.jpg' || 
-            extension == '.gif' || extension == '.webp' || extension == '.bmp' ||
-            extension == '.mp4' || extension == '.avi' || extension == '.mov' || 
-            extension == '.mkv' || extension == '.webm' ||
-            extension == '.mp3' || extension == '.ogg' || extension == '.opus' || 
-            extension == '.m4a' || 
-            extension == '.txt' || extension == '.pdf' || extension == '.doc' || 
-            extension == '.docx' || extension == '.xls' || extension == '.xlsx' || 
-            extension == '.ppt' || extension == '.pptx');
-  }
-  
-  // FACEBOOK SUPPORTED FORMATS
-  else if (platform == 'facebook' || platform == 'Facebook') {
-    return (extension == '.png' || extension == '.jpeg' || extension == '.jpg' || 
-            extension == '.gif' ||
-            extension == '.mp4' || extension == '.mov' || extension == '.avi' || 
-            extension == '.mkv' || extension == '.webm' ||
-            extension == '.mp3' || extension == '.m4a' || extension == '.ogg');
-  }
-  
-  return true; // Allow all formats for other platforms
-}
+
   @override
   Widget build(BuildContext context) {
-    final outlineBorder = _outLineBorder;
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        // WhatsApp-style Quick Replies section
+        // Quick Replies
         if (suggestions.isNotEmpty)
           Container(
             width: MediaQuery.of(context).size.width,
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: const BorderRadius.vertical(
-                top: Radius.circular(14),
-                bottom: Radius.circular(14),
-              ),
-              border: Border.all(
-                color: Colors.grey.shade300,
-                width: 0.5,
-              ),
+                  top: Radius.circular(14), bottom: Radius.circular(14)),
+              border: Border.all(color: Colors.grey.shade300, width: 0.5),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        'Quick Replies',
-                        style: TextStyle(
+                  child: Text('Quick Replies',
+                      style: TextStyle(
                           fontSize: 15,
                           fontWeight: FontWeight.w600,
-                          color: Colors.black87,
-                        ),
-                      ),
-                    ],
-                  ),
+                          color: Colors.black87)),
                 ),
-                
-                /* // Suggestions list
                 Container(
-                  constraints: BoxConstraints(maxHeight: 200),
+                  constraints: const BoxConstraints(maxHeight: 200),
                   child: ListView.builder(
                     shrinkWrap: true,
                     padding: EdgeInsets.zero,
                     itemCount: suggestions.length,
                     itemBuilder: (context, index) {
                       final suggestion = suggestions[index];
-                      
-                      // Build media/content widget
                       Widget? trailingWidget;
                       Widget? contentWidget;
 
-                      String getFileExtensionFromUrl(String url) {
-                        if (url.isEmpty) return '';
-                        return url.split('.').last.toLowerCase();
-                      }
-                      bool isImageExtension(String extension) {
-                        return ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'svg'].contains(extension);
-                      }
-                      
-                      bool isVideoExtension(String extension) {
-                        return ['mp4', 'webm', 'ogg'].contains(extension);
-                      }
-
-                      bool isDocumentExtension(String extension) {
-                        return ['doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'txt', 'pdf'].contains(extension);
-                      }
-
-                      IconData getDocumentIcon(String extension) {
-                        switch (extension) {
-                          case 'doc':
-                          case 'docx':
-                            return Icons.description_outlined;
-                          case 'xls':
-                          case 'xlsx':
-                            return Icons.table_chart_outlined;
-                          case 'ppt':
-                          case 'pptx':
-                            return Icons.slideshow_outlined;
-                          case 'txt':
-                            return Icons.text_snippet_outlined;
-                          case 'pdf':
-                            return Icons.picture_as_pdf_outlined;
-                          default:
-                            return Icons.insert_drive_file_outlined;
-                        }
-                      }
-                      
                       switch (suggestion['media_type']) {
                         case 'image':
                           trailingWidget = Container(
                             width: 48,
                             height: 48,
                             decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(4),
-                              color: Colors.grey.shade200,
-                            ),
+                                borderRadius: BorderRadius.circular(4),
+                                color: Colors.grey.shade200),
                             child: ClipRRect(
                               borderRadius: BorderRadius.circular(4),
                               child: Image.network(
-                                suggestion['media_url'] ?? '',
-                                fit: BoxFit.cover,
-                                errorBuilder: (context, error, stackTrace) {
-                                  return Icon(Icons.image, color: Colors.grey, size: 14);
-                                },
-                              ),
-                            ),
-                          );
-                          break;
-                        case 'video':
-                          trailingWidget = Container(
-                            padding: EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: Colors.grey,
-                              borderRadius: BorderRadius.circular(24),
-                            ),
-                            child: Icon(Icons.play_circle_outline, color: Colors.black, size: 14),
-                          );
-                          break;
-                        case 'audio':
-                          trailingWidget = Container(
-                            padding: EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: Colors.grey,
-                              borderRadius: BorderRadius.circular(24),
-                            ),
-                            child: Icon(Icons.audiotrack, color: Colors.black, size: 14),
-                          );
-                          break;
-                        case 'file':
-                          final mediaUrl = suggestion['media_url'] ?? '';
-                          final extension = getFileExtensionFromUrl(mediaUrl);
-                          
-                          if (isImageExtension(extension)) {
-                            // Show image thumbnail for image files
-                            trailingWidget = Container(
-                              width: 48,
-                              height: 48,
-                              decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(4),
-                                color: Colors.grey.shade200,
-                              ),
-                              child: ClipRRect(
-                                borderRadius: BorderRadius.circular(4),
-                                child: Image.network(
-                                  mediaUrl,
+                                  suggestion['media_url'] ?? '',
                                   fit: BoxFit.cover,
-                                  errorBuilder: (context, error, stackTrace) {
-                                    return Icon(Icons.image, color: Colors.grey, size: 14);
-                                  },
-                                ),
-                              ),
-                            );
-                          } else if (isVideoExtension(extension)) {
-                            // Show video icon
-                            trailingWidget = Container(
-                              padding: EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                color: Colors.grey.shade100,
-                                borderRadius: BorderRadius.circular(24),
-                              ),
-                              child: Icon(Icons.play_circle_outline, color: Colors.black, size: 14),
-                            );
-                          } else if (isDocumentExtension(extension)) {
-                            // Show document-specific icon
-                            trailingWidget = Container(
-                              padding: EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                color: Colors.grey.shade100,
-                                borderRadius: BorderRadius.circular(24),
-                              ),
-                              child: Icon(getDocumentIcon(extension), color: Colors.black, size: 14),
-                            );
-                          } else {
-                            // Not a supported file type, treat as text
-                            contentWidget = Text(
-                              suggestion['content'] ?? '',
-                              maxLines: 3,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                color: Colors.grey.shade600,
-                                fontSize: 14,
-                                height: 1.3,
-                              ),
-                            );
-                            trailingWidget = Icon(
-                              Icons.subdirectory_arrow_left,
-                              color: Colors.black,
-                              size: 14,
-                            );
-                          }
-                          break;
-                        default:
-                          // Text content
-                          contentWidget = Text(
-                            suggestion['content'] ?? '',
-                            maxLines: 3,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              color: Colors.grey.shade600,
-                              fontSize: 14,
-                              height: 1.3,
+                                  errorBuilder: (_, __, ___) => const Icon(
+                                      Icons.image,
+                                      color: Colors.grey,
+                                      size: 14)),
                             ),
                           );
-                          trailingWidget = Icon(
-                            Icons.subdirectory_arrow_left,
-                            color: Colors.black,
-                            size: 14,
-                          );
-                          break;
-                      }
-                      
-                      return InkWell(
-                        /* onTap: () async {
-                          if (suggestion['media_url'] != '') {
-                            // Your existing media sending logic
-                            Future<File> _fileFromImageUrl(image_url) async {
-                              final fileName = image_url.split('/').last;
-                              final response = await http.get(Uri.parse(image_url));
-                              final documentDirectory = await getApplicationDocumentsDirectory();
-                              final file = File(join(documentDirectory.path, fileName));
-                              file.writeAsBytesSync(response.bodyBytes);
-                              return file;
-                            }
-
-                            String getFileExtension(String fileName) {
-                              return ".${fileName.split('.').last}".toLowerCase();
-                            }
-
-                            final prefs = await SharedPreferences.getInstance();
-                            final String? uuid = prefs.getString('uuid');
-                            final String? team_alias = prefs.getString('team_alias');
-                            final String? cb_lead_id = prefs.getString('cb_lead_id');
-                            final String? platform = prefs.getString('platform');
-                            final String? conversation_id = prefs.getString('conversation_id');
-                            String url = base_url + 'api/send_image_message/';
-                            Map<String, String> headers = {"Authorization": "$uuid|$team_alias"};
-
-                            var postUri = Uri.parse(url);
-                            var request = http.MultipartRequest("POST", postUri);
-                            request.fields['cb_lead_id'] = "$cb_lead_id";
-                            request.fields['platform'] = "$platform";
-                            request.fields['message_body'] = '';
-                            request.fields['conversation_id'] = "$conversation_id";
-                            request.fields['cb_message_source'] = 'android';
-                            request.headers.addAll(headers);
-                            String extension = getFileExtension("${suggestion['media_url']}");
-                            String media_type = "file";
-                            if(extension == '.jpg' || extension == '.png' || extension == '.jpeg' || extension == '.gif' || extension == '.bmp' || extension == '.webp'|| extension == '.bmp' ||extension == '.svg')
-                            {
-                                media_type = "image";
-                            }
-                            else if(extension == '.mp4' || extension == '.avi' || extension == '.mov' || extension == '.wmv' ||  extension == '.flv' || extension == '.mkv' || extension == '.webm' || extension == '.3gp' || extension == '.m4v' )
-                            {
-                              media_type="video";
-                            }
-                            else if (extension == '.mp3' || extension == '.wav' || extension == '.aac' || extension == '.ogg' || extension == '.opus' || extension == '.m4a' || extension == '.flac' || extension == '.amr' || extension == '.webm' || extension == '.caf' || extension == '.aiff' || extension == '.aif')
-                            {
-                              media_type="audio";
-                            }
-
-                            var uploadfile = await _fileFromImageUrl(suggestion['media_url']);
-                            request.files.add(await http.MultipartFile.fromPath('file', uploadfile.path, contentType: MediaType('application', media_type)));
-                            final response = await request.send();
-                            final responseData = await response.stream.toBytes();
-                            final responseString = String.fromCharCodes(responseData);
-                          } else {
-                            widget.textEditingController.text = suggestion['content'] ?? '';
-                          }
-                          setState(() {
-                            suggestions = [];
-                            _inputText.value = widget.textEditingController.text;
-                          });
-                        }, */
-                        // In the InkWell onTap for suggestions
-                        /* onTap: () async {
-                          if (suggestion['media_url'] != null && suggestion['media_url']!.isNotEmpty) {
- 
-                            final prefs = await SharedPreferences.getInstance();
-                            final String? platform = prefs.getString('platform');
-                            final String? page = prefs.getString('page');
-
-                            String? validationError = await _validateFileForPlatform(
-                              suggestion['media_url'] ?? '',
-                              platform ?? '',
-                              page ?? '',
-                            );
-                            
-                            print('Validation error: $validationError');
-                            
-                            if (validationError != null) {
-
-                              _showErrorSnackbar(context, validationError);
-                              return; 
-                            }
-                            
-                            try {
-                              final fileName = suggestion['media_url']!.split('/').last;
-                              final response = await http.get(Uri.parse(suggestion['media_url']!));
-                              
-                              if (response.statusCode == 200) {
-                                final documentDirectory = await getApplicationDocumentsDirectory();
-                                final file = File(join(documentDirectory.path, fileName));
-                                await file.writeAsBytes(response.bodyBytes);
-
-                                send_file_canned_responses(context, file.path, '');
-                                widget.textEditingController.clear();
-                                _inputText.value = '';
-                              } else {
-                                 widget.textEditingController.clear();
-                                  _inputText.value = '';
-                                //_showErrorSnackbar(context, 'Failed to download media. Please try again.');
-                              }
-                            } catch (e) {
-                              widget.textEditingController.clear();
-                              _inputText.value = '';
-                              _showErrorSnackbar(context, 'Failed to download media. Please try again.');
-                            }
-                          } else {
-                            widget.textEditingController.text = suggestion['content'] ?? '';
-                          }
-                          
-                          setState(() {
-                            suggestions = [];
-                            _inputText.value = widget.textEditingController.text;
-                          });
-                        }, */
-                        
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                          decoration: BoxDecoration(
-                            border: Border(
-                              bottom: BorderSide(
-                                color: Colors.grey.shade200,
-                                width: 0.5,
-                              ),
-                            ),
-                          ),
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      suggestion['short_code'] ?? 'No Shortcode',
-                                      style: TextStyle(
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.w500,
-                                        color: const Color(0xFF1E88E5),
-                                        //color: Colors.black87,
-                                      ),
-                                      maxLines: 2,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                    // Content preview (if text)
-                                    if (contentWidget != null) ...[
-                                      SizedBox(height: 2),
-                                      contentWidget,
-                                    ],
-                                  ],
-                                ),
-                              ),
-                              // Trailing icon/media
-                              if (trailingWidget != null) ...[
-                                SizedBox(width: 12),
-                                trailingWidget,
-                              ],
-                            ],
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-                ), */
-                // Suggestions list
-                Container(
-                  constraints: BoxConstraints(maxHeight: 200),
-                  child: ListView.builder(
-                    shrinkWrap: true,
-                    padding: EdgeInsets.zero,
-                    itemCount: suggestions.length,
-                    itemBuilder: (context, index) {
-                      final suggestion = suggestions[index];
-                      
-                      // Build media/content widget (keep your existing widget building code)
-                      Widget? trailingWidget;
-                      Widget? contentWidget;
-
-                      String getFileExtensionFromUrl(String url) {
-                        if (url.isEmpty) return '';
-                        return url.split('.').last.toLowerCase();
-                      }
-                      bool isImageExtension(String extension) {
-                        return ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'svg'].contains(extension);
-                      }
-                      
-                      bool isVideoExtension(String extension) {
-                        return ['mp4', 'webm', 'ogg'].contains(extension);
-                      }
-
-                      bool isDocumentExtension(String extension) {
-                        return ['doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'txt', 'pdf'].contains(extension);
-                      }
-
-                      IconData getDocumentIcon(String extension) {
-                        switch (extension) {
-                          case 'doc':
-                          case 'docx':
-                            return Icons.description_outlined;
-                          case 'xls':
-                          case 'xlsx':
-                            return Icons.table_chart_outlined;
-                          case 'ppt':
-                          case 'pptx':
-                            return Icons.slideshow_outlined;
-                          case 'txt':
-                            return Icons.text_snippet_outlined;
-                          case 'pdf':
-                            return Icons.picture_as_pdf_outlined;
-                          default:
-                            return Icons.insert_drive_file_outlined;
-                        }
-                      }
-                      
-                      switch (suggestion['media_type']) {
-                        case 'image':
-                          trailingWidget = Container(
-                            width: 48,
-                            height: 48,
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(4),
-                              color: Colors.grey.shade200,
-                            ),
-                            child: ClipRRect(
-                              borderRadius: BorderRadius.circular(4),
-                              child: Image.network(
-                                suggestion['media_url'] ?? '',
-                                fit: BoxFit.cover,
-                                errorBuilder: (context, error, stackTrace) {
-                                  return Icon(Icons.image, color: Colors.grey, size: 14);
-                                },
-                              ),
-                            ),
-                          );
-                          break;
-                        case 'video':
-                          trailingWidget = Container(
-                            padding: EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: Colors.grey,
-                              borderRadius: BorderRadius.circular(24),
-                            ),
-                            child: Icon(Icons.play_circle_outline, color: Colors.black, size: 14),
-                          );
-                          break;
-                        case 'audio':
-                          trailingWidget = Container(
-                            padding: EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: Colors.grey,
-                              borderRadius: BorderRadius.circular(24),
-                            ),
-                            child: Icon(Icons.audiotrack, color: Colors.black, size: 14),
-                          );
-                          break;
-                        case 'file':
-                          final mediaUrl = suggestion['media_url'] ?? '';
-                          final extension = getFileExtensionFromUrl(mediaUrl);
-                          
-                          if (isImageExtension(extension)) {
-                            trailingWidget = Container(
-                              width: 48,
-                              height: 48,
-                              decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(4),
-                                color: Colors.grey.shade200,
-                              ),
-                              child: ClipRRect(
-                                borderRadius: BorderRadius.circular(4),
-                                child: Image.network(
-                                  mediaUrl,
-                                  fit: BoxFit.cover,
-                                  errorBuilder: (context, error, stackTrace) {
-                                    return Icon(Icons.image, color: Colors.grey, size: 14);
-                                  },
-                                ),
-                              ),
-                            );
-                          } else if (isVideoExtension(extension)) {
-                            trailingWidget = Container(
-                              padding: EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                color: Colors.grey.shade100,
-                                borderRadius: BorderRadius.circular(24),
-                              ),
-                              child: Icon(Icons.play_circle_outline, color: Colors.black, size: 14),
-                            );
-                          } else if (isDocumentExtension(extension)) {
-                            trailingWidget = Container(
-                              padding: EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                color: Colors.grey.shade100,
-                                borderRadius: BorderRadius.circular(24),
-                              ),
-                              child: Icon(getDocumentIcon(extension), color: Colors.black, size: 14),
-                            );
-                          } else {
-                            contentWidget = Text(
-                              suggestion['content'] ?? '',
-                              maxLines: 3,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                color: Colors.grey.shade600,
-                                fontSize: 14,
-                                height: 1.3,
-                              ),
-                            );
-                            trailingWidget = Icon(
-                              Icons.subdirectory_arrow_left,
-                              color: Colors.black,
-                              size: 14,
-                            );
-                          }
                           break;
                         default:
                           contentWidget = Text(
@@ -2461,67 +928,64 @@ bool _isFileSupportedForPlatform(String fileUrl, String platform, String page) {
                             maxLines: 3,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
-                              color: Colors.grey.shade600,
-                              fontSize: 14,
-                              height: 1.3,
-                            ),
+                                color: Colors.grey.shade600,
+                                fontSize: 14,
+                                height: 1.3),
                           );
-                          trailingWidget = Icon(
-                            Icons.subdirectory_arrow_left,
-                            color: Colors.black,
-                            size: 14,
-                          );
+                          trailingWidget = const Icon(
+                              Icons.subdirectory_arrow_left,
+                              color: Colors.black,
+                              size: 14);
                           break;
                       }
-                      
-                      // For text-only suggestions, just set the text in controller
-                      if (suggestion['media_url'] == null || suggestion['media_url']!.isEmpty) {
+
+                      if (suggestion['media_url'] == null ||
+                          suggestion['media_url']!.isEmpty) {
                         return InkWell(
                           onTap: () {
-                            // Just set the text in the controller, don't send automatically
-                            widget.textEditingController.text = suggestion['content'] ?? '';
+                            widget.textEditingController.text =
+                                suggestion['content'] ?? '';
                             _inputText.value = suggestion['content'] ?? '';
-                            
-                            setState(() {
-                              suggestions = [];
-                            });
+                            if (_isMounted && !_isDisposed) {
+                              setState(() => suggestions = []);
+                            }
                           },
                           child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 16, vertical: 12),
                             decoration: BoxDecoration(
                               border: Border(
-                                bottom: BorderSide(
-                                  color: Colors.grey.shade200,
-                                  width: 0.5,
-                                ),
-                              ),
+                                  bottom: BorderSide(
+                                      color: Colors.grey.shade200,
+                                      width: 0.5)),
                             ),
                             child: Row(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Expanded(
                                   child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
                                       Text(
-                                        suggestion['short_code'] ?? 'No Shortcode',
-                                        style: TextStyle(
-                                          fontSize: 14,
-                                          fontWeight: FontWeight.w500,
-                                          color: const Color(0xFF1E88E5),
-                                        ),
+                                        suggestion['short_code'] ??
+                                            'No Shortcode',
+                                        style: const TextStyle(
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.w500,
+                                            color: Color(0xFF1E88E5)),
                                         maxLines: 2,
                                         overflow: TextOverflow.ellipsis,
                                       ),
                                       if (contentWidget != null) ...[
-                                        SizedBox(height: 2),
+                                        const SizedBox(height: 2),
                                         contentWidget,
                                       ],
                                     ],
                                   ),
                                 ),
                                 if (trailingWidget != null) ...[
-                                  SizedBox(width: 12),
+                                  const SizedBox(width: 12),
                                   trailingWidget,
                                 ],
                               ],
@@ -2529,121 +993,138 @@ bool _isFileSupportedForPlatform(String fileUrl, String platform, String page) {
                           ),
                         );
                       }
-                      
-                      // For media suggestions, use FutureBuilder to check platform support
+
                       return FutureBuilder<Map<String, dynamic>>(
                         future: SharedPreferences.getInstance().then((prefs) {
-                          final platform = prefs.getString('platform') ?? '';
+                          final platform =
+                              prefs.getString('platform') ?? '';
                           final page = prefs.getString('page') ?? '';
                           final isSupported = _isFileSupportedForPlatform(
-                            suggestion['media_url']!,
-                            platform,
-                            page,
-                          );
-                          return {'isSupported': isSupported, 'platform': platform};
+                              suggestion['media_url']!, platform, page);
+                          return {
+                            'isSupported': isSupported,
+                            'platform': platform
+                          };
                         }),
                         builder: (context, snapshot) {
-                          bool isSupported = snapshot.data?['isSupported'] ?? true;
-                          String platform = snapshot.data?['platform'] ?? '';
-                          
+                          bool isSupported =
+                              snapshot.data?['isSupported'] ?? true;
+                          String platform =
+                              snapshot.data?['platform'] ?? '';
                           return InkWell(
-                            onTap: isSupported ? () async {
-                              final prefs = await SharedPreferences.getInstance();
-                              final String? platform = prefs.getString('platform');
-                              final String? page = prefs.getString('page');
-
-                              String? validationError = await _validateFileForPlatform(
-                                suggestion['media_url'] ?? '',
-                                platform ?? '',
-                                page ?? '',
-                              );
-                              
-                              if (validationError != null) {
-                                _showErrorSnackbar(context, validationError);
-                                return; 
-                              }
-                              
-                              try {
-                                final fileName = suggestion['media_url']!.split('/').last;
-                                final response = await http.get(Uri.parse(suggestion['media_url']!));
-                                
-                                if (response.statusCode == 200) {
-                                  final documentDirectory = await getApplicationDocumentsDirectory();
-                                  final file = File(p.join(documentDirectory.path, fileName));
-                                  await file.writeAsBytes(response.bodyBytes);
-
-                                  send_file_canned_responses(context, file.path, '');
-                                  widget.textEditingController.clear();
-                                  _inputText.value = '';
-                                } else {
-                                  widget.textEditingController.clear();
-                                  _inputText.value = '';
-                                }
-                              } catch (e) {
-                                widget.textEditingController.clear();
-                                _inputText.value = '';
-                                _showErrorSnackbar(context, 'Failed to download media. Please try again.');
-                              }
-                              
-                              setState(() {
-                                suggestions = [];
-                                _inputText.value = widget.textEditingController.text;
-                              });
-                            } : null, // Disable onTap if not supported
+                            onTap: isSupported
+                                ? () async {
+                                    final prefs =
+                                        await SharedPreferences.getInstance();
+                                    final String? platform =
+                                        prefs.getString('platform');
+                                    final String? page =
+                                        prefs.getString('page');
+                                    String? validationError =
+                                        await _validateFileForPlatform(
+                                            suggestion['media_url'] ?? '',
+                                            platform ?? '',
+                                            page ?? '');
+                                    if (validationError != null) {
+                                      _showErrorSnackbar(
+                                          context, validationError);
+                                      return;
+                                    }
+                                    try {
+                                      final fileName =
+                                          suggestion['media_url']!
+                                              .split('/')
+                                              .last;
+                                      final response = await http.get(Uri
+                                          .parse(suggestion['media_url']!));
+                                      if (response.statusCode == 200) {
+                                        final documentDirectory =
+                                            await getApplicationDocumentsDirectory();
+                                        final file = File(p.join(
+                                            documentDirectory.path,
+                                            fileName));
+                                        await file.writeAsBytes(
+                                            response.bodyBytes);
+                                        send_file_canned_responses(
+                                            context, file.path, '');
+                                        widget.textEditingController.clear();
+                                        _inputText.value = '';
+                                      } else {
+                                        widget.textEditingController.clear();
+                                        _inputText.value = '';
+                                      }
+                                    } catch (e) {
+                                      widget.textEditingController.clear();
+                                      _inputText.value = '';
+                                      _showErrorSnackbar(context,
+                                          'Failed to download media. Please try again.');
+                                    }
+                                    if (_isMounted && !_isDisposed) {
+                                      setState(() {
+                                        suggestions = [];
+                                        _inputText.value = widget
+                                            .textEditingController.text;
+                                      });
+                                    }
+                                  }
+                                : null,
                             child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 16, vertical: 12),
                               decoration: BoxDecoration(
                                 border: Border(
-                                  bottom: BorderSide(
-                                    color: Colors.grey.shade200,
-                                    width: 0.5,
-                                  ),
-                                ),
-                                color: isSupported ? Colors.transparent : Colors.grey.shade50,
+                                    bottom: BorderSide(
+                                        color: Colors.grey.shade200,
+                                        width: 0.5)),
+                                color: isSupported
+                                    ? Colors.transparent
+                                    : Colors.grey.shade50,
                               ),
                               child: Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
+                                crossAxisAlignment:
+                                    CrossAxisAlignment.start,
                                 children: [
                                   Expanded(
                                     child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
                                       children: [
                                         Text(
-                                          suggestion['short_code'] ?? 'No Shortcode',
+                                          suggestion['short_code'] ??
+                                              'No Shortcode',
                                           style: TextStyle(
-                                            fontSize: 14,
-                                            fontWeight: FontWeight.w500,
-                                            color: isSupported 
-                                                ? const Color(0xFF1E88E5)
-                                                : Colors.grey.shade400,
-                                          ),
+                                              fontSize: 14,
+                                              fontWeight: FontWeight.w500,
+                                              color: isSupported
+                                                  ? const Color(0xFF1E88E5)
+                                                  : Colors.grey.shade400),
                                           maxLines: 2,
                                           overflow: TextOverflow.ellipsis,
                                         ),
                                         if (contentWidget != null) ...[
-                                          SizedBox(height: 2),
+                                          const SizedBox(height: 2),
                                           contentWidget,
                                         ],
                                         if (!isSupported) ...[
-                                          SizedBox(height: 4),
+                                          const SizedBox(height: 4),
                                           Text(
                                             'This file is not supported on $platform',
                                             style: TextStyle(
-                                              fontSize: 12,
-                                              color: Colors.grey.shade500,
-                                              fontStyle: FontStyle.italic,
-                                            ),
+                                                fontSize: 12,
+                                                color: Colors.grey.shade500,
+                                                fontStyle:
+                                                    FontStyle.italic),
                                           ),
                                         ],
                                       ],
                                     ),
                                   ),
                                   if (trailingWidget != null) ...[
-                                    SizedBox(width: 12),
+                                    const SizedBox(width: 12),
                                     Opacity(
-                                      opacity: isSupported ? 1.0 : 0.4,
-                                      child: trailingWidget,
-                                    ),
+                                        opacity:
+                                            isSupported ? 1.0 : 0.4,
+                                        child: trailingWidget),
                                   ],
                                 ],
                               ),
@@ -2657,8 +1138,8 @@ bool _isFileSupportedForPlatform(String fileUrl, String platform, String page) {
               ],
             ),
           ),
-        
-        // The input bar - ORIGINAL CODE PRESERVED
+
+        // Input bar
         IntrinsicHeight(
           child: Align(
             alignment: Alignment.bottomCenter,
@@ -2670,179 +1151,246 @@ bool _isFileSupportedForPlatform(String fileUrl, String platform, String page) {
                 right: false,
                 top: false,
                 child: Container(
-                  padding: textFieldConfig?.padding ?? const EdgeInsets.symmetric(horizontal: 4),
+                  padding: textFieldConfig?.padding ??
+                      const EdgeInsets.symmetric(horizontal: 4),
                   margin: textFieldConfig?.margin,
                   decoration: BoxDecoration(
-                    borderRadius: textFieldConfig?.borderRadius ?? BorderRadius.circular(textFieldBorderRadius),
-                    color: sendMessageConfig?.textFieldBackgroundColor ?? Colors.white,
+                    borderRadius: textFieldConfig?.borderRadius ??
+                        BorderRadius.circular(textFieldBorderRadius),
+                    color: sendMessageConfig?.textFieldBackgroundColor ??
+                        Colors.white,
                   ),
                   child: ValueListenableBuilder<bool>(
                     valueListenable: isRecording,
                     builder: (context, isRecordingValue, child) {
                       return Column(
                         children: [
-                          // Timer row - positioned above the audio waves at left end
                           if (isRecordingValue)
                             Container(
-                              padding: EdgeInsets.only(left: 16, top: 8, bottom: 2),
+                              padding: const EdgeInsets.only(
+                                  left: 16, top: 8, bottom: 2),
                               alignment: Alignment.centerLeft,
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  Icon(Icons.fiber_manual_record, color: Colors.red, size: 16),
-                                  SizedBox(width: 8),
-                                  Text(
-                                    _timerText,
-                                    style: TextStyle(
-                                      color: Colors.black,
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w500,
+                                  const Icon(Icons.fiber_manual_record,
+                                      color: Colors.red, size: 16),
+                                  const SizedBox(width: 8),
+                                  Text(_timerText,
+                                      style: const TextStyle(
+                                          color: Colors.black,
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w500)),
+                                ],
+                              ),
+                            ),
+                          Row(
+                            children: [
+                              if (isRecordingValue && !kIsWeb)
+                                AudioWaveforms(
+                                  size: Size(
+                                      MediaQuery.of(context).size.width *
+                                          0.75,
+                                      50),
+                                  recorderController: recorderController,
+                                  margin: voiceRecordingConfig?.margin,
+                                  padding:
+                                      voiceRecordingConfig?.padding ??
+                                          const EdgeInsets.symmetric(
+                                              horizontal: 8),
+                                  decoration:
+                                      voiceRecordingConfig?.decoration ??
+                                          BoxDecoration(
+                                            color: voiceRecordingConfig
+                                                ?.backgroundColor,
+                                            borderRadius:
+                                                BorderRadius.circular(
+                                                    12.0),
+                                          ),
+                                  waveStyle:
+                                      voiceRecordingConfig?.waveStyle ??
+                                          WaveStyle(
+                                            extendWaveform: true,
+                                            showMiddleLine: false,
+                                            waveColor: voiceRecordingConfig
+                                                    ?.waveStyle?.waveColor ??
+                                                Colors.black,
+                                          ),
+                                )
+                              else
+                                Expanded(
+                                  child: TextField(
+                                    cursorColor: Colors.black,
+                                    autofocus: widget.autofocus,
+                                    controller:
+                                        widget.textEditingController,
+                                    style: textFieldConfig?.textStyle ??
+                                        const TextStyle(
+                                            color: Colors.white),
+                                    maxLines:
+                                        textFieldConfig?.maxLines ?? 5,
+                                    minLines:
+                                        textFieldConfig?.minLines ?? 1,
+                                    keyboardType:
+                                        textFieldConfig?.textInputType,
+                                    inputFormatters:
+                                        textFieldConfig?.inputFormatters,
+                                    onChanged: _onChanged,
+                                    textCapitalization:
+                                        textFieldConfig
+                                                ?.textCapitalization ??
+                                            TextCapitalization.sentences,
+                                    decoration: InputDecoration(
+                                      hintText:
+                                          textFieldConfig?.hintText ??
+                                              PackageStrings.message,
+                                      fillColor: sendMessageConfig
+                                              ?.textFieldBackgroundColor ??
+                                          Colors.white,
+                                      filled: true,
+                                      hintStyle:
+                                          textFieldConfig?.hintStyle ??
+                                              TextStyle(
+                                                fontSize: 16,
+                                                fontWeight:
+                                                    FontWeight.w400,
+                                                color:
+                                                    Colors.grey.shade600,
+                                                letterSpacing: 0.25,
+                                              ),
+                                      contentPadding:
+                                          textFieldConfig?.contentPadding ??
+                                              const EdgeInsets.symmetric(
+                                                  horizontal: 6),
+                                      border: _outLineBorder,
+                                      focusedBorder: _outLineBorder,
+                                      enabledBorder: OutlineInputBorder(
+                                        borderSide: const BorderSide(
+                                            color: Colors.transparent),
+                                        borderRadius:
+                                            textFieldConfig?.borderRadius ??
+                                                BorderRadius.circular(
+                                                    textFieldBorderRadius),
+                                      ),
                                     ),
                                   ),
-                                ],
-                              ),
-                            ),
-                        Row(
-                        children: [
-                          if (isRecordingValue && recorderController != null && !kIsWeb)
-                            AudioWaveforms(
-                              size: Size(MediaQuery.of(context).size.width * 0.75, 50),
-                              recorderController: recorderController!,
-                              margin: voiceRecordingConfig?.margin,
-                              padding: voiceRecordingConfig?.padding ?? const EdgeInsets.symmetric(horizontal: 8),
-                              decoration: voiceRecordingConfig?.decoration ?? BoxDecoration(
-                                color: voiceRecordingConfig?.backgroundColor,
-                                borderRadius: BorderRadius.circular(12.0),
-                              ),
-                              waveStyle: voiceRecordingConfig?.waveStyle ?? WaveStyle(
-                                extendWaveform: true,
-                                showMiddleLine: false,
-                                waveColor: voiceRecordingConfig?.waveStyle?.waveColor ?? Colors.black,
-                              ),
-                            )
-                          else
-                            Expanded(
-                              child: TextField(
-                                /* focusNode: widget.focusNode, */
-                                cursorColor: Colors.black,    
-                                autofocus: widget.autofocus,
-                                controller: widget.textEditingController,
-                                style: textFieldConfig?.textStyle ?? const TextStyle(color: Colors.white),
-                                maxLines: textFieldConfig?.maxLines ?? 5,
-                                minLines: textFieldConfig?.minLines ?? 1,
-                                keyboardType: textFieldConfig?.textInputType,
-                                inputFormatters: textFieldConfig?.inputFormatters,
-                                onChanged: _onChanged,
-                                textCapitalization: textFieldConfig?.textCapitalization ?? TextCapitalization.sentences,
-                                decoration: InputDecoration(
-                                  hintText: textFieldConfig?.hintText ?? PackageStrings.message,
-                                  fillColor: sendMessageConfig?.textFieldBackgroundColor ?? Colors.white,
-                                  filled: true,
-                                  hintStyle: textFieldConfig?.hintStyle ?? TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w400,
-                                    color: Colors.grey.shade600,
-                                    letterSpacing: 0.25,
-                                  ),
-                                  contentPadding: textFieldConfig?.contentPadding ?? const EdgeInsets.symmetric(horizontal: 6),
-                                  border: _outLineBorder,
-                                  focusedBorder: _outLineBorder,
-                                  enabledBorder: OutlineInputBorder(
-                                    borderSide: const BorderSide(color: Colors.transparent),
-                                    borderRadius: textFieldConfig?.borderRadius ?? BorderRadius.circular(textFieldBorderRadius),
-                                  ),
                                 ),
-                              ),
-                            ),
-                          ValueListenableBuilder<String>(
-                            valueListenable: _inputText,
-                            builder: (_, inputTextValue, child){
-                              if (inputTextValue.isNotEmpty) {
-                                return Row(
-                                  mainAxisAlignment: MainAxisAlignment.end,
-                                  children: [
-                                      IconButton(
-                                        onPressed: () {
-                                          final inputText = widget.textEditingController.text;
-                                          if (inputText.isNotEmpty) {
-                                            _show_dialog_fetch_response(context, inputText);
-                                            widget.textEditingController.clear(); 
-                                            _inputText.value = '';
-                                          } else {
-                                            _inputText.value = '';
-                                          }
-                                        },
-                                        icon: const FaIcon(
-                                          FontAwesomeIcons.magicWandSparkles,
-                                          size: 18,
-                                          color: Colors.black,
-                                        ),
-                                      ),
-                                    IconButton(
-                                      color: sendMessageConfig?.defaultSendButtonColor ?? Colors.green,
-                                      onPressed: () {
-                                        widget.onPressed();
-                                        _inputText.value = '';
-                                      },
-                                      icon: sendMessageConfig?.sendButtonIcon ?? const Icon(Icons.send),
-                                      ),
-                                ],
-                              );
-                              } else {
-                                return Row(
-                                  children: [
-                                    if (!isRecordingValue) ...[
-                                      if (sendMessageConfig?.enableCameraImagePicker ?? true)
-                                        IconButton(
-                                          constraints: const BoxConstraints(),
-                                          onPressed: () => /* _onIconPressed(
-                                            ImageSource.camera,
-                                            config: sendMessageConfig?.imagePickerConfiguration,
-                                          ), */{},
-                                          icon: imagePickerIconsConfig?.cameraImagePickerIcon ?? Icon(
-                                            Icons.camera_alt_outlined,
-                                            color: imagePickerIconsConfig?.cameraIconColor,
-                                          ),
-                                        ),
-                                      if (sendMessageConfig?.enableGalleryImagePicker ?? true)
-                                        IconButton(
-                                          constraints: const BoxConstraints(),
-                                          onPressed: () => _onIconPressed(
-                                            context,
-                                            ImageSource.gallery,
-                                            config: sendMessageConfig?.imagePickerConfiguration,
-                                          ),
-                                          icon: imagePickerIconsConfig?.galleryImagePickerIcon ?? Icon(
-                                            Icons.image,
-                                            color: imagePickerIconsConfig?.galleryIconColor,
-                                          ),
-                                        ),
-                                      
-                                      if(inputTextValue.isEmpty)  
+                              ValueListenableBuilder<String>(
+                                valueListenable: _inputText,
+                                builder: (_, inputTextValue, child) {
+                                  if (inputTextValue.isNotEmpty) {
+                                    return Row(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.end,
+                                      children: [
                                         IconButton(
                                           onPressed: () {
-                                            widget.onAIPressed();
+                                            if (!_isMounted || _isDisposed) return;
+                                              _showMaxIAPromptDialog(context, _inputText.value);
                                           },
                                           icon: const FaIcon(
-                                            FontAwesomeIcons.magicWandSparkles,
+                                            FontAwesomeIcons
+                                                .magicWandSparkles,
                                             size: 18,
                                             color: Colors.black,
                                           ),
-                                        ),  
-                                    ],
-                                    if (sendMessageConfig?.allowRecordingVoice ?? true && (Platform.isIOS || Platform.isAndroid) && !kIsWeb)
-                                      IconButton(
-                                        onPressed: () => _recordOrStop(context),
-                                        icon: (isRecordingValue ? voiceRecordingConfig?.micIcon : voiceRecordingConfig?.stopIcon) ?? Icon(isRecordingValue ? Icons.stop : Icons.mic),
-                                        color: voiceRecordingConfig?.recorderIconColor,
-                                      )
-                                  ],
-                                );
-                              }
-                            },
-                          ), 
-                        ],
-                      ),
+                                        ),
+                                        IconButton(
+                                          color: sendMessageConfig
+                                                  ?.defaultSendButtonColor ??
+                                              Colors.green,
+                                          onPressed: () {
+                                            widget.onPressed();
+                                            _inputText.value = '';
+                                          },
+                                          icon: sendMessageConfig
+                                                  ?.sendButtonIcon ??
+                                              const Icon(Icons.send),
+                                        ),
+                                      ],
+                                    );
+                                  } else {
+                                    return Row(
+                                      children: [
+                                        if (!isRecordingValue) ...[
+                                          if (sendMessageConfig
+                                                  ?.enableCameraImagePicker ??
+                                              true)
+                                            IconButton(
+                                              constraints:
+                                                  const BoxConstraints(),
+                                              onPressed: () {},
+                                              icon: imagePickerIconsConfig
+                                                      ?.cameraImagePickerIcon ??
+                                                  Icon(
+                                                      Icons
+                                                          .camera_alt_outlined,
+                                                      color:
+                                                          imagePickerIconsConfig
+                                                              ?.cameraIconColor),
+                                            ),
+                                          if (sendMessageConfig
+                                                  ?.enableGalleryImagePicker ??
+                                              true)
+                                            IconButton(
+                                              constraints:
+                                                  const BoxConstraints(),
+                                              onPressed: () => _onIconPressed(
+                                                context,
+                                                ImageSource.gallery,
+                                                config: sendMessageConfig
+                                                    ?.imagePickerConfiguration,
+                                              ),
+                                              icon: imagePickerIconsConfig
+                                                      ?.galleryImagePickerIcon ??
+                                                  Icon(Icons.image,
+                                                      color:
+                                                          imagePickerIconsConfig
+                                                              ?.galleryIconColor),
+                                            ),
+                                          IconButton(
+                                            onPressed: () {
+                                              if (!_isMounted || _isDisposed) return;
+                                               _showMaxIAPromptDialog(context, '');
+                                               /*  return;
+                                              _showMaxIAPromptDialog(
+                                                  context); */
+                                            },
+                                            icon: const FaIcon(
+                                              FontAwesomeIcons
+                                                  .magicWandSparkles,
+                                              size: 18,
+                                              color: Colors.black,
+                                            ),
+                                          ),
+                                        ],
+                                        if (sendMessageConfig
+                                                    ?.allowRecordingVoice ??
+                                                true &&
+                                                    (Platform.isIOS ||
+                                                        Platform.isAndroid) &&
+                                                    !kIsWeb)
+                                          IconButton(
+                                            onPressed: () =>
+                                                _recordOrStop(context),
+                                            icon: (isRecordingValue
+                                                        ? voiceRecordingConfig
+                                                            ?.micIcon
+                                                        : voiceRecordingConfig
+                                                            ?.stopIcon) ??
+                                                Icon(isRecordingValue
+                                                    ? Icons.stop
+                                                    : Icons.mic),
+                                            color: voiceRecordingConfig
+                                                ?.recorderIconColor,
+                                          )
+                                      ],
+                                    );
+                                  }
+                                },
+                              ),
+                            ],
+                          ),
                         ],
                       );
                     },
@@ -2862,35 +1410,29 @@ bool _isFileSupportedForPlatform(String fileUrl, String platform, String page) {
           defaultTargetPlatform == TargetPlatform.android,
       "Voice messages are only supported with android and ios platform",
     );
-    
     if (!isRecording.value) {
       final directory = await getTemporaryDirectory();
-      final filePath = '${directory.path}/recording_${DateTime.now().millisecondsSinceEpoch}.m4a';
-      
-      await recorderController?.record(path: filePath); // Pass the path here
+      final filePath =
+          '${directory.path}/recording_${DateTime.now().millisecondsSinceEpoch}.m4a';
+      await recorderController.record(path: filePath);
       isRecording.value = true;
       _startTimer();
     } else {
-      // Stop recording
       final recordedPath = await recorderController.stop();
       isRecording.value = false;
       _stopTimer();
-      
       if (recordedPath != null && recordedPath.isNotEmpty) {
         final prefs = await SharedPreferences.getInstance();
         final String? platform = prefs.getString('platform');
-        
         FocusManager.instance.primaryFocus?.unfocus();
-      
         await Future.delayed(const Duration(milliseconds: 100));
-        
         Navigator.push(
           ctx,
           MaterialPageRoute(
             builder: (ctx) => AudioViewerPage(
               fileUrl: recordedPath,
-              onSend: (fileUrl, caption,onComplete) {
-                send_file_tap(fileUrl, caption ?? '',onComplete);
+              onSend: (fileUrl, caption, onComplete) {
+                send_file_tap(fileUrl, caption ?? '', onComplete);
               },
               platform: platform ?? '',
             ),
@@ -2900,14 +1442,10 @@ bool _isFileSupportedForPlatform(String fileUrl, String platform, String page) {
     }
   }
 
-  String getFileExtension(String fileName) 
-  {
-    return ".${fileName.split('.').last}".toLowerCase();
-  }
-  void send_file_tap(String filePath, String? message,VoidCallback onComplete) async {
+  void send_file_tap(
+      String filePath, String? message, VoidCallback onComplete) async {
     ProcessingOverlay.show(context);
-    if(filePath != '')
-    {
+    if (filePath != '') {
       final prefs = await SharedPreferences.getInstance();
       final String? uuid = prefs.getString('uuid');
       final String? team_alias = prefs.getString('team_alias');
@@ -2916,250 +1454,29 @@ bool _isFileSupportedForPlatform(String fileUrl, String platform, String page) {
       final String? conversation_id = prefs.getString('conversation_id');
       String url = base_url + 'api/send_image_message/';
       Map<String, String> headers = {"Authorization": "$uuid|$team_alias"};
-      
-      if (filePath != '' ) {
-        var postUri = Uri.parse(url);
-        var request = http.MultipartRequest("POST", postUri);
-        request.fields['cb_lead_id'] = "$cb_lead_id";
-        request.fields['platform'] = "$platform";
-        request.fields['message_body'] = message??'';
-        request.fields['conversation_id'] = "$conversation_id";
-        request.fields['cb_message_source'] = 'android';
-        request.headers.addAll(headers);
-        String extension = getFileExtension(filePath);
-        if(platform=='fb_whatsapp'|| platform=='whatsapp')
-        {
-          var mime_type = 'image/png';
-          if(extension == '.jpg' || extension == '.jpeg')
-          {
-              mime_type = 'image/jpeg';
-          }
-          else if(extension == '.png')
-          {
-              mime_type = 'image/png';
-          }
-          else if(extension=='.aac'){
-              mime_type = 'audio/aac';
-          }
-          else if(extension=='.amr'){
-              mime_type= 'audio/amr';
-          }
-          else if(extension=='.mp3'){
-              mime_type='audio/mpeg';
-          }
-          else if(extension=='.m4a'){
-              mime_type='audio/mp4';
-          }
-         else if (extension == '.ogg' || extension == '.oga') {
-            mime_type = 'audio/ogg';
-          }
-          else if(extension=='.3gp'){
-              mime_type='video/3gpp';
-          }
-          else if(extension=='.mp4'){
-              mime_type='video/mp4';
-          }
-          else if(extension=='.txt'){
-            mime_type='text/plain';
-          }
-          else if(extension=='.xls'){
-              mime_type='application/vnd.ms-excel';
-          }
-          else if(extension=='.xlsx'){
-              mime_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
-          }
-          else if(extension=='.doc'){
-              mime_type='application/msword';
-          }
-          else if(extension=='.docx'){
-              mime_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document';
-          }
-          else if(extension=='.ppt'){
-            mime_type='application/vnd.ms-powerpoint';
-          }
-          else if(extension=='.pptx'){
-            mime_type='application/vnd.openxmlformats-officedocument.presentationml.presentation';
-          }
-          else if (extension=='.pdf'){
-            mime_type='application/pdf';
-          }
-          final mimeParts = mime_type.split('/');
-          request.files.add(await http.MultipartFile.fromPath('file', filePath, contentType: MediaType(mimeParts[0], mimeParts[1])));
+      var postUri = Uri.parse(url);
+      var request = http.MultipartRequest("POST", postUri);
+      request.fields['cb_lead_id'] = "$cb_lead_id";
+      request.fields['platform'] = "$platform";
+      request.fields['message_body'] = message ?? '';
+      request.fields['conversation_id'] = "$conversation_id";
+      request.fields['cb_message_source'] = 'android';
+      request.headers.addAll(headers);
+      request.files.add(await http.MultipartFile.fromPath('file', filePath));
+      final response = await request.send();
+      if (response.statusCode == 200) {
+        ProcessingOverlay.hide();
+        onComplete();
+      } else {
+        ProcessingOverlay.hide();
+        onComplete();
+        if (_isMounted && !_isDisposed) {
+          _showErrorSnackbar(context, 'Failed to send file.');
         }
-       /*  else if(platform=='instagram'){
-          String media_type = "file";
-        
-          if (extension == '.jpg' || extension == '.png' || extension == '.jpeg')
-          {
-              media_type = "image";
-          }
-          else if (extension == '.mp4'  || extension == '.mov' || extension == '.ogg' || extension =='.avi' || extension =='.webm')
-          {
-            media_type = "video";
-          }
-          else if ( extension == '.wav' || extension == '.aac' || extension == '.mp4' || extension == '.m4a')
-          {
-            media_type = "audio";
-          }
-          else if(extension == '.pdf'){
-             media_type = "file";
-          }
-          request.files.add(await http.MultipartFile.fromPath('file', filePath, contentType: MediaType('application', media_type)));
-        } */
-        else if(platform == 'instagram'){
-          String mime_type = 'application/octet-stream';
-
-          if (extension == '.png')
-          {
-            mime_type = 'image/png';
-          }
-          else if (extension == '.jpg' || extension == '.jpeg')
-          {
-            mime_type = 'image/jpeg';
-          }
-          else if (extension == '.mp4' || extension == '.mov' || extension == '.avi' || extension == '.webm')
-          {
-            mime_type = 'video/mp4';
-          }
-          else if (extension == '.m4a')
-          {
-            mime_type = 'audio/mp4';
-          }
-          else if (extension == '.aac')
-          {
-            mime_type = 'audio/aac';
-          }
-          else if (extension == '.wav')
-          {
-            mime_type = 'audio/wav';
-          }
-          else if (extension == '.pdf')
-          {
-            mime_type = 'application/pdf';
-          }
-
-          final mimeParts = mime_type.split('/');
-          request.files.add(await http.MultipartFile.fromPath('file', filePath, contentType: MediaType(mimeParts[0], mimeParts[1])));
-        }
-        else{
-          
-          String media_type = "file";
-        
-          if (extension == '.jpg' || extension == '.png' || extension == '.jpeg' || extension == '.gif' || extension == '.bmp' || extension == '.webp' || extension == '.heic' || extension == '.heif' || extension == '.svg' || extension == '.tiff' || extension == '.tif' || extension == '.ico' || extension == '.raw')
-          {
-              media_type = "image";
-          }
-          else if (extension == '.mp4' || extension == '.avi' || extension == '.mov' || extension == '.wmv' || extension == '.flv' || extension == '.mkv' || extension == '.webm' || extension == '.3gp' || extension == '.m4v' || extension == '.ts' || extension == '.mts' || extension == '.m2ts')
-          {
-            media_type = "video";
-          }
-          else if (extension == '.mp3' || extension == '.wav' || extension == '.aac' || extension == '.oga' || extension == '.ogg' || extension == '.opus' || extension == '.m4a' || extension == '.flac' || extension == '.amr' || extension == '.wma' || extension == '.caf' || extension == '.aiff' || extension == '.aif' || extension == '.mid' || extension == '.midi' || extension == '.3ga')
-          {
-            media_type = "audio";
-          }
-          request.files.add(await http.MultipartFile.fromPath('file', filePath, contentType: MediaType('application', media_type)));
-        }  
-        final response = await request.send();
-        final responseData = await response.stream.toBytes();
-        final responseString = String.fromCharCodes(responseData);
-        if (response.statusCode == 200) {
-          // success - bar hidden, nothing else needed
-          ProcessingOverlay.hide();
-          onComplete(); 
-        } else {
-          ProcessingOverlay.hide();
-          onComplete(); 
-         _showErrorSnackbar(context, 'Failed to send file.');
-        }
-       /*  final response = await request.send();
-        final responseData = await response.stream.toBytes();
-        final responseString = String.fromCharCodes(responseData); */
       }
-      setState(() {
-        filePath='';
-      });
+      if (_isMounted && !_isDisposed) setState(() {});
     }
   }
-
-void _showCustomNotification(BuildContext context, String message) {
-  if (!mounted) return;
-  
-  OverlayEntry? overlayEntry;
-  
-  overlayEntry = OverlayEntry(
-    builder: (context) => Positioned(
-      bottom: 20,
-      left: 20,
-      right: 20,
-      child: Material(
-        color: Colors.transparent,
-        child: Container(
-          padding: EdgeInsets.all(10),
-          decoration: BoxDecoration(
-            color: const Color(0xFFFF6B35),
-            borderRadius: BorderRadius.circular(12),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black26,
-                blurRadius: 10,
-              ),
-            ],
-          ),
-          child: Row(
-            children: [
-              Icon(Icons.error_outline, color: Colors.white),
-              SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      'Unsupported File Format',
-                      style: TextStyle(
-                        fontWeight: FontWeight.w300,
-                        fontSize: 16,
-                        color: Colors.white,
-                      ),
-                    ),
-                    SizedBox(height: 4),
-                    Text(
-                      message,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              IconButton(
-                icon: Icon(Icons.close, color: Colors.white, size: 20),
-                onPressed: () {
-                  if (overlayEntry != null && overlayEntry!.mounted) {
-                    overlayEntry!.remove();
-                    overlayEntry = null;
-                  }
-                },
-              ),
-            ],
-          ),
-        ),
-      ),
-    ),
-  );
-  
-  // Use root overlay to ensure it's inserted properly
-  Overlay.of(context, rootOverlay: true).insert(overlayEntry!);
-  
-  // Auto remove after 5 seconds
-  Future.delayed(Duration(seconds: 5), () {
-    if (overlayEntry != null && overlayEntry!.mounted) {
-      overlayEntry!.remove();
-      overlayEntry = null;
-    }
-  });
-}
 
   void _onIconPressed(
     BuildContext ctx,
@@ -3167,207 +1484,151 @@ void _showCustomNotification(BuildContext context, String message) {
     ImagePickerConfiguration? config,
   }) async {
     try {
-      // Get platform and page from SharedPreferences BEFORE picking image
       final prefs = await SharedPreferences.getInstance();
       final String? platform = prefs.getString('platform');
       final String? page = prefs.getString('page');
-      
-      // Check if platform-specific validation is needed
-      bool needsWhatsAppValidation = page == 'chat' && 
-                                      (platform == 'fb_whatsapp' || platform == 'whatsapp');
-      bool needsInstagramValidation = page == 'chat' && 
-                                      (platform == 'instagram' || platform == 'Instagram');
-      bool needsTelegramValidation = page == 'chat' && 
-                                      (platform == 'telegram' || platform == 'Telegram');
-      bool needsFacebookValidation = page == 'chat' && 
-                                      (platform == 'facebook' || platform == 'Facebook');
-      
+      bool needsWhatsAppValidation = page == 'chat' &&
+          (platform == 'fb_whatsapp' || platform == 'whatsapp');
+      bool needsInstagramValidation = page == 'chat' &&
+          (platform == 'instagram' || platform == 'Instagram');
+      bool needsTelegramValidation = page == 'chat' &&
+          (platform == 'telegram' || platform == 'Telegram');
+      bool needsFacebookValidation = page == 'chat' &&
+          (platform == 'facebook' || platform == 'Facebook');
       final XFile? image = await _imagePicker.pickImage(
         source: imageSource,
         maxHeight: config?.maxHeight,
         maxWidth: config?.maxWidth,
         imageQuality: config?.imageQuality,
-        preferredCameraDevice: config?.preferredCameraDevice ?? CameraDevice.rear,
+        preferredCameraDevice:
+            config?.preferredCameraDevice ?? CameraDevice.rear,
       );
-
       String? imagePath = image?.path;
-      
-      // Allow custom processing of image path
       if (config?.onImagePicked != null) {
         String? updatedImagePath = await config?.onImagePicked!(imagePath);
         if (updatedImagePath != null) imagePath = updatedImagePath;
       }
-      
       if (imagePath != null && imagePath.isNotEmpty) {
-        
         String lowerPath = imagePath.toLowerCase();
-        
-        // WHATSAPP VALIDATION
         if (needsWhatsAppValidation) {
-          // WhatsApp only supports JPG, JPEG, PNG for images
-          bool isValidFormat = lowerPath.endsWith('.jpg') || 
-                              lowerPath.endsWith('.jpeg') || 
-                              lowerPath.endsWith('.png');
-          
+          bool isValidFormat = lowerPath.endsWith('.jpg') ||
+              lowerPath.endsWith('.jpeg') ||
+              lowerPath.endsWith('.png');
           if (!isValidFormat) {
-            _showCustomNotification(ctx, 'WhatsApp only supports JPG, JPEG, and PNG images.');
+            _showCustomNotification(
+                ctx, 'WhatsApp only supports JPG, JPEG, and PNG images.');
+            return;
+          }
+        } else if (needsInstagramValidation) {
+          bool isValidFormat = lowerPath.endsWith('.jpeg') ||
+              lowerPath.endsWith('.png') ||
+              lowerPath.endsWith('.jpg');
+          if (!isValidFormat) {
+            _showCustomNotification(
+                ctx, 'Instagram only supports JPEG and PNG images.');
+            return;
+          }
+        } else if (needsTelegramValidation) {
+          bool isValidFormat = lowerPath.endsWith('.png') ||
+              lowerPath.endsWith('.jpeg') ||
+              lowerPath.endsWith('.jpg') ||
+              lowerPath.endsWith('.gif') ||
+              lowerPath.endsWith('.webp') ||
+              lowerPath.endsWith('.bmp');
+          if (!isValidFormat) {
+            _showCustomNotification(ctx,
+                'Telegram supports PNG, JPEG, GIF, and WEBP images.');
+            return;
+          }
+        } else if (needsFacebookValidation) {
+          bool isValidFormat = lowerPath.endsWith('.png') ||
+              lowerPath.endsWith('.jpeg') ||
+              lowerPath.endsWith('.jpg') ||
+              lowerPath.endsWith('.gif');
+          if (!isValidFormat) {
+            _showCustomNotification(
+                ctx, 'Facebook supports PNG, JPEG, and GIF images.');
             return;
           }
         }
-        
-        // INSTAGRAM VALIDATION
-        else if (needsInstagramValidation) {
-          // Instagram only supports JPEG and PNG for images
-          bool isValidFormat = lowerPath.endsWith('.jpeg') || 
-                              lowerPath.endsWith('.png') ||
-                              lowerPath.endsWith('.jpg'); // Include jpg for Instagram
-          
-          if (!isValidFormat) {
-            _showCustomNotification(ctx, 'Instagram only supports JPEG and PNG images.');
-            return;
-          }
-        }
-        
-        // TELEGRAM VALIDATION
-        else if (needsTelegramValidation) {
-          // Telegram supports PNG, JPEG, 20?, GIF, WEBP
-          bool isValidFormat = lowerPath.endsWith('.png') || 
-                              lowerPath.endsWith('.jpeg') || 
-                              lowerPath.endsWith('.jpg') ||
-                              lowerPath.endsWith('.gif') || 
-                              lowerPath.endsWith('.webp') ||
-                              lowerPath.endsWith('.bmp'); // Adding BMP as it's common
-          
-          if (!isValidFormat) {
-            _showCustomNotification(ctx, 'Telegram supports PNG, JPEG, GIF, and WEBP images.');
-            return;
-          }
-        }
-        
-        // FACEBOOK VALIDATION
-        else if (needsFacebookValidation) {
-          // Facebook supports PNG, JPEG, GIF
-          bool isValidFormat = lowerPath.endsWith('.png') || 
-                              lowerPath.endsWith('.jpeg') || 
-                              lowerPath.endsWith('.jpg') ||
-                              lowerPath.endsWith('.gif');
-          
-          if (!isValidFormat) {
-            _showCustomNotification(ctx, 'Facebook supports PNG, JPEG, and GIF images.');
-            return;
-          }
-        }
-        
-        // Navigate to ImageViewerPage
         Navigator.push(
           ctx,
           MaterialPageRoute(
             builder: (context) => ImageViewerPage(
               imagePath: imagePath ?? '',
-              onSend: (sentImagePath, message,completed) {
-                widget.onImageSelected(sentImagePath, '', message ?? '',); 
+              onSend: (sentImagePath, message, completed) {
+                widget.onImageSelected(sentImagePath, '', message ?? '');
               },
-              padding: EdgeInsets.fromLTRB(
-                bottomPadding4,
-                bottomPadding4,
-                bottomPadding4,
-                bottomPadding4
-              ),
-              platform: platform??'',
+              padding: const EdgeInsets.fromLTRB(
+                  bottomPadding4, bottomPadding4, bottomPadding4,
+                  bottomPadding4),
+              platform: platform ?? '',
             ),
           ),
         );
       }
     } catch (e) {
-      widget.onImageSelected('', e.toString(), '',);
+      widget.onImageSelected('', e.toString(), '');
     }
   }
-  void _onChanged(String inputText) async 
-  {
-    if (inputText.startsWith('/')) 
-    {
-      String searchText;
-    
-        if (inputText == '/') {
-          // Case 1: User typed just "/"
-          searchText = '/';
-        } else {
-          // Case 2: User typed something like "/hello"
-          searchText = inputText.substring(1); // Remove the slash
-        }
+
+  void _onChanged(String inputText) async {
+    if (inputText.startsWith('/')) {
+      String searchText =
+          inputText == '/' ? '/' : inputText.substring(1);
       final canned_response = await fetch_canned_responses(searchText);
-      setState(() 
-      {
-        if (inputText == '/') {
-          // Just the slash - check if API returned empty
-          if (canned_response.isEmpty) {
+      if (_isMounted && !_isDisposed) {
+        setState(() {
+          if (inputText == '/') {
+            suggestions = canned_response.isEmpty
+                ? [
+                    {
+                      "short_code": "Please Enter Short code",
+                      "content": "",
+                      "media_type": "",
+                      "media_url": ""
+                    }
+                  ]
+                : canned_response;
+          } else if (canned_response.isEmpty) {
             suggestions = [
               {
-                "short_code": "Please Enter Short code",
+                "short_code": "Nothing to Suggest",
                 "content": "",
                 "media_type": "",
                 "media_url": ""
               }
             ];
           } else {
-            // Show API suggestions for just "/"
             suggestions = canned_response;
           }
-        } 
-        else if (canned_response.isEmpty) 
-        {
-          suggestions = 
-          [
-            {
-              "short_code": "Nothing to Suggest",
-              "content": "",
-              "media_type": "",
-              "media_url": ""
-            }
-          ];
-        } 
-        else 
-        {
-          suggestions=canned_response;
-        }
-      });
-    }
-    else 
-    {
+        });
+      }
+    } else {
       _removeSuggestionOverlay();
-      setState(() 
-      {
-        suggestions = [];
-      });
+      if (_isMounted && !_isDisposed) setState(() => suggestions = []);
     }
-    if(inputText.isEmpty)
-    {
-      _inputText.value='';
-    }
-    else
-    {
-      _inputText.value=inputText;
-    }
-    debouncer.run(() 
-    {
-      composingStatus.value = TypeWriterStatus.typed;
-    },() 
-    {
-      composingStatus.value = TypeWriterStatus.typing;
-    });
+    _inputText.value = inputText.isEmpty ? '' : inputText;
+    debouncer.run(
+      () { if (!_isDisposed) composingStatus.value = TypeWriterStatus.typed; },
+      () { if (!_isDisposed) composingStatus.value = TypeWriterStatus.typing; },
+    );
   }
-
 }
 
-
+// Rest of the supporting widgets remain the same...
 class ImageViewerPage extends StatefulWidget {
   final String? imagePath;
-  final Function(String, String?,VoidCallback) onSend;
+  final Function(String, String?, VoidCallback) onSend;
   final String platform;
   final EdgeInsetsGeometry padding;
-
-  const ImageViewerPage({Key? key, required this.imagePath, required this.onSend, required this.padding, required this.platform}) : super(key: key);
-
+  const ImageViewerPage(
+      {Key? key,
+      required this.imagePath,
+      required this.onSend,
+      required this.padding,
+      required this.platform})
+      : super(key: key);
   @override
   _ImageViewerPageState createState() => _ImageViewerPageState();
 }
@@ -3375,34 +1636,35 @@ class ImageViewerPage extends StatefulWidget {
 class _ImageViewerPageState extends State<ImageViewerPage> {
   final TextEditingController _messageController = TextEditingController();
   final FocusNode _focusNode = FocusNode();
+  bool _isMounted = false;
   
   @override
   void initState() {
     super.initState();
-    _focusNode.addListener(() {
-      setState(() {}); // Rebuild when focus changes
-    });
+    _isMounted = true;
+    _focusNode.addListener(() { if (_isMounted) setState(() {}); });
   }
-
+  
   @override
   void dispose() {
+    _isMounted = false;
     _messageController.dispose();
     _focusNode.dispose();
     super.dispose();
   }
-
+  
   @override
   Widget build(BuildContext context) {
     final mediaQuery = MediaQuery.of(context);
-    final bottomPadding = mediaQuery.viewInsets.bottom;
-    final hasCaption = widget.platform != 'facebook' && widget.platform != 'instagram';
-    
+    final hasCaption =
+        widget.platform != 'facebook' && widget.platform != 'instagram';
     return Scaffold(
       backgroundColor: Colors.black,
       resizeToAvoidBottomInset: true,
       appBar: AppBar(
         backgroundColor: Colors.black,
-        title: const Text('Image Preview', style: TextStyle(color: Colors.white)),
+        title: const Text('Image Preview',
+            style: TextStyle(color: Colors.white)),
         centerTitle: true,
         iconTheme: const IconThemeData(color: Colors.white),
       ),
@@ -3413,26 +1675,23 @@ class _ImageViewerPageState extends State<ImageViewerPage> {
               child: widget.imagePath != null && widget.imagePath!.isNotEmpty
                   ? ClipRRect(
                       borderRadius: BorderRadius.circular(15),
-                      child: Image.file(File(widget.imagePath!), fit: BoxFit.contain),
-                    )
-                  : const Text('No image selected', style: TextStyle(color: Colors.white70)),
+                      child: Image.file(File(widget.imagePath!),
+                          fit: BoxFit.contain))
+                  : const Text('No image selected',
+                      style: TextStyle(color: Colors.white70)),
             ),
           ),
-          // Bottom input area with proper padding
           Container(
             margin: EdgeInsets.only(
-              left: 16,
-              right: 16,
-              bottom: bottomPadding > 0 
-                  ? mediaQuery.padding.bottom + 10
-                  : mediaQuery.padding.bottom + 10,
-            ),
+                left: 16,
+                right: 16,
+                bottom: mediaQuery.padding.bottom + 10),
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
               decoration: BoxDecoration(
-                color: Colors.grey[900],
-                borderRadius: BorderRadius.circular(15),
-              ),
+                  color: Colors.grey[900],
+                  borderRadius: BorderRadius.circular(15)),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
@@ -3441,23 +1700,25 @@ class _ImageViewerPageState extends State<ImageViewerPage> {
                       child: TextField(
                         controller: _messageController,
                         focusNode: _focusNode,
-                        style: const TextStyle(color: Colors.white, fontSize: 16),
+                        style: const TextStyle(
+                            color: Colors.white, fontSize: 16),
                         maxLines: 3,
                         minLines: 1,
                         decoration: const InputDecoration(
                           hintText: "Add a caption...",
                           hintStyle: TextStyle(color: Colors.white54),
                           border: InputBorder.none,
-                          contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          contentPadding: EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 8),
                           isDense: true,
                         ),
                       ),
                     ),
-                  if (!hasCaption)
-                    const Spacer(),
+                  if (!hasCaption) const Spacer(),
                   GestureDetector(
                     onTap: () {
-                      widget.onSend(widget.imagePath ?? '', _messageController.text.trim(),(){});
+                      widget.onSend(widget.imagePath ?? '',
+                          _messageController.text.trim(), () {});
                       _messageController.clear();
                       Navigator.pop(context);
                     },
@@ -3465,10 +1726,10 @@ class _ImageViewerPageState extends State<ImageViewerPage> {
                       margin: const EdgeInsets.all(4),
                       padding: const EdgeInsets.all(10),
                       decoration: BoxDecoration(
-                        color: Colors.blue,
-                        borderRadius: BorderRadius.circular(30),
-                      ),
-                      child: const Icon(Icons.send, color: Colors.white, size: 22),
+                          color: Colors.blue,
+                          borderRadius: BorderRadius.circular(30)),
+                      child: const Icon(Icons.send,
+                          color: Colors.white, size: 22),
                     ),
                   ),
                 ],
@@ -3480,13 +1741,17 @@ class _ImageViewerPageState extends State<ImageViewerPage> {
     );
   }
 }
+
 class AudioViewerPage extends StatefulWidget {
   final String fileUrl;
-  final Function(String, String?,VoidCallback) onSend;
-  final String platform; 
-
-  const AudioViewerPage({Key? key, required this.fileUrl, required this.onSend, required this.platform}) : super(key: key);
-
+  final Function(String, String?, VoidCallback) onSend;
+  final String platform;
+  const AudioViewerPage(
+      {Key? key,
+      required this.fileUrl,
+      required this.onSend,
+      required this.platform})
+      : super(key: key);
   @override
   _AudioViewerPageState createState() => _AudioViewerPageState();
 }
@@ -3503,146 +1768,112 @@ class _AudioViewerPageState extends State<AudioViewerPage> {
   int? _fileSize;
   bool _hasCompleted = false;
   late bool _hideCaption;
-  
+  bool _isMounted = false;
+
   @override
   void initState() {
     super.initState();
-    _hideCaption = widget.platform == 'fb_whatsapp' || 
-                   widget.platform == 'whatsapp' || 
-                   widget.platform == 'facebook' || 
-                   widget.platform == 'instagram';
+    _isMounted = true;
+    _hideCaption = widget.platform == 'fb_whatsapp' ||
+        widget.platform == 'whatsapp' ||
+        widget.platform == 'facebook' ||
+        widget.platform == 'instagram';
     _audioPlayer = audio.AudioPlayer();
     _initAudioPlayer();
     _getFileSize();
-    
-    _focusNode.addListener(() {
-      setState(() {}); // Rebuild when focus changes
-    });
+    _focusNode.addListener(() { if (_isMounted) setState(() {}); });
   }
 
   Future<void> _initAudioPlayer() async {
     try {
       await _audioPlayer.stop();
-      
-      setState(() {
-        _isLoading = true;
-        _isPlaying = false;
-        _position = Duration.zero;
-        _duration = Duration.zero;
-      });
-
-      _audioPlayer.onPlayerStateChanged.listen((audio.PlayerState state) {
+      if (_isMounted) {
         setState(() {
-          _isPlaying = state == audio.PlayerState.playing;
-        });
-      });
-
-      _audioPlayer.onDurationChanged.listen((Duration duration) {
-        setState(() {
-          _duration = duration;
-          _isLoading = false;
-        });
-      });
-
-      _audioPlayer.onPositionChanged.listen((Duration position) {
-        setState(() {
-          _position = position;
-        });
-      });
-
-      _audioPlayer.onPlayerComplete.listen((_) {
-        setState(() {
+          _isLoading = true;
           _isPlaying = false;
           _position = Duration.zero;
-          _hasCompleted = true;
+          _duration = Duration.zero;
         });
+      }
+      _audioPlayer.onPlayerStateChanged.listen((s) {
+        if (_isMounted) setState(() => _isPlaying = s == audio.PlayerState.playing);
       });
-
+      _audioPlayer.onDurationChanged.listen((d) {
+        if (_isMounted) setState(() { _duration = d; _isLoading = false; });
+      });
+      _audioPlayer.onPositionChanged.listen((p) {
+        if (_isMounted) setState(() => _position = p);
+      });
+      _audioPlayer.onPlayerComplete.listen((_) {
+        if (_isMounted) setState(() { _isPlaying = false; _position = Duration.zero; _hasCompleted = true; });
+      });
       await _audioPlayer.setSource(audio.DeviceFileSource(widget.fileUrl));
       _isInitialized = true;
     } catch (e) {
-      print('Error initializing audio player: $e');
-      setState(() {
-        _isLoading = false;
-      });
+      if (_isMounted) setState(() => _isLoading = false);
     }
   }
 
   Future<void> _playPause() async {
-    if (!_isInitialized) {
-      await _initAudioPlayer();
-    }
-    
+    if (!_isInitialized) await _initAudioPlayer();
     if (_isPlaying) {
       await _audioPlayer.pause();
     } else {
       if (_hasCompleted) {
         await _replayAudio();
-        setState(() {
-          _hasCompleted = false;
-        });
+        if (_isMounted) setState(() => _hasCompleted = false);
       } else {
-        if (_position >= _duration - const Duration(milliseconds: 100) || _duration == Duration.zero) {
+        if (_position >= _duration - const Duration(milliseconds: 100) ||
+            _duration == Duration.zero) {
           await _audioPlayer.seek(Duration.zero);
         }
         await _audioPlayer.resume();
       }
     }
   }
-  
+
   Future<void> _seekAudio(double value) async {
     if (!_isInitialized) return;
-    
-    final position = Duration(milliseconds: (value * _duration.inMilliseconds).round());
-    await _audioPlayer.seek(position);
+    await _audioPlayer.seek(
+        Duration(milliseconds: (value * _duration.inMilliseconds).round()));
   }
 
   Future<void> _replayAudio() async {
     if (!_isInitialized) return;
-    
     await _audioPlayer.stop();
     await _audioPlayer.setSource(audio.DeviceFileSource(widget.fileUrl));
     await _audioPlayer.resume();
   }
-  
+
   Future<void> _getFileSize() async {
     try {
       final file = File(widget.fileUrl);
-      final exists = await file.exists();
-      if (exists) {
+      if (await file.exists()) {
         final stat = await file.stat();
-        setState(() {
-          _fileSize = stat.size;
-        });
+        if (_isMounted) setState(() => _fileSize = stat.size);
       }
-    } catch (e) {
-      print('Error getting file size: $e');
-    }
+    } catch (e) {}
   }
-  
-  String _formatDuration(Duration duration) {
-    String twoDigits(int n) => n.toString().padLeft(2, '0');
-    final hours = twoDigits(duration.inHours);
-    final minutes = twoDigits(duration.inMinutes.remainder(60));
-    final seconds = twoDigits(duration.inSeconds.remainder(60));
-    
-    return hours == '00' ? '$minutes:$seconds' : '$hours:$minutes:$seconds';
+
+  String _formatDuration(Duration d) {
+    String n(int n) => n.toString().padLeft(2, '0');
+    final h = n(d.inHours);
+    final m = n(d.inMinutes.remainder(60));
+    final s = n(d.inSeconds.remainder(60));
+    return h == '00' ? '$m:$s' : '$h:$m:$s';
   }
-  
+
   String _getFileSizeText() {
     if (_fileSize == null) return '';
-    
-    if (_fileSize! < 1024) {
-      return '${_fileSize} B';
-    } else if (_fileSize! < 1024 * 1024) {
+    if (_fileSize! < 1024) return '$_fileSize B';
+    if (_fileSize! < 1024 * 1024)
       return '${(_fileSize! / 1024).toStringAsFixed(1)} KB';
-    } else {
-      return '${(_fileSize! / (1024 * 1024)).toStringAsFixed(1)} MB';
-    }
+    return '${(_fileSize! / (1024 * 1024)).toStringAsFixed(1)} MB';
   }
 
   @override
   void dispose() {
+    _isMounted = false;
     _audioPlayer.stop();
     _audioPlayer.dispose();
     _messageController.dispose();
@@ -3653,17 +1884,15 @@ class _AudioViewerPageState extends State<AudioViewerPage> {
   @override
   Widget build(BuildContext context) {
     final mediaQuery = MediaQuery.of(context);
-    final bottomPadding = mediaQuery.viewInsets.bottom;
-    
     return Scaffold(
       backgroundColor: Colors.black,
       resizeToAvoidBottomInset: true,
       appBar: AppBar(
-        backgroundColor: Colors.black,
-        title: const Text('Audio Preview', style: TextStyle(color: Colors.white)),
-        centerTitle: true,
-        iconTheme: const IconThemeData(color: Colors.white),
-      ),
+          backgroundColor: Colors.black,
+          title: const Text('Audio Preview',
+              style: TextStyle(color: Colors.white)),
+          centerTitle: true,
+          iconTheme: const IconThemeData(color: Colors.white)),
       body: Column(
         children: [
           Expanded(
@@ -3672,188 +1901,162 @@ class _AudioViewerPageState extends State<AudioViewerPage> {
                 margin: const EdgeInsets.all(20),
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
-                  color: Colors.grey[900],
-                  borderRadius: BorderRadius.circular(20),
-                ),
+                    color: Colors.grey[900],
+                    borderRadius: BorderRadius.circular(20)),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: Text(
-                        p.basename(widget.fileUrl),
+                    Text(p.basename(widget.fileUrl),
                         style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w400,
-                        ),
+                            color: Colors.white,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w400),
                         textAlign: TextAlign.center,
                         maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
+                        overflow: TextOverflow.ellipsis),
                     const SizedBox(height: 10),
-                    
                     if (_fileSize != null)
-                      Text(
-                        'File size: ${_getFileSizeText()}',
-                        style: const TextStyle(
-                          color: Colors.white70,
-                          fontSize: 12,
-                        ),
-                      ),
+                      Text('File size: ${_getFileSizeText()}',
+                          style: const TextStyle(
+                              color: Colors.white70, fontSize: 12)),
                     const SizedBox(height: 20),
-                    
-                    _isLoading 
+                    _isLoading
                         ? const CircularProgressIndicator(color: Colors.blue)
-                        : Column(
-                          children: [
+                        : Column(children: [
                             SliderTheme(
                               data: SliderTheme.of(context).copyWith(
-                                activeTrackColor: Colors.blue,
-                                inactiveTrackColor: Colors.grey[700],
-                                trackHeight: 4.0,
-                                thumbColor: Colors.blue,
-                                overlayColor: Colors.blue.withAlpha(32),
-                                thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 8.0),
-                                overlayShape: const RoundSliderOverlayShape(overlayRadius: 14.0),
-                              ),
+                                  activeTrackColor: Colors.blue,
+                                  inactiveTrackColor: Colors.grey[700],
+                                  trackHeight: 4.0,
+                                  thumbColor: Colors.blue,
+                                  overlayColor:
+                                      Colors.blue.withAlpha(32),
+                                  thumbShape:
+                                      const RoundSliderThumbShape(
+                                          enabledThumbRadius: 8.0),
+                                  overlayShape:
+                                      const RoundSliderOverlayShape(
+                                          overlayRadius: 14.0)),
                               child: Slider(
-                                value: _duration.inMilliseconds == 0 
-                                    ? 0 
-                                    : (_position.inMilliseconds / _duration.inMilliseconds).clamp(0.0, 1.0),
-                                onChanged: _seekAudio,
-                                onChangeEnd: _seekAudio,
-                              ),
+                                  value: _duration.inMilliseconds == 0
+                                      ? 0
+                                      : (_position.inMilliseconds /
+                                              _duration.inMilliseconds)
+                                          .clamp(0.0, 1.0),
+                                  onChanged: _seekAudio,
+                                  onChangeEnd: _seekAudio),
                             ),
-                            
                             Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                              child: Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Text(
-                                    _formatDuration(_position),
-                                    style: const TextStyle(
-                                      color: Colors.white70,
-                                      fontSize: 12,
-                                    ),
-                                  ),
-                                  Text(
-                                    _formatDuration(_duration),
-                                    style: const TextStyle(
-                                      color: Colors.white70,
-                                      fontSize: 12,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 16.0),
+                                child: Row(
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Text(_formatDuration(_position),
+                                          style: const TextStyle(
+                                              color: Colors.white70,
+                                              fontSize: 12)),
+                                      Text(_formatDuration(_duration),
+                                          style: const TextStyle(
+                                              color: Colors.white70,
+                                              fontSize: 12))
+                                    ])),
                             const SizedBox(height: 20),
                             GestureDetector(
-                              onTap: _playPause,
-                              child: Container(
-                                padding: const EdgeInsets.all(16),
-                                decoration: BoxDecoration(
-                                  color: Colors.blue,
-                                  shape: BoxShape.circle,
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.blue.withOpacity(0.5),
-                                      blurRadius: 10,
-                                      spreadRadius: 2,
-                                    ),
-                                  ],
-                                ),
-                                child: Icon(
-                                  _hasCompleted 
-                                      ? Icons.replay
-                                      : (_isPlaying ? Icons.pause : Icons.play_arrow),
-                                  color: Colors.white,
-                                  size: 30,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
+                                onTap: _playPause,
+                                child: Container(
+                                    padding: const EdgeInsets.all(16),
+                                    decoration: BoxDecoration(
+                                        color: Colors.blue,
+                                        shape: BoxShape.circle,
+                                        boxShadow: [
+                                          BoxShadow(
+                                              color: Colors.blue
+                                                  .withOpacity(0.5),
+                                              blurRadius: 10,
+                                              spreadRadius: 2)
+                                        ]),
+                                    child: Icon(
+                                        _hasCompleted
+                                            ? Icons.replay
+                                            : (_isPlaying
+                                                ? Icons.pause
+                                                : Icons.play_arrow),
+                                        color: Colors.white,
+                                        size: 30))),
+                          ]),
                   ],
                 ),
               ),
             ),
           ),
-          // Bottom input area with proper padding
           Container(
             margin: EdgeInsets.only(
-              left: 16,
-              right: 16,
-              bottom: bottomPadding > 0 
-                  ? mediaQuery.padding.bottom + 10
-                  : mediaQuery.padding.bottom + 10,
-            ),
+                left: 16,
+                right: 16,
+                bottom: mediaQuery.padding.bottom + 10),
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
               decoration: BoxDecoration(
-                color: Colors.grey[900],
-                borderRadius: BorderRadius.circular(15),
-              ),
-              child: _hideCaption 
+                  color: Colors.grey[900],
+                  borderRadius: BorderRadius.circular(15)),
+              child: _hideCaption
                   ? Row(
                       mainAxisAlignment: MainAxisAlignment.end,
                       children: [
                         GestureDetector(
-                          onTap: () {
-                            widget.onSend(widget.fileUrl, '',(){print('Audio sent with empty caption');});
-                            Navigator.pop(context);
-                          },
-                          child: Container(
-                            margin: const EdgeInsets.all(4),
-                            padding: const EdgeInsets.all(10),
-                            decoration: BoxDecoration(
-                              color: Colors.blue,
-                              borderRadius: BorderRadius.circular(30),
-                            ),
-                            child: const Icon(Icons.send, color: Colors.white, size: 22),
-                          ),
-                        ),
-                      ],
-                    )
+                            onTap: () {
+                              widget.onSend(widget.fileUrl, '', () {});
+                              Navigator.pop(context);
+                            },
+                            child: Container(
+                                margin: const EdgeInsets.all(4),
+                                padding: const EdgeInsets.all(10),
+                                decoration: BoxDecoration(
+                                    color: Colors.blue,
+                                    borderRadius:
+                                        BorderRadius.circular(30)),
+                                child: const Icon(Icons.send,
+                                    color: Colors.white, size: 22)))
+                      ])
                   : Row(
                       crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
                         Expanded(
-                          child: TextField(
-                            controller: _messageController,
-                            focusNode: _focusNode,
-                            style: const TextStyle(color: Colors.white, fontSize: 16),
-                            maxLines: 3,
-                            minLines: 1,
-                            decoration: const InputDecoration(
-                              hintText: "Add a caption...",
-                              hintStyle: TextStyle(color: Colors.white54),
-                              border: InputBorder.none,
-                              contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                              isDense: true,
-                            ),
-                          ),
-                        ),
+                            child: TextField(
+                                controller: _messageController,
+                                focusNode: _focusNode,
+                                style: const TextStyle(
+                                    color: Colors.white, fontSize: 16),
+                                maxLines: 3,
+                                minLines: 1,
+                                decoration: const InputDecoration(
+                                    hintText: "Add a caption...",
+                                    hintStyle:
+                                        TextStyle(color: Colors.white54),
+                                    border: InputBorder.none,
+                                    contentPadding: EdgeInsets.symmetric(
+                                        horizontal: 12, vertical: 8),
+                                    isDense: true))),
                         GestureDetector(
-                          onTap: () {
-                            widget.onSend(widget.fileUrl, _messageController.text.trim(),(){print('Audio sent withcaption');});
-                            _messageController.clear();
-                            Navigator.pop(context);
-                          },
-                          child: Container(
-                            margin: const EdgeInsets.all(4),
-                            padding: const EdgeInsets.all(10),
-                            decoration: BoxDecoration(
-                              color: Colors.blue,
-                              borderRadius: BorderRadius.circular(30),
-                            ),
-                            child: const Icon(Icons.send, color: Colors.white, size: 22),
-                          ),
-                        ),
-                      ],
-                    ),
+                            onTap: () {
+                              widget.onSend(widget.fileUrl,
+                                  _messageController.text.trim(), () {});
+                              _messageController.clear();
+                              Navigator.pop(context);
+                            },
+                            child: Container(
+                                margin: const EdgeInsets.all(4),
+                                padding: const EdgeInsets.all(10),
+                                decoration: BoxDecoration(
+                                    color: Colors.blue,
+                                    borderRadius:
+                                        BorderRadius.circular(30)),
+                                child: const Icon(Icons.send,
+                                    color: Colors.white, size: 22))),
+                      ]),
             ),
           ),
         ],
@@ -3864,10 +2067,8 @@ class _AudioViewerPageState extends State<AudioViewerPage> {
 
 class ProcessingOverlay {
   static OverlayEntry? _overlayEntry;
-
   static void show(BuildContext context) {
     if (_overlayEntry != null) return;
-
     _overlayEntry = OverlayEntry(
       builder: (context) => Positioned(
         bottom: 0,
@@ -3879,29 +2080,24 @@ class ProcessingOverlay {
             mainAxisSize: MainAxisSize.min,
             children: [
               LinearProgressIndicator(
-                backgroundColor: Colors.grey[300],
-                valueColor: AlwaysStoppedAnimation<Color>(Colors.blue),
-              ),
+                  backgroundColor: Colors.grey[300],
+                  valueColor:
+                      const AlwaysStoppedAnimation<Color>(Colors.blue)),
               Container(
-                width: double.infinity,
-                color: Colors.black87,
-                padding: const EdgeInsets.symmetric(vertical: 10),
-                child: const Text(
-                  'Processing...',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ),
+                  width: double.infinity,
+                  color: Colors.black87,
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                  child: const Text('Processing...',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500))),
             ],
           ),
         ),
       ),
     );
-
     Overlay.of(context, rootOverlay: true).insert(_overlayEntry!);
   }
 
@@ -3910,10 +2106,10 @@ class ProcessingOverlay {
     _overlayEntry = null;
   }
 }
+
 class _ShimmerLine extends StatefulWidget {
   final double widthFactor;
   const _ShimmerLine({required this.widthFactor});
-
   @override
   State<_ShimmerLine> createState() => _ShimmerLineState();
 }
@@ -3921,39 +2117,28 @@ class _ShimmerLine extends StatefulWidget {
 class _ShimmerLineState extends State<_ShimmerLine>
     with SingleTickerProviderStateMixin {
   late final AnimationController _ctrl = AnimationController(
-    vsync: this,
-    duration: const Duration(milliseconds: 1200),
-  )..repeat(reverse: true);
-
-  late final Animation<double> _anim = Tween<double>(begin: 0.2, end: 0.65)
-      .animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut));
-
+      vsync: this, duration: const Duration(milliseconds: 1200))
+    ..repeat(reverse: true);
+  late final Animation<double> _anim =
+      Tween<double>(begin: 0.2, end: 0.65).animate(
+          CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut));
   @override
-  void dispose() {
-    _ctrl.dispose();
-    super.dispose();
-  }
-
+  void dispose() { _ctrl.dispose(); super.dispose(); }
   @override
   Widget build(BuildContext context) => AnimatedBuilder(
-        animation: _anim,
-        builder: (_, __) => FractionallySizedBox(
+      animation: _anim,
+      builder: (_, __) => FractionallySizedBox(
           widthFactor: widget.widthFactor,
           alignment: Alignment.centerLeft,
           child: Container(
-            height: 13,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(8),
-              color: const Color(0xFF6366F1).withOpacity(_anim.value),
-            ),
-          ),
-        ),
-      );
+              height: 13,
+              decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(8),
+                  color: const Color(0xFF6366F1).withOpacity(_anim.value)))));
 }
 
 class _PulsingDots extends StatefulWidget {
   const _PulsingDots();
-
   @override
   State<_PulsingDots> createState() => _PulsingDotsState();
 }
@@ -3961,48 +2146,36 @@ class _PulsingDots extends StatefulWidget {
 class _PulsingDotsState extends State<_PulsingDots>
     with SingleTickerProviderStateMixin {
   late final AnimationController _ctrl = AnimationController(
-    vsync: this,
-    duration: const Duration(milliseconds: 1200),
-  )..repeat();
-
+      vsync: this, duration: const Duration(milliseconds: 1200))
+    ..repeat();
   @override
-  void dispose() {
-    _ctrl.dispose();
-    super.dispose();
-  }
-
+  void dispose() { _ctrl.dispose(); super.dispose(); }
   Widget _dot(double delay) => AnimatedBuilder(
-        animation: _ctrl,
-        builder: (_, __) {
-          final t = ((_ctrl.value - delay) % 1.0);
-          final scale = t < 0.4
-              ? 0.6 + (t / 0.4) * 0.4
-              : t < 0.8
-                  ? 1.0 - ((t - 0.4) / 0.4) * 0.4
-                  : 0.6;
-          return Transform.scale(
+      animation: _ctrl,
+      builder: (_, __) {
+        final t = ((_ctrl.value - delay) % 1.0);
+        final scale = t < 0.4
+            ? 0.6 + (t / 0.4) * 0.4
+            : t < 0.8
+                ? 1.0 - ((t - 0.4) / 0.4) * 0.4
+                : 0.6;
+        return Transform.scale(
             scale: scale,
             child: Container(
-              width: 7,
-              height: 7,
-              decoration: const BoxDecoration(
-                color: Color(0xFF6366F1),
-                shape: BoxShape.circle,
-              ),
-            ),
-          );
-        },
-      );
-
+                width: 7,
+                height: 7,
+                decoration: const BoxDecoration(
+                    color: Color(0xFF6366F1),
+                    shape: BoxShape.circle)));
+      });
   @override
   Widget build(BuildContext context) => Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          _dot(0.0),
-          const SizedBox(width: 4),
-          _dot(0.2),
-          const SizedBox(width: 4),
-          _dot(0.4),
-        ],
-      );
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _dot(0.0),
+        const SizedBox(width: 4),
+        _dot(0.2),
+        const SizedBox(width: 4),
+        _dot(0.4)
+      ]);
 }
