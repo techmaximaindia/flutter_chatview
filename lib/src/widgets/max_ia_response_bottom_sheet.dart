@@ -144,7 +144,7 @@ class _MaxIAResponseBottomSheetState extends State<MaxIAResponseBottomSheet> {
     }
   }
 
-  Future<void> _regenerate() async {
+  /* Future<void> _regenerate() async {
     if (!mounted || _isRegenerating) return;
 
     // FIX 2: jump to page 0 BEFORE setState shrinks the children list,
@@ -153,7 +153,7 @@ class _MaxIAResponseBottomSheetState extends State<MaxIAResponseBottomSheet> {
       _pageController.jumpToPage(0);
     }
 
-    _safeSetState(() {
+    /* _safeSetState(() {
       _isRegenerating = true;
       _isEditing = false;
       _isTranslating = false;
@@ -161,10 +161,22 @@ class _MaxIAResponseBottomSheetState extends State<MaxIAResponseBottomSheet> {
       _isAiError = false;
       _selectedLanguage = null;
       _currentPage = 0;
-    });
+    }); */
+    _translatedText = '';
+    _translatedController.clear();
 
+    _safeSetState(() {
+      _isRegenerating = true;
+      _isEditing = false;
+      _isTranslating = false;
+      _translationFailed = false;
+      _isAiError = false;
+      _selectedLanguage = null;   // ✅ already there
+      _currentPage = 0;
+    });
     _sheetMsgController.clear();
     _safeWriteNotifier(widget.sendEnabledNotifier, false);
+
 
     try {
       final response = await widget.aiAssistCall(widget.promptText);
@@ -193,8 +205,64 @@ class _MaxIAResponseBottomSheetState extends State<MaxIAResponseBottomSheet> {
         _isAiError = true;
       });
     }
-  }
+  } */
+  Future<void> _regenerate() async {
+    if (!mounted || _isRegenerating) return;
 
+    // ✅ Capture whatever is currently in the text field
+    // — could be original AI text, or user-edited text
+    final textToRegenerate = _sheetMsgController.text.trim();
+    if (textToRegenerate.isEmpty) return;
+
+    if (_pageController.hasClients && _currentPage != 0) {
+      _pageController.jumpToPage(0);
+    }
+
+    _translatedText = '';
+    _translatedController.clear();
+
+    _safeSetState(() {
+      _isRegenerating = true;
+      _isEditing = false;      // ✅ turns off edit mode
+      _isTranslating = false;
+      _translationFailed = false;
+      _isAiError = false;
+      _selectedLanguage = null;
+      _currentPage = 0;
+    });
+
+    _sheetMsgController.clear();
+    _safeWriteNotifier(widget.sendEnabledNotifier, false);
+
+    try {
+      // ✅ Use textToRegenerate — not widget.promptText
+      final response = await widget.aiAssistCall(textToRegenerate);
+      if (!mounted) return;
+
+      _originalResponse = response;
+      _translatedText = response;
+      _sheetMsgController.text = response;
+      _translatedController.clear();
+      _safeWriteNotifier(widget.sendEnabledNotifier, response.isNotEmpty);
+
+      _safeSetState(() {
+        _isRegenerating = false;
+        _isAiError = false;
+      });
+    } catch (error) {
+      if (!mounted) return;
+
+      final msg = error.toString().replaceFirst('Exception: ', '');
+      _originalResponse = msg;
+      _sheetMsgController.text = msg;
+      _safeWriteNotifier(widget.sendEnabledNotifier, false);
+
+      _safeSetState(() {
+        _isRegenerating = false;
+        _isAiError = true;
+      });
+    }
+  }
   Future<void> _triggerTranslation(String lang) async {
     if (!mounted || _isTranslating) return;
 
@@ -312,12 +380,16 @@ class _MaxIAResponseBottomSheetState extends State<MaxIAResponseBottomSheet> {
 
                       // FIX 2: build the list once per frame so its length
                       // is stable; PageController never sees a mismatch
-                      final pages = [
+                      /* final pages = [
                         _buildOriginalCard(),
                         if (widget.isChatPage && !_isAiError)
                           _buildTranslatedCard(),
+                      ]; */
+                      final pages = [
+                        _buildOriginalCard(),
+                        if (widget.isChatPage && !_isAiError && _selectedLanguage != null)
+                          _buildTranslatedCard(),
                       ];
-
                       return Column(
                         children: [
                           // ── Pager dots ──────────────────────────────────
