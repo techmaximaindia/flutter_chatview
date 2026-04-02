@@ -158,7 +158,7 @@ class _MaxIAPromptDialogState extends State<MaxIAPromptDialog> {
                         contentPadding: const EdgeInsets.fromLTRB(14, 12, 14, 36),
                       ),
                     ),
-                    Positioned(
+                    /*Positioned(
                       right: 10,
                       bottom: 8,
                       child: Icon(
@@ -166,7 +166,7 @@ class _MaxIAPromptDialogState extends State<MaxIAPromptDialog> {
                         size: 22,
                         color: Colors.grey.shade400,
                       ),
-                    ),
+                    ),*/
                   ],
                 ),
               ),
@@ -225,7 +225,7 @@ class _MaxIAPromptDialogState extends State<MaxIAPromptDialog> {
                               ),
                               const SizedBox(width: 8),
                               Text(
-                                hasTypedText ? 'Generate Enhanced Version' : 'Generate',
+                                'Generate',
                                 style: TextStyle(
                                   fontSize: 15,
                                   fontWeight: FontWeight.w600,
