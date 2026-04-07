@@ -71,6 +71,8 @@ class SendMessageConfiguration {
   /// Styling configuration for recorder widget.
   final VoiceRecordingConfiguration? voiceRecordingConfiguration;
 
+  final Color? maxiaIconColor;
+
   const SendMessageConfiguration({
     this.textFieldConfig,
     this.textFieldBackgroundColor,
@@ -87,6 +89,7 @@ class SendMessageConfiguration {
     this.enableGalleryImagePicker = true,
     this.voiceRecordingConfiguration,
     this.micIconColor,
+    this.maxiaIconColor,
   });
 }
 
