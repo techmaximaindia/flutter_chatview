@@ -595,10 +595,17 @@ class _ChatUITextFieldState extends State<ChatUITextField>
       barrierColor: Colors.black.withOpacity(0.45),
       builder: (dialogContext) => MaxIAPromptDialog(
         typedText: inputText, // Pass the input text to the dialog
+        
         onGenerate: (promptText) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (!_isMounted || _isDisposed) return;
+            _showMaxIAResponseSheet(outerContext, promptText);
+          });
+        },
+        /* onGenerate: (promptText) {
           // When user clicks generate, show the bottom sheet with API calls
           _showMaxIAResponseSheet(outerContext, promptText);
-        },
+        }, */
       ),
     );
   }
@@ -608,7 +615,7 @@ class _ChatUITextFieldState extends State<ChatUITextField>
 
     final prefs = await SharedPreferences.getInstance();
     if (_isDisposed || !_isMounted) return;
-
+    if (!outerContext.mounted) return;
     final bool isChatPage = prefs.getString('page') == 'chat';
     showModalBottomSheet(
       context: outerContext,
@@ -1288,11 +1295,11 @@ class _ChatUITextFieldState extends State<ChatUITextField>
                                             if (!_isMounted || _isDisposed) return;
                                               _showMaxIAPromptDialog(context, _inputText.value);
                                           },
-                                          icon: const FaIcon(
+                                          icon:FaIcon(
                                             FontAwesomeIcons
                                                 .magicWandSparkles,
                                             size: 18,
-                                            color: Colors.black,
+                                            color: sendMessageConfig?.maxiaIconColor ?? Colors.black,
                                           ),
                                         ),
                                         IconButton(
@@ -1356,11 +1363,11 @@ class _ChatUITextFieldState extends State<ChatUITextField>
                                               _showMaxIAPromptDialog(
                                                   context); */
                                             },
-                                            icon: const FaIcon(
+                                            icon:FaIcon(
                                               FontAwesomeIcons
                                                   .magicWandSparkles,
                                               size: 18,
-                                              color: Colors.black,
+                                              color: sendMessageConfig?.maxiaIconColor ?? Colors.black,
                                             ),
                                           ),
                                         ],
