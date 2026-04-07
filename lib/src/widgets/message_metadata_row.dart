@@ -27,7 +27,7 @@ class MessageMetadataRow extends StatelessWidget
     final formattedTime = DateFormat('hh:mm a').format(createdAt);
     final defaultStyle = metadataTextStyle ?? const TextStyle(
       fontSize: 11,
-      fontWeight: FontWeight.w400,
+      fontWeight: FontWeight.bold,
       color: Color(0xFF6C757D),
     );
     final iconColor = metadataIconColor ?? const Color(0xFF6C757D);
