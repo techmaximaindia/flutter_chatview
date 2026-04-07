@@ -197,7 +197,23 @@ class ImageMessageView extends StatelessWidget {
               profileName: message.profilename,
               createdAt: message.createdAt,
               isMessageBySender: isMessageBySender,
+              metadataIconColor: Colors.grey.shade600,
+              metadataTextStyle: TextStyle(
+                fontSize: 11,
+                color: Colors.grey.shade600,
+                fontWeight: FontWeight.bold,
+              ),
             ),
+           /*  MessageMetadataRow(
+          profileName: message.profilename,
+          createdAt: message.createdAt,
+          isMessageBySender: isMessageBySender,
+          metadataIconColor: Colors.blueGrey[700],
+          metadataTextStyle: textTheme.bodySmall?.copyWith(
+            color: Colors.blueGrey[700],
+            fontSize: 11,
+          ),
+        ), */
         ],
       ),
     ],
