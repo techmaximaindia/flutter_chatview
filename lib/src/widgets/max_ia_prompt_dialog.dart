@@ -158,7 +158,7 @@ class _MaxIAPromptDialogState extends State<MaxIAPromptDialog> {
                         contentPadding: const EdgeInsets.fromLTRB(14, 12, 14, 36),
                       ),
                     ),
-                    /*Positioned(
+                   /*  Positioned(
                       right: 10,
                       bottom: 8,
                       child: Icon(
@@ -166,7 +166,7 @@ class _MaxIAPromptDialogState extends State<MaxIAPromptDialog> {
                         size: 22,
                         color: Colors.grey.shade400,
                       ),
-                    ),*/
+                    ), */
                   ],
                 ),
               ),
@@ -187,10 +187,16 @@ class _MaxIAPromptDialogState extends State<MaxIAPromptDialog> {
                           ? null
                           : () {
                               final finalText = _promptController.text.trim();
+                              // Pass the final text to the callback
+                              widget.onGenerate(finalText);
+                              Navigator.of(context).pop();
+                            
+                            },/* () {
+                              final finalText = _promptController.text.trim();
                               Navigator.of(context).pop();
                               // Pass the final text to the callback
                               widget.onGenerate(finalText);
-                            },
+                            }, */
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.transparent,
                         disabledBackgroundColor: Colors.grey.shade200,
