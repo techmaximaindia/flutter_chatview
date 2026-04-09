@@ -331,7 +331,7 @@ class ChatViewAppBar extends StatelessWidget {
                 horizontal: 16,
                 vertical: 4,
               ),
-              color: Colors.white,
+              color: backGroundColor,
               child: SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
                 child: Row(
