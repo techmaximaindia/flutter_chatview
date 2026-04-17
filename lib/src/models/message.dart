@@ -34,7 +34,7 @@ class Message {
   final GlobalKey key;
 
   /// Provides actual message it will be text or image/audio file path.
-  final String message;
+  String message;
 
   /// Provides message created date time.
   final DateTime createdAt;
