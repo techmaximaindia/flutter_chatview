@@ -880,7 +880,8 @@ class _ChatUITextFieldState extends State<ChatUITextField>
         // Quick Replies
         if (suggestions.isNotEmpty)
           Container(
-            width: MediaQuery.of(context).size.width,
+            // sizeOf so this row does not rebuild on every keyboard animation frame.
+            width: MediaQuery.sizeOf(context).width,
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: const BorderRadius.vertical(
@@ -1151,7 +1152,8 @@ class _ChatUITextFieldState extends State<ChatUITextField>
           child: Align(
             alignment: Alignment.bottomCenter,
             child: SizedBox(
-              width: MediaQuery.of(context).size.width,
+              // sizeOf prevents the input row from rebuilding on each keyboard inset frame.
+              width: MediaQuery.sizeOf(context).width,
               child: SafeArea(
                 bottom: true,
                 left: false,
@@ -1196,7 +1198,7 @@ class _ChatUITextFieldState extends State<ChatUITextField>
                               if (isRecordingValue && !kIsWeb)
                                 AudioWaveforms(
                                   size: Size(
-                                      MediaQuery.of(context).size.width *
+                                      MediaQuery.sizeOf(context).width *
                                           0.75,
                                       50),
                                   recorderController: recorderController,

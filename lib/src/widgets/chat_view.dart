@@ -184,9 +184,12 @@ class _ChatViewState extends State<ChatView>
       featureActiveConfig: featureActiveConfig,
       currentUser: widget.currentUser,
       child: Container(
+        // Use sizeOf to subscribe only to size changes, not viewInsets/viewPadding —
+        // avoids rebuilding the whole chat tree on every keyboard animation frame
+        // (a major source of flicker on Android MIUI which emits many intermediate insets).
         height:
-            chatBackgroundConfig.height ?? MediaQuery.of(context).size.height,
-        width: chatBackgroundConfig.width ?? MediaQuery.of(context).size.width,
+            chatBackgroundConfig.height ?? MediaQuery.sizeOf(context).height,
+        width: chatBackgroundConfig.width ?? MediaQuery.sizeOf(context).width,
         decoration: BoxDecoration(
           color: chatBackgroundConfig.backgroundColor ?? Colors.white,
           image: chatBackgroundConfig.backgroundImage != null

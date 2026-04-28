@@ -333,19 +333,23 @@ class SendMessageWidgetState extends State<SendMessageWidget> {
         : Align(
             alignment: Alignment.bottomCenter,
             child: SizedBox(
-              width: MediaQuery.of(context).size.width,
+              // sizeOf instead of MediaQuery.of — only listens to size changes,
+              // not keyboard animation insets that cause flicker on Android MIUI.
+              width: MediaQuery.sizeOf(context).width,
               child: Stack(
                 children: [
-                  Positioned(
-                    right: 0,
-                    left: 0,
-                    bottom: 0,
-                    child: Container(
-                      height: MediaQuery.of(context).size.height /
-                          ((!kIsWeb && Platform.isIOS) ? 24 : 28),
-                      color: widget.backgroundColor ?? Colors.white,
+                  // Bottom safe-area band: iOS-only. On Android the band rebuilds during
+                  // keyboard animation and adds visible flicker without serving a real purpose.
+                  if (!kIsWeb && Platform.isIOS)
+                    Positioned(
+                      right: 0,
+                      left: 0,
+                      bottom: 0,
+                      child: Container(
+                        height: MediaQuery.sizeOf(context).height / 24,
+                        color: widget.backgroundColor ?? Colors.white,
+                      ),
                     ),
-                  ),
                   Padding(
                     padding: EdgeInsets.fromLTRB(bottomPadding4,
                         bottomPadding4, bottomPadding4, _bottomPadding),
