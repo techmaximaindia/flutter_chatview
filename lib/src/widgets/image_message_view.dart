@@ -40,6 +40,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter_widget_from_html/flutter_widget_from_html.dart';
 //import 'package:flutter_widget_from_html_core/flutter_widget_from_html_core.dart';
 import 'package:flutter/gestures.dart';
+import 'markdown_text_parser.dart';
 class ImageMessageView extends StatelessWidget {
   const ImageMessageView({
     Key? key,
@@ -220,7 +221,7 @@ class ImageMessageView extends StatelessWidget {
   );
 }
 
-  Widget _buildMessageContent(context, String textMessage, TextTheme textTheme) {
+  /* Widget _buildMessageContent(context, String textMessage, TextTheme textTheme) {
   InlineSpan _buildTextWithLinks(String text, [TextStyle? baseStyle]) {
     // URL pattern to match http/https links
     final urlPattern = RegExp(
@@ -321,6 +322,21 @@ class ImageMessageView extends StatelessWidget {
       textAlign: TextAlign.left,
     );
   }
+  Widget _buildMarkdownText(String text) {
+  if (text.isEmpty) return const SizedBox.shrink();
+  
+  final baseStyle = _textStyle ??
+      Theme.of(context).textTheme.bodyMedium!.copyWith(
+        color: Colors.black,
+        fontSize: 14,
+      );
+  
+  return SelectableText.rich(
+    TextSpan(
+      children: MarkdownTextParser.parseMarkdown(text, baseStyle),
+    ),
+  );
+}
 
   final document = html_parser.parse(textMessage);
   final String parsedString = document.body?.text ?? '';
@@ -803,10 +819,537 @@ class ImageMessageView extends StatelessWidget {
   }
   
   // Priority 6: Default - Plain text or text with URLs
-  else {
+  /* else {
     return _buildRichText(textMessage, textStyle);
+  } */
+  else{
+    // Just use markdown parser for ALL text (it handles both formatting and URLs)
+    return _buildMarkdownText(textMessage);
   }
-}
+} */
+  Widget _buildMessageContent(context, String textMessage, TextTheme textTheme) {
+    // Keep the existing helper functions
+    InlineSpan _buildTextWithLinks(String text, [TextStyle? baseStyle]) {
+      // URL pattern to match http/https links
+      final urlPattern = RegExp(
+          r'\b(?:https?|ftp):\/\/'  // Required protocol
+          r'(?:www\.)?'  // Optional www
+          r'(?:[\w\-]+\.)+[\w\-]{2,}'  // Domain
+          r'(?:\/[^\s]*)?',  // Optional path
+          caseSensitive: false,
+          multiLine: false,
+        );
+      
+      final matches = urlPattern.allMatches(text);
+      if (matches.isEmpty) {
+        return TextSpan(text: text, style: baseStyle);
+      }
+      
+      List<TextSpan> spans = [];
+      int currentIndex = 0;
+      
+      for (final match in matches) {
+        if (match.start > currentIndex) {
+          spans.add(
+            TextSpan(
+              text: text.substring(currentIndex, match.start),
+              style: baseStyle,
+            ),
+          );
+        }
+        
+        String urlText = match.group(0)!;
+        if (!urlText.toLowerCase().startsWith('http')) {
+          urlText = 'https://$urlText';
+        }
+        
+        spans.add(
+          TextSpan(
+            text: match.group(0),
+            style: (baseStyle ?? const TextStyle()).copyWith(
+              color: Colors.blue,
+              decoration: TextDecoration.underline,
+              decorationColor: Colors.blue,
+            ),
+            recognizer: TapGestureRecognizer()
+              ..onTap = () async {
+                try {
+                  final uri = Uri.parse(urlText);
+                  if (await canLaunchUrl(uri)) {
+                    await launchUrl(
+                      uri,
+                      mode: LaunchMode.externalApplication,
+                    );
+                  } else {
+                    final fallbackUri = Uri.parse(
+                      urlText.startsWith('https://')
+                          ? urlText.replaceFirst('https://', 'http://')
+                          : urlText,
+                    );
+                    if (await canLaunchUrl(fallbackUri)) {
+                      await launchUrl(
+                        fallbackUri,
+                        mode: LaunchMode.externalApplication,
+                      );
+                    }
+                  }
+                } catch (e) {
+                  print('Error launching URL: $e');
+                }
+              },
+          ),
+        );
+        
+        currentIndex = match.end;
+      }
+      
+      if (currentIndex < text.length) {
+        spans.add(
+          TextSpan(
+            text: text.substring(currentIndex),
+            style: baseStyle,
+          ),
+        );
+      }
+      
+      return TextSpan(children: spans);
+    }
+    
+    // Keep _buildRichText for backward compatibility (might be used elsewhere)
+    Widget _buildRichText(String text, TextStyle style) {
+      return RichText(
+        text: _buildTextWithLinks(text, style),
+        textAlign: TextAlign.left,
+      );
+    }
+    
+    // Add _buildMarkdownText for markdown support
+    Widget _buildMarkdownText(String text) {
+      if (text.isEmpty) return const SizedBox.shrink();
+      
+      final baseStyle = _textStyle ??
+          Theme.of(context).textTheme.bodyMedium!.copyWith(
+            color: Colors.black,
+            fontSize: 14,
+          );
+      
+      return SelectableText.rich(
+        TextSpan(
+          children: MarkdownTextParser.parseMarkdown(text, baseStyle),
+        ),
+      );
+    }
+
+    final document = html_parser.parse(textMessage);
+    final String parsedString = document.body?.text ?? '';
+    String translated_title = message.translate_title ?? '';
+    String translated_content = message.translate_content ?? '';
+
+    final urlPattern = r'http[s]?://[^\s]+';
+    final urlRegExp = RegExp(urlPattern);
+    
+    final iframeTags = document.getElementsByTagName('iframe');
+    final iframeUrls = iframeTags.map((iframe) => iframe.attributes['src']).toList();
+
+    var message_options_full = message.cb_message_options_full;
+    String? type = message_options_full?['type'];
+    
+    List<String> buttonValues = (message_options_full?['button_values'] as List<dynamic>?)
+        ?.map((e) => e.toString())
+        .toList() ?? [];
+
+    List<String> listDesc = (message_options_full?['list_desc'] as List<dynamic>?)
+        ?.map((e) => e.toString())
+        .toList() ?? [];
+
+    String? list_menu_header = message_options_full?['list_menu_header'] ?? '';
+    String? list_header = message_options_full?['list_header'] ?? '';
+    String? header = message_options_full?['header'] ?? '';
+    String? footer = message_options_full?['footer'] ?? '';
+
+    String? ctaHeaderType = message_options_full?['cta_header_type'];
+    String? redirectUrl = message_options_full?['redirect_url'];
+    String? body = message_options_full?['body'] ?? '';
+    String? redirectText = message_options_full?['redirect_text'] ?? 'Click Here';
+    String? cta_media_type = message_options_full?['cta_media_type'];
+    final textStyle = _textStyle ??
+        textTheme.bodyMedium!.copyWith(
+          color: Colors.black,
+          fontSize: 14,
+        );
+
+    // Priority 1: Translation
+    if (translated_title != '' && translated_content != '') {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildMarkdownText(textMessage),  // ← Changed from _buildRichText
+          SizedBox(height: 4),
+          Text(
+            "Translation From $translated_title",
+            style: textTheme.bodyLarge?.copyWith(
+              fontWeight: FontWeight.bold,
+              color: Colors.black,
+            ),
+          ),
+          const SizedBox(height: 4),
+          _buildMarkdownText(translated_content),  // ← Changed from Text
+        ],
+      );
+    }
+    
+    // Priority 2: Iframe URLs
+    else if (iframeUrls.isNotEmpty) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: iframeUrls.map((url) {
+          if (url != null) {
+            final uri = Uri.parse(url);
+            return GestureDetector(
+              onTap: () async {
+                if (await canLaunchUrl(uri)) {
+                  await launchUrl(uri);
+                }
+              },
+              child: Text(
+                uri.toString(),
+                style: textTheme.bodyMedium?.copyWith(
+                  color: Colors.blue,
+                  decoration: TextDecoration.underline,
+                ),
+              ),
+            );
+          }
+          return SizedBox.shrink();
+        }).toList(),
+      );
+    }
+    
+    // Handle CTA message with cta_header_type == 'media' and cta_media_type == 'image'
+    else if (message.cb_message_options_full != null && ctaHeaderType == 'media' && cta_media_type == 'image') {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (header?.isNotEmpty ?? false)
+            _buildMarkdownText(header!),  // ← Changed from Text
+          if (body?.isNotEmpty ?? false)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 4.0),
+              child: _buildMarkdownText(body!),  // ← Changed from Text
+            ),
+          if (footer?.isNotEmpty ?? false)
+            _buildMarkdownText(footer!),  // ← Changed from Text
+          const SizedBox(height: 8),
+          if (redirectUrl?.isNotEmpty ?? false)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 4.0),
+              child: ElevatedButton(
+                onPressed: () async {
+                  try {
+                    final uri = Uri.parse(redirectUrl!);
+                    if (await canLaunchUrl(uri)) {
+                      await launchUrl(
+                        uri,
+                        mode: LaunchMode.externalApplication,
+                      );
+                    }
+                  } catch (e) {
+                    print('Error launching URL: $e');
+                  }
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.white,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  minimumSize: const Size(double.infinity, 48),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(
+                      Icons.link,
+                      color: Colors.blue,
+                      size: 16,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      redirectText ?? 'Click Here',
+                      style: textTheme.bodyMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: Colors.blue
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+        ],
+      );
+    }
+    
+    // Priority 3: Button type
+    else if (message.cb_message_options_full != null && type == "button") {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (header != null && header.isNotEmpty)
+            _buildMarkdownText(header),  // ← Changed from Text
+          _buildMarkdownText(textMessage),  // ← Changed from _buildRichText
+          if (footer != null && footer.isNotEmpty)
+            _buildMarkdownText(footer),  // ← Changed from Text
+          const SizedBox(height: 8),
+          if (buttonValues.isNotEmpty)
+            ...buttonValues.map((option) {
+              return Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4.0),
+                child: ElevatedButton(
+                  onPressed: () {},
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    minimumSize: const Size(double.infinity, 48),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const FaIcon(
+                        FontAwesomeIcons.list,
+                        color: Colors.blue,
+                        size: 10,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        option.trim(),
+                        style: textTheme.bodyMedium?.copyWith(
+                          color: Colors.blue,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            }).toList(),
+        ],
+      );
+    }
+    
+    // Priority 4: List type
+    else if (message.cb_message_options_full != null && type == "list") {
+      void showCustomDialog(BuildContext buildcontext, String title, List<String> button, List<String> list) {
+        showDialog(
+          context: buildcontext,
+          barrierDismissible: true,
+          builder: (BuildContext context) {
+            return StatefulBuilder(
+              builder: (BuildContext context, StateSetter setState) {
+                return AlertDialog(
+                  backgroundColor: Colors.white,
+                  titlePadding: EdgeInsets.zero,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10.0),
+                  ),
+                  contentPadding: const EdgeInsets.all(5),
+                  content: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Stack(
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 10),
+                            child: Center(
+                              child: Text(
+                                title,
+                                style: const TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.black,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                                maxLines: 1,
+                                textAlign: TextAlign.center,
+                              ),
+                            ),
+                          ),
+                          Positioned(
+                            top: 3,
+                            right: 0,
+                            bottom: 1,
+                            child: IconButton(
+                              icon: const Icon(Icons.close, color: Colors.black, size: 18),
+                              onPressed: () {
+                                Navigator.of(context).pop();
+                              },
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      Container(
+                        height: 300,
+                        width: 250,
+                        child: SingleChildScrollView(
+                          child: Column(
+                            children: List.generate(button.length, (index) {
+                              return InkWell(
+                                onTap: () {},
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 10.0),
+                                  decoration: BoxDecoration(
+                                    borderRadius: BorderRadius.circular(8.0),
+                                    color: Colors.grey[200],
+                                  ),
+                                  margin: const EdgeInsets.symmetric(vertical: 6),
+                                  child: Row(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              button[index],
+                                              style: const TextStyle(
+                                                fontSize: 14,
+                                                fontWeight: FontWeight.bold,
+                                                color: Colors.black,
+                                              ),
+                                              overflow: TextOverflow.visible,
+                                              maxLines: null,
+                                            ),
+                                            const SizedBox(height: 4),
+                                            Text(
+                                              list.isNotEmpty && index < list.length ? list[index] : "",
+                                              style: const TextStyle(
+                                                fontSize: 12,
+                                                color: Colors.grey,
+                                              ),
+                                              overflow: TextOverflow.visible,
+                                              maxLines: null,
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      const SizedBox(width: 10),
+                                      Align(
+                                        alignment: Alignment.centerRight,
+                                        child: Radio(
+                                          value: index,
+                                          groupValue: null,
+                                          onChanged: (value) {},
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              );
+                            }),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  actions: [
+                    Container(
+                      alignment: Alignment.center,
+                      padding: const EdgeInsets.all(12.0),
+                      decoration: const BoxDecoration(
+                        color: Color(0xFFF9FAFB),
+                        borderRadius: BorderRadius.vertical(bottom: Radius.circular(10.0)),
+                      ),
+                      child: const Text("Tap to select an item", style: TextStyle(color: Colors.black)),
+                    ),
+                  ],
+                );
+              },
+            );
+          },
+        );
+      }
+      
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (header != null && header.isNotEmpty)
+            _buildMarkdownText(header),  // ← Changed from Text
+          _buildMarkdownText(textMessage),  // ← Changed from _buildRichText
+          if (footer != null && footer.isNotEmpty)
+            _buildMarkdownText(footer),  // ← Changed from Text
+          const SizedBox(height: 8),
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 4.0),
+            child: ElevatedButton(
+              onPressed: () {
+                showCustomDialog(context, list_menu_header!, buttonValues, listDesc);
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                minimumSize: const Size(double.infinity, 48),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const FaIcon(
+                    FontAwesomeIcons.list,
+                    color: Colors.blue,
+                    size: 10,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    list_menu_header ?? '',
+                    style: textTheme.bodyMedium?.copyWith(
+                      color: Colors.blue,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      );
+    }
+    
+    // Priority 5: HTML content (with tags but not just URLs)
+    else if (parsedString != textMessage && !urlRegExp.hasMatch(parsedString)) {
+      return HtmlWidget(
+        textMessage,
+        textStyle: const TextStyle(
+          color: Colors.black,
+        ),
+        customStylesBuilder: (element) {
+          if (element.localName == 'img') {
+            return {
+              'max-width': '100%',
+              'height': 'auto',
+              'display': 'block',
+            };
+          }
+          if (element.localName == 'a') {
+            return {
+              'color': 'blue',
+              'text-decoration': 'underline',
+            };
+          }
+          return null;
+        },
+      );
+    }
+    
+    // Priority 6: Default - Use markdown parser for ALL text (handles formatting and URLs)
+    else {
+      return _buildMarkdownText(textMessage);
+    }
+  }
   EdgeInsetsGeometry? get _margin => isMessageBySender
       ? outgoingChatBubbleConfig?.margin
       : inComingChatBubbleConfig?.margin;

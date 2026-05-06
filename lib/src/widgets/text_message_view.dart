@@ -49,6 +49,7 @@ import 'package:flutter_widget_from_html/flutter_widget_from_html.dart';
 import 'dart:convert';
 import 'WebViewExample.dart';
 import 'package:flutter/gestures.dart';
+import 'markdown_text_parser.dart';
 
 class TextMessageView extends StatefulWidget {
   const TextMessageView({
@@ -119,7 +120,21 @@ class _TextMessageViewState extends State<TextMessageView> {
         RegExp(r'<(html|body|div|p|table|ul|ol)\b', caseSensitive: false).hasMatch(text);
     return hasOpenClose && (hasMultipleTags || hasHtmlStructure);
   } */
+Widget _buildMarkdownText(String text) {
+  if (text.isEmpty) return const SizedBox.shrink();
   
+  final baseStyle = _textStyle ??
+      Theme.of(context).textTheme.bodyMedium!.copyWith(
+        color: Colors.black,
+        fontSize: 14,
+      );
+  
+  return SelectableText.rich(
+    TextSpan(
+      children: MarkdownTextParser.parseMarkdown(text, baseStyle),
+    ),
+  );
+}
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
@@ -224,7 +239,7 @@ class _TextMessageViewState extends State<TextMessageView> {
       ],
     );
   }
-  Widget _buildMessageContent(context,String textMessage, TextTheme textTheme) {
+  /* Widget _buildMessageContent(context,String textMessage, TextTheme textTheme) {
      // Helper function to detect URLs in text and make them clickable
       InlineSpan _buildTextWithLinks(String text, [TextStyle? baseStyle]) {
         // URL pattern to match http/https links
@@ -806,7 +821,7 @@ class _TextMessageViewState extends State<TextMessageView> {
       ],
     );
   }
-  else{
+  /* else{
     return _buildRichText(
       textMessage,
       _textStyle ??
@@ -815,9 +830,428 @@ class _TextMessageViewState extends State<TextMessageView> {
             fontSize: 14,
           ),
     );
+  } */
+ else{
+    // Just use markdown parser for ALL text (it handles both formatting and URLs)
+    return _buildMarkdownText(textMessage);
   }
-}
+} */
+  Widget _buildMessageContent(BuildContext context, String textMessage, TextTheme textTheme) {
+    final document = html_parser.parse(textMessage);
+    final String parsedString = document.body?.text ?? '';
+    String translated_title = message.translate_title ?? '';
+    String translated_content = message.translate_content ?? '';
 
+    // Check for embedded iframe tags (extract the src URL)
+    final iframeTags = document.getElementsByTagName('iframe');
+    final iframeUrls = iframeTags.map((iframe) => iframe.attributes['src']).toList();
+
+    var message_options_full = message.cb_message_options_full;
+    String? type = message_options_full?['type'];
+    String? ctaHeaderType = message_options_full?['cta_header_type'];
+    String? redirectUrl = message_options_full?['redirect_url'];
+    String? body = message_options_full?['body'] ?? '';
+    String? redirectText = message_options_full?['redirect_text'] ?? 'Click Here';
+    List<String> buttonValues = (message_options_full?['button_values'] as List<dynamic>?)
+    ?.map((e) => e.toString())
+    .toList() ?? [];
+
+    List<String> listDesc = (message_options_full?['list_desc'] as List<dynamic>?)
+    ?.map((e) => e.toString())
+    .toList() ?? [];
+
+    String? list_menu_header = message_options_full?['list_menu_header'] ?? '';
+    String? list_header = message_options_full?['list_header'] ?? '';
+    String? header = message_options_full?['header'] ?? '';
+    String? footer = message_options_full?['footer'] ?? '';
+    
+    final bool containsHtmlTags = RegExp(r'<[^>]+>').hasMatch(textMessage);
+
+    // Translation messages
+    if (translated_title.isNotEmpty && translated_content.isNotEmpty) {
+      final displayText = _showTranslation ? translated_content : textMessage;
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildMarkdownText(displayText),  // ← CHANGED
+          const SizedBox(height: 6),
+          GestureDetector(
+            onTap: () {
+              setState(() { _showTranslation = !_showTranslation; });
+            },
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: const Color(0xFF3B7DDD).withOpacity(0.08),
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(color: const Color(0xFF3B7DDD).withOpacity(0.2)),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.translate, size: 12, color: const Color(0xFF3B7DDD)),
+                  const SizedBox(width: 4),
+                  Text(
+                    _showTranslation ? 'Show original' : 'Translated from $translated_title',
+                    style: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w500,
+                      color: Color(0xFF3B7DDD),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      );
+    } 
+    // Iframe messages
+    else if (iframeUrls.isNotEmpty) {
+      return Column(
+        children: iframeUrls.map((url) {
+          if (url != null) {
+            final uri = Uri.parse(url);
+            return GestureDetector(
+              onTap: () async {
+                if (await canLaunchUrl(uri)) {
+                  await launchUrl(uri);
+                }
+              },
+              child: Text(
+                uri.toString(),
+                style: textTheme.bodyMedium?.copyWith(
+                  color: Colors.blue,
+                  decoration: TextDecoration.underline,
+                ),
+              ),
+            );
+          }
+          return const SizedBox.shrink();
+        }).toList(),
+      );
+    }
+    // HTML messages
+    else if (containsHtmlTags) {
+      return HtmlWidget(
+        textMessage,
+        textStyle: const TextStyle(
+          color: Colors.black,
+        ),
+        customStylesBuilder: (element) {
+          if (element.localName == 'img') {
+            return {
+              'max-width': '100%',
+              'height': 'auto',
+              'display': 'block',
+            };
+          }
+          if (element.localName == 'a') {
+            return {
+              'color': 'blue',
+              'text-decoration': 'underline',
+            };
+          }
+          return null;
+        },
+      );
+    }
+    // Handle CTA message with cta_header_type == 'text'
+    else if (message.cb_message_options_full != null && ctaHeaderType == 'text') {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (header?.isNotEmpty ?? false)
+            _buildMarkdownText(header!),  // ← CHANGED
+          if (body?.isNotEmpty ?? false)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 4.0),
+              child: _buildMarkdownText(body!),  // ← CHANGED
+            ),
+          if (footer?.isNotEmpty ?? false)
+            _buildMarkdownText(footer!),  // ← CHANGED
+          const SizedBox(height: 8),
+          if (redirectUrl?.isNotEmpty ?? false)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 4.0),
+              child: ElevatedButton(
+                onPressed: () async {
+                  try {
+                    final uri = Uri.parse(redirectUrl!);
+                    if (await canLaunchUrl(uri)) {
+                      await launchUrl(
+                        uri,
+                        mode: LaunchMode.externalApplication,
+                      );
+                    }
+                  } catch (e) {
+                    print('Error launching URL: $e');
+                  }
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.white,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  minimumSize: const Size(double.infinity, 48),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(
+                      Icons.link,
+                      color: Colors.blue,
+                      size: 16,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      redirectText ?? 'Click Here',
+                      style: textTheme.bodyMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: Colors.blue
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+        ],
+      );
+    }
+    // Button type messages
+    else if (message.cb_message_options_full != null && type == "button") {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (header?.isNotEmpty ?? false)
+            _buildMarkdownText(header!),  // ← CHANGED
+          _buildMarkdownText(textMessage),  // ← CHANGED
+          if (footer?.isNotEmpty ?? false)
+            _buildMarkdownText(footer!),  // ← CHANGED
+          const SizedBox(height: 8),
+          if (buttonValues.isNotEmpty && buttonValues != []) 
+            ...buttonValues.map((option) {
+              return Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4.0),
+                child: ElevatedButton(
+                  onPressed: () {},
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    minimumSize: const Size(double.infinity, 48),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const FaIcon(
+                        FontAwesomeIcons.list,
+                        color: Colors.blue,
+                        size: 10, 
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        option.trim(),
+                        style: textTheme.bodyMedium?.copyWith(
+                          color: Colors.blue,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 12
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            }).toList(),
+        ],
+      );
+    } 
+    // List type messages
+    else if (message.cb_message_options_full != null && type == "list") {
+      void showCustomDialog(BuildContext buildcontext, String title, List<String> button, List<String> list) {
+        showDialog(
+          context: buildcontext,
+          barrierDismissible: true,
+          builder: (BuildContext context) {
+            return StatefulBuilder(
+              builder: (BuildContext context, StateSetter setState) {
+                return AlertDialog(
+                  backgroundColor: Colors.white,
+                  titlePadding: EdgeInsets.zero,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10.0),
+                  ),
+                  contentPadding: const EdgeInsets.all(5),
+                  content: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Stack(
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 10),
+                            child: Center(
+                              child: Text(
+                                title,
+                                style: const TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.black,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                                maxLines: 1,
+                                textAlign: TextAlign.center,
+                              ),
+                            ),
+                          ),
+                          Positioned(
+                            top: 3,
+                            right: 0,
+                            bottom: 1,
+                            child: IconButton(
+                              icon: const Icon(Icons.close, color: Colors.black, size: 18),
+                              onPressed: () {
+                                Navigator.of(context).pop();
+                              },
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      Container(
+                        height: 300,
+                        width: 250,
+                        child: SingleChildScrollView(
+                          child: Column(
+                            children: List.generate(button.length, (index) {
+                              return InkWell(
+                                onTap: () {},
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 10.0),
+                                  decoration: BoxDecoration(
+                                    borderRadius: BorderRadius.circular(8.0),
+                                    color: Colors.grey[200],
+                                  ),
+                                  margin: const EdgeInsets.symmetric(vertical: 6),
+                                  child: Row(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              button[index],
+                                              style: const TextStyle(
+                                                fontSize: 14,
+                                                fontWeight: FontWeight.bold,
+                                                color: Colors.black,
+                                              ),
+                                              overflow: TextOverflow.visible,
+                                              maxLines: null,
+                                            ),
+                                            const SizedBox(height: 4),
+                                            Text(
+                                              list.isNotEmpty && index < list.length ? list[index] : "",
+                                              style: const TextStyle(
+                                                fontSize: 12,
+                                                color: Colors.grey,
+                                              ),
+                                              overflow: TextOverflow.visible,
+                                              maxLines: null,
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      const SizedBox(width: 10),
+                                      Align(
+                                        alignment: Alignment.centerRight,
+                                        child: Radio<int>(
+                                          value: index,
+                                          groupValue: null,
+                                          onChanged: (value) {},
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              );
+                            }),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  actions: [
+                    Container(
+                      alignment: Alignment.center,
+                      padding: const EdgeInsets.all(12.0),
+                      decoration: const BoxDecoration(
+                        color: Color(0xFFF9FAFB),
+                        borderRadius: BorderRadius.vertical(bottom: Radius.circular(10.0)),
+                      ),
+                      child: const Text("Tap to select an item", style: TextStyle(color: Colors.black)),
+                    ),
+                  ],
+                );
+              },
+            );
+          },
+        );
+      }
+      
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (header?.isNotEmpty ?? false)
+            _buildMarkdownText(header!),  // ← CHANGED
+          _buildMarkdownText(textMessage),  // ← CHANGED
+          if (footer?.isNotEmpty ?? false)
+            _buildMarkdownText(footer!),  // ← CHANGED
+          const SizedBox(height: 8),
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 4.0),
+            child: ElevatedButton(
+              onPressed: () {
+                showCustomDialog(context, list_menu_header!, buttonValues, listDesc);
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                minimumSize: const Size(double.infinity, 48),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min, 
+                children: [
+                  const FaIcon(
+                    FontAwesomeIcons.list,
+                    color: Colors.blue,
+                    size: 10,
+                  ),
+                  const SizedBox(width: 4), 
+                  Text(
+                    list_menu_header ?? '',
+                    style: textTheme.bodyMedium?.copyWith(
+                      color: Colors.blue,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 12
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      );
+    }
+    // Default - use markdown parser for ALL text
+    else {
+      return _buildMarkdownText(textMessage);
+    }
+  }
   
 
   EdgeInsetsGeometry? get _padding => isMessageBySender
