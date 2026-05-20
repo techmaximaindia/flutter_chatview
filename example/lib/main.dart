@@ -74,6 +74,9 @@ class _ChatScreenState extends State<ChatScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      // ChatView lifts its own content above the keyboard (AnimatedPadding),
+      // so disable Scaffold resize. This gives a smooth keyboard slide on MIUI.
+      resizeToAvoidBottomInset: false,
       body: ChatView(
         currentUser: currentUser,
         chatController: _chatController,

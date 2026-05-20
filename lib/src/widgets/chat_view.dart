@@ -201,77 +201,91 @@ class _ChatViewState extends State<ChatView>
         ),
         padding: chatBackgroundConfig.padding,
         margin: chatBackgroundConfig.margin,
-        child: Column(
-          children: [
-            if (widget.appBar != null) widget.appBar!,
-            Expanded(
-              child: Stack(
-                children: [
-                  if (chatViewState.isLoading)
-                    ChatViewStateWidget(
-                      chatViewStateWidgetConfig:
-                          chatViewStateConfig?.loadingWidgetConfig,
-                      chatViewState: chatViewState,
-                    )
-                  else if (chatViewState.noMessages)
-                    ChatViewStateWidget(
-                      chatViewStateWidgetConfig:
-                          chatViewStateConfig?.noMessageWidgetConfig,
-                      chatViewState: chatViewState,
-                      onReloadButtonTap: chatViewStateConfig?.onReloadButtonTap,
-                    )
-                  else if (chatViewState.isError)
-                    ChatViewStateWidget(
-                      chatViewStateWidgetConfig:
-                          chatViewStateConfig?.errorWidgetConfig,
-                      chatViewState: chatViewState,
-                      onReloadButtonTap: chatViewStateConfig?.onReloadButtonTap,
-                    )
-                  else if (chatViewState.hasMessages)
-                    ValueListenableBuilder<ReplyMessage>(
-                      valueListenable: replyMessage,
-                      builder: (_, state, child) {
-                        return ChatListWidget(
-                          /// TODO: Remove this in future releases.
-                          // ignore: deprecated_member_use_from_same_package
-                          showTypingIndicator: widget.showTypingIndicator,
-                          replyMessage: state,
-                          chatController: widget.chatController,
-                          chatBackgroundConfig: widget.chatBackgroundConfig,
-                          reactionPopupConfig: widget.reactionPopupConfig,
-                          typeIndicatorConfig: widget.typeIndicatorConfig,
-                          chatBubbleConfig: widget.chatBubbleConfig,
-                          loadMoreData: widget.loadMoreData,
-                          isLastPage: widget.isLastPage,
-                          replyPopupConfig: widget.replyPopupConfig,
-                          loadingWidget: widget.loadingWidget,
-                          messageConfig: widget.messageConfig,
-                          profileCircleConfig: widget.profileCircleConfig,
-                          repliedMessageConfig: widget.repliedMessageConfig,
-                          swipeToReplyConfig: widget.swipeToReplyConfig,
-                          onChatListTap: widget.onChatListTap,
-                          assignReplyMessage: (message) => _sendMessageKey
-                              .currentState
-                              ?.assignReplyMessage(message),
-                        );
-                      },
-                    ),
-                  if (featureActiveConfig.enableTextField)
-                    SendMessageWidget(
-                      key: _sendMessageKey,
-                      chatController: chatController,
-                      sendMessageBuilder: widget.sendMessageBuilder,
-                      sendMessageConfig: widget.sendMessageConfig,
-                      backgroundColor: chatBackgroundConfig.backgroundColor,
-                      onSendTap: _onSendTap,
-                      onReplyCallback: (reply) => replyMessage.value = reply,
-                      onReplyCloseCallback: () =>
-                          replyMessage.value = const ReplyMessage(),
-                    ),
-                ],
+        // Lift the chat content above the soft keyboard ourselves. When the host
+        // Scaffold sets resizeToAvoidBottomInset:false, viewInsetsOf reports the
+        // real keyboard height and AnimatedPadding interpolates it smoothly even
+        // when MIUI emits the keyboard insets in coarse, janky steps. When the
+        // host keeps resizeToAvoidBottomInset:true the Scaffold already absorbs
+        // the inset, so viewInsetsOf.bottom is 0 here and this is a no-op.
+        child: AnimatedPadding(
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeOut,
+          padding:
+              EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
+          child: Column(
+            children: [
+              if (widget.appBar != null) widget.appBar!,
+              Expanded(
+                child: Stack(
+                  children: [
+                    if (chatViewState.isLoading)
+                      ChatViewStateWidget(
+                        chatViewStateWidgetConfig:
+                            chatViewStateConfig?.loadingWidgetConfig,
+                        chatViewState: chatViewState,
+                      )
+                    else if (chatViewState.noMessages)
+                      ChatViewStateWidget(
+                        chatViewStateWidgetConfig:
+                            chatViewStateConfig?.noMessageWidgetConfig,
+                        chatViewState: chatViewState,
+                        onReloadButtonTap:
+                            chatViewStateConfig?.onReloadButtonTap,
+                      )
+                    else if (chatViewState.isError)
+                      ChatViewStateWidget(
+                        chatViewStateWidgetConfig:
+                            chatViewStateConfig?.errorWidgetConfig,
+                        chatViewState: chatViewState,
+                        onReloadButtonTap:
+                            chatViewStateConfig?.onReloadButtonTap,
+                      )
+                    else if (chatViewState.hasMessages)
+                      ValueListenableBuilder<ReplyMessage>(
+                        valueListenable: replyMessage,
+                        builder: (_, state, child) {
+                          return ChatListWidget(
+                            /// TODO: Remove this in future releases.
+                            // ignore: deprecated_member_use_from_same_package
+                            showTypingIndicator: widget.showTypingIndicator,
+                            replyMessage: state,
+                            chatController: widget.chatController,
+                            chatBackgroundConfig: widget.chatBackgroundConfig,
+                            reactionPopupConfig: widget.reactionPopupConfig,
+                            typeIndicatorConfig: widget.typeIndicatorConfig,
+                            chatBubbleConfig: widget.chatBubbleConfig,
+                            loadMoreData: widget.loadMoreData,
+                            isLastPage: widget.isLastPage,
+                            replyPopupConfig: widget.replyPopupConfig,
+                            loadingWidget: widget.loadingWidget,
+                            messageConfig: widget.messageConfig,
+                            profileCircleConfig: widget.profileCircleConfig,
+                            repliedMessageConfig: widget.repliedMessageConfig,
+                            swipeToReplyConfig: widget.swipeToReplyConfig,
+                            onChatListTap: widget.onChatListTap,
+                            assignReplyMessage: (message) => _sendMessageKey
+                                .currentState
+                                ?.assignReplyMessage(message),
+                          );
+                        },
+                      ),
+                    if (featureActiveConfig.enableTextField)
+                      SendMessageWidget(
+                        key: _sendMessageKey,
+                        chatController: chatController,
+                        sendMessageBuilder: widget.sendMessageBuilder,
+                        sendMessageConfig: widget.sendMessageConfig,
+                        backgroundColor: chatBackgroundConfig.backgroundColor,
+                        onSendTap: _onSendTap,
+                        onReplyCallback: (reply) => replyMessage.value = reply,
+                        onReplyCloseCallback: () =>
+                            replyMessage.value = const ReplyMessage(),
+                      ),
+                  ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -285,7 +299,7 @@ class _ChatViewState extends State<ChatView>
   ) {
     if (widget.sendMessageBuilder == null) {
       if (widget.onSendTap != null) {
-        widget.onSendTap!(message, replyMessage, messageType,image_message);
+        widget.onSendTap!(message, replyMessage, messageType, image_message);
       }
       _assignReplyMessage();
     }
