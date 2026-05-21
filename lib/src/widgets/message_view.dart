@@ -132,6 +132,7 @@ class _MessageViewState extends State<MessageView>
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
+      behavior: HitTestBehavior.opaque,
       onLongPressStart: isLongPressEnable ? _onLongPressStart : null,
       onDoubleTap: () {
         if (widget.onDoubleTap != null) widget.onDoubleTap!(widget.message);
