@@ -169,53 +169,60 @@ class _ChatGroupedListWidgetState extends State<ChatGroupedListWidget>
       physics: showPopUp ? const NeverScrollableScrollPhysics() : null,
       padding: EdgeInsets.only(bottom: showTypingIndicator ? 50 : 0),
       controller: widget.scrollController,
-      child: Column(
-        children: [
-          GestureDetector(
-            onHorizontalDragUpdate: (details) => isEnableSwipeToSeeTime
-                ? showPopUp
-                    ? null
-                    : _onHorizontalDrag(details)
-                : null,
-            onHorizontalDragEnd: (details) => isEnableSwipeToSeeTime
-                ? showPopUp
-                    ? null
-                    : _animationController?.reverse()
-                : null,
-            onTap: widget.onChatListTap,
-            child: _animationController != null
-                ? AnimatedBuilder(
-                    animation: _animationController!,
-                    builder: (context, child) {
-                      return _chatStreamBuilder;
-                    },
+      // RepaintBoundary puts the whole message column on its own compositing
+      // layer. When the keyboard slides, the scroll viewport resizes but the
+      // messages are only re-composited, not repainted, so keyboard animation
+      // speed no longer scales with the number of messages in the conversation.
+      child: RepaintBoundary(
+        child: Column(
+          children: [
+            GestureDetector(
+              onHorizontalDragUpdate: (details) => isEnableSwipeToSeeTime
+                  ? showPopUp
+                      ? null
+                      : _onHorizontalDrag(details)
+                  : null,
+              onHorizontalDragEnd: (details) => isEnableSwipeToSeeTime
+                  ? showPopUp
+                      ? null
+                      : _animationController?.reverse()
+                  : null,
+              onTap: widget.onChatListTap,
+              child: _animationController != null
+                  ? AnimatedBuilder(
+                      animation: _animationController!,
+                      builder: (context, child) {
+                        return _chatStreamBuilder;
+                      },
+                    )
+                  : _chatStreamBuilder,
+            ),
+            widget.showTypingIndicator
+                ? TypingIndicator(
+                    typeIndicatorConfig: widget.typeIndicatorConfig,
+                    chatBubbleConfig:
+                        chatBubbleConfig?.inComingChatBubbleConfig,
+                    showIndicator: widget.showTypingIndicator,
+                    profilePic: profileCircleConfig?.profileImageUrl,
                   )
-                : _chatStreamBuilder,
-          ),
-          widget.showTypingIndicator
-              ? TypingIndicator(
-                  typeIndicatorConfig: widget.typeIndicatorConfig,
-                  chatBubbleConfig: chatBubbleConfig?.inComingChatBubbleConfig,
-                  showIndicator: widget.showTypingIndicator,
-                  profilePic: profileCircleConfig?.profileImageUrl,
-                )
-              : ValueListenableBuilder(
-                  valueListenable: ChatViewInheritedWidget.of(context)!
-                      .chatController
-                      .typingIndicatorNotifier,
-                  builder: (context, value, child) => TypingIndicator(
-                        typeIndicatorConfig: widget.typeIndicatorConfig,
-                        chatBubbleConfig:
-                            chatBubbleConfig?.inComingChatBubbleConfig,
-                        showIndicator: value,
-                        profilePic: profileCircleConfig?.profileImageUrl,
-                      )),
-          SizedBox(
-            height: (MediaQuery.of(context).size.width *
-                    (widget.replyMessage.message.isNotEmpty ? 0.3 : 0.14)) +
-                (widget.chatTextFieldTopPadding),
-          ),
-        ],
+                : ValueListenableBuilder(
+                    valueListenable: ChatViewInheritedWidget.of(context)!
+                        .chatController
+                        .typingIndicatorNotifier,
+                    builder: (context, value, child) => TypingIndicator(
+                          typeIndicatorConfig: widget.typeIndicatorConfig,
+                          chatBubbleConfig:
+                              chatBubbleConfig?.inComingChatBubbleConfig,
+                          showIndicator: value,
+                          profilePic: profileCircleConfig?.profileImageUrl,
+                        )),
+            SizedBox(
+              height: (MediaQuery.of(context).size.width *
+                      (widget.replyMessage.message.isNotEmpty ? 0.3 : 0.14)) +
+                  (widget.chatTextFieldTopPadding),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -303,39 +310,44 @@ class _ChatGroupedListWidgetState extends State<ChatGroupedListWidget>
                           )
                         : const SizedBox.shrink(),
                 indexedItemBuilder: (context, message, index) {
-                  return ValueListenableBuilder<String?>(
-                    valueListenable: _replyId,
-                    builder: (context, state, child) {
-                      return ChatBubbleWidget(
-                        key: message.key,
-                        messageTimeTextStyle:
-                            chatBackgroundConfig.messageTimeTextStyle,
-                        messageTimeIconColor:
-                            chatBackgroundConfig.messageTimeIconColor,
-                        message: message,
-                        messageConfig: widget.messageConfig,
-                        chatBubbleConfig: chatBubbleConfig,
-                        profileCircleConfig: profileCircleConfig,
-                        swipeToReplyConfig: widget.swipeToReplyConfig,
-                        repliedMessageConfig: widget.repliedMessageConfig,
-                        slideAnimation: _slideAnimation,
-                        onLongPress: (yCoordinate, xCoordinate) =>
-                            widget.onChatBubbleLongPress(
-                          yCoordinate,
-                          xCoordinate,
-                          message,
-                        ),
-                        onSwipe: widget.assignReplyMessage,
-                        shouldHighlight: state == message.id,
-                        onReplyTap: widget
-                                    .repliedMessageConfig
-                                    ?.repliedMsgAutoScrollConfig
-                                    .enableScrollToRepliedMsg ??
-                                false
-                            ? (replyId) => _onReplyTap(replyId, snapshot.data)
-                            : null,
-                      );
-                    },
+                  // Per-bubble RepaintBoundary: a single message update (status,
+                  // reply highlight) or a keyboard repaint touches only that
+                  // bubble's layer instead of repainting the entire list.
+                  return RepaintBoundary(
+                    child: ValueListenableBuilder<String?>(
+                      valueListenable: _replyId,
+                      builder: (context, state, child) {
+                        return ChatBubbleWidget(
+                          key: message.key,
+                          messageTimeTextStyle:
+                              chatBackgroundConfig.messageTimeTextStyle,
+                          messageTimeIconColor:
+                              chatBackgroundConfig.messageTimeIconColor,
+                          message: message,
+                          messageConfig: widget.messageConfig,
+                          chatBubbleConfig: chatBubbleConfig,
+                          profileCircleConfig: profileCircleConfig,
+                          swipeToReplyConfig: widget.swipeToReplyConfig,
+                          repliedMessageConfig: widget.repliedMessageConfig,
+                          slideAnimation: _slideAnimation,
+                          onLongPress: (yCoordinate, xCoordinate) =>
+                              widget.onChatBubbleLongPress(
+                            yCoordinate,
+                            xCoordinate,
+                            message,
+                          ),
+                          onSwipe: widget.assignReplyMessage,
+                          shouldHighlight: state == message.id,
+                          onReplyTap: widget
+                                      .repliedMessageConfig
+                                      ?.repliedMsgAutoScrollConfig
+                                      .enableScrollToRepliedMsg ??
+                                  false
+                              ? (replyId) => _onReplyTap(replyId, snapshot.data)
+                              : null,
+                        );
+                      },
+                    ),
                   );
                 },
               )
