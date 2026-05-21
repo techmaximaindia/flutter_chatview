@@ -129,7 +129,7 @@ Widget _buildMarkdownText(String text) {
         fontSize: 14,
       );
   
-  return SelectableText.rich(
+   return Text.rich(          // ← change SelectableText.rich to Text.rich
     TextSpan(
       children: MarkdownTextParser.parseMarkdown(text, baseStyle),
     ),
