@@ -1420,9 +1420,23 @@ class _ChatUITextFieldState extends State<ChatUITextField>
       "Voice messages are only supported with android and ios platform",
     );
     if (!isRecording.value) {
-      final directory = await getTemporaryDirectory();
+      /*final directory = await getTemporaryDirectory();
       final filePath =
           '${directory.path}/recording_${DateTime.now().millisecondsSinceEpoch}.m4a';
+      await recorderController.record(path: filePath);
+      isRecording.value = true;
+      _startTimer();*/
+      final prefs = await SharedPreferences.getInstance();
+      final String? platform = prefs.getString('platform');
+      
+      final directory = await getTemporaryDirectory();
+      /*final filePath =
+          '${directory.path}/recording_${DateTime.now().millisecondsSinceEpoch}.m4a';
+      await recorderController.record(path: filePath);*/
+      final String extension = platform == 'telegram' ? 'mp3' : 'm4a';
+      final filePath = '${directory.path}/recording_${DateTime.now().millisecondsSinceEpoch}.$extension';
+      print("CHECK PATH ");
+      print(filePath);
       await recorderController.record(path: filePath);
       isRecording.value = true;
       _startTimer();
