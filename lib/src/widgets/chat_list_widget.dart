@@ -148,11 +148,13 @@ class _ChatListWidgetState extends State<ChatListWidget>
   FeatureActiveConfig? featureActiveConfig;
   ChatUser? currentUser;
   Message? _selectedMessage;
+  String? _user_role;
 
   @override
   void initState() {
     super.initState();
     _initialize();
+    _loadPlatform();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         _showScrollToBottomButton.value = true;
@@ -215,7 +217,16 @@ class _ChatListWidgetState extends State<ChatListWidget>
     }
     if (messageList.isNotEmpty) chatController.scrollToLastMessage();
   }
-
+  
+  Future<void> _loadPlatform() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (mounted) {
+      setState(() {
+        _user_role = prefs.getString('user_roles');
+      });
+    }
+  }
+  
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -353,6 +364,7 @@ class _ChatListWidgetState extends State<ChatListWidget>
                             onDeleteTap: (message) {
                               _showDeleteConfirmationDialog(message);
                             },
+                            user_roles: _user_role??'',
                           );
                         },
                       ),
