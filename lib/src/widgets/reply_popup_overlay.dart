@@ -16,6 +16,7 @@ class ReplyPopup extends StatefulWidget {
     required this.onTranslateTap,
     required this.onTicketTap,
     required this.onDeleteTap,
+    this.user_roles,
   }) : super(key: key);
 
   final VoidCallBack onTap;
@@ -25,6 +26,7 @@ class ReplyPopup extends StatefulWidget {
   final MessageCallBack onTranslateTap;
   final MessageCallBack onTicketTap;
   final MessageCallBack onDeleteTap;
+  final String? user_roles;
 
   @override
   ReplyPopupState createState() => ReplyPopupState();
@@ -149,7 +151,7 @@ class ReplyPopupState extends State<ReplyPopup>
             }
           },
         ),
-        if (_message?.profilename != "Bot" && _message?.profilename != "bot"&& _message?.profilename !='Summary'&& _message?.message_deleted == false)
+        if (_message?.profilename != "Bot" && _message?.profilename != "bot"&& _message?.profilename !='Summary'&& _message?.message_deleted == false && (widget.user_roles == 'admin' || widget.user_roles == 'member'|| widget.user_roles == 'Admin'|| widget.user_roles == 'Member'))
           _buildReplyAction(
             icon: Icons.delete, // Fixed: changed from Icons.Delete to Icons.delete
             text: 'Delete',
