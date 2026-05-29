@@ -1420,12 +1420,6 @@ class _ChatUITextFieldState extends State<ChatUITextField>
       "Voice messages are only supported with android and ios platform",
     );
     if (!isRecording.value) {
-      /*final directory = await getTemporaryDirectory();
-      final filePath =
-          '${directory.path}/recording_${DateTime.now().millisecondsSinceEpoch}.m4a';
-      await recorderController.record(path: filePath);
-      isRecording.value = true;
-      _startTimer();*/
       final prefs = await SharedPreferences.getInstance();
       final String? platform = prefs.getString('platform');
       
@@ -1501,24 +1495,35 @@ class _ChatUITextFieldState extends State<ChatUITextField>
     }
   }
 
-  void _onIconPressed(
-    BuildContext ctx,
-    ImageSource imageSource, {
-    ImagePickerConfiguration? config,
-  }) async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final String? platform = prefs.getString('platform');
-      final String? page = prefs.getString('page');
-      bool needsWhatsAppValidation = page == 'chat' &&
-          (platform == 'fb_whatsapp' || platform == 'whatsapp');
-      bool needsInstagramValidation = page == 'chat' &&
-          (platform == 'instagram' || platform == 'Instagram');
-      bool needsTelegramValidation = page == 'chat' &&
-          (platform == 'telegram' || platform == 'Telegram');
-      bool needsFacebookValidation = page == 'chat' &&
-          (platform == 'facebook' || platform == 'Facebook');
-      final XFile? image = await _imagePicker.pickImage(
+  
+void _onIconPressed(
+  BuildContext ctx,
+  ImageSource imageSource, {
+  ImagePickerConfiguration? config,
+}) async {
+  try {
+    final prefs = await SharedPreferences.getInstance();
+    final String? platform = prefs.getString('platform');
+    final String? page = prefs.getString('page');
+
+    bool needsWhatsAppValidation =
+        page == 'chat' && (platform == 'fb_whatsapp' || platform == 'whatsapp');
+    bool needsInstagramValidation =
+        page == 'chat' && (platform == 'instagram' || platform == 'Instagram');
+    bool needsTelegramValidation =
+        page == 'chat' && (platform == 'telegram' || platform == 'Telegram');
+    bool needsFacebookValidation =
+        page == 'chat' && (platform == 'facebook' || platform == 'Facebook');
+
+    List<XFile> images = [];
+    if (imageSource == ImageSource.gallery) {
+      images = await _imagePicker.pickMultiImage(
+        maxHeight: config?.maxHeight,
+        maxWidth: config?.maxWidth,
+        imageQuality: config?.imageQuality,
+      );
+    } else {
+      final XFile? single = await _imagePicker.pickImage(
         source: imageSource,
         maxHeight: config?.maxHeight,
         maxWidth: config?.maxWidth,
@@ -1526,75 +1531,84 @@ class _ChatUITextFieldState extends State<ChatUITextField>
         preferredCameraDevice:
             config?.preferredCameraDevice ?? CameraDevice.rear,
       );
-      String? imagePath = image?.path;
-      if (config?.onImagePicked != null) {
-        String? updatedImagePath = await config?.onImagePicked!(imagePath);
-        if (updatedImagePath != null) imagePath = updatedImagePath;
-      }
-      if (imagePath != null && imagePath.isNotEmpty) {
-        String lowerPath = imagePath.toLowerCase();
-        if (needsWhatsAppValidation) {
-          bool isValidFormat = lowerPath.endsWith('.jpg') ||
-              lowerPath.endsWith('.jpeg') ||
-              lowerPath.endsWith('.png');
-          if (!isValidFormat) {
-            _showCustomNotification(
-                ctx, 'WhatsApp only supports JPG, JPEG, and PNG images.');
-            return;
-          }
-        } else if (needsInstagramValidation) {
-          bool isValidFormat = lowerPath.endsWith('.jpeg') ||
-              lowerPath.endsWith('.png') ||
-              lowerPath.endsWith('.jpg');
-          if (!isValidFormat) {
-            _showCustomNotification(
-                ctx, 'Instagram only supports JPEG and PNG images.');
-            return;
-          }
-        } else if (needsTelegramValidation) {
-          bool isValidFormat = lowerPath.endsWith('.png') ||
-              lowerPath.endsWith('.jpeg') ||
-              lowerPath.endsWith('.jpg') ||
-              lowerPath.endsWith('.gif') ||
-              lowerPath.endsWith('.webp') ||
-              lowerPath.endsWith('.bmp');
-          if (!isValidFormat) {
-            _showCustomNotification(ctx,
-                'Telegram supports PNG, JPEG, GIF, and WEBP images.');
-            return;
-          }
-        } else if (needsFacebookValidation) {
-          bool isValidFormat = lowerPath.endsWith('.png') ||
-              lowerPath.endsWith('.jpeg') ||
-              lowerPath.endsWith('.jpg') ||
-              lowerPath.endsWith('.gif');
-          if (!isValidFormat) {
-            _showCustomNotification(
-                ctx, 'Facebook supports PNG, JPEG, and GIF images.');
-            return;
-          }
-        }
-        Navigator.push(
-          ctx,
-          MaterialPageRoute(
-            builder: (context) => ImageViewerPage(
-              imagePath: imagePath ?? '',
-              onSend: (sentImagePath, message, completed) {
-                widget.onImageSelected(sentImagePath, '', message ?? '');
-              },
-              padding: const EdgeInsets.fromLTRB(
-                  bottomPadding4, bottomPadding4, bottomPadding4,
-                  bottomPadding4),
-              platform: platform ?? '',
-            ),
-          ),
-        );
-      }
-    } catch (e) {
-      widget.onImageSelected('', e.toString(), '');
+      if (single != null) images = [single];
     }
-  }
 
+    if (images.isEmpty) return;
+
+    List<String> imagePaths = images.map((xfile) => xfile.path).toList();
+
+    // Platform validation
+    for (final path in imagePaths) {
+      final lower = path.toLowerCase();
+      if (needsWhatsAppValidation) {
+        if (!lower.endsWith('.jpg') &&
+            !lower.endsWith('.jpeg') &&
+            !lower.endsWith('.png')) {
+          _showCustomNotification(
+              ctx, 'WhatsApp only supports JPG, JPEG, and PNG images.');
+          return;
+        }
+      } else if (needsInstagramValidation) {
+        if (!lower.endsWith('.jpg') &&
+            !lower.endsWith('.jpeg') &&
+            !lower.endsWith('.png')) {
+          _showCustomNotification(
+              ctx, 'Instagram only supports JPEG and PNG images.');
+          return;
+        }
+      } else if (needsTelegramValidation) {
+        if (!lower.endsWith('.png') &&
+            !lower.endsWith('.jpeg') &&
+            !lower.endsWith('.jpg') &&
+            !lower.endsWith('.gif') &&
+            !lower.endsWith('.webp') &&
+            !lower.endsWith('.bmp')) {
+          _showCustomNotification(
+              ctx, 'Telegram supports PNG, JPEG, GIF, and WEBP images.');
+          return;
+        }
+      } else if (needsFacebookValidation) {
+        if (!lower.endsWith('.png') &&
+            !lower.endsWith('.jpeg') &&
+            !lower.endsWith('.jpg') &&
+            !lower.endsWith('.gif')) {
+          _showCustomNotification(
+              ctx, 'Facebook supports PNG, JPEG, and GIF images.');
+          return;
+        }
+      }
+    }
+
+    // ── Open preview page ──────────────────────────────────────────────────
+    Navigator.push(
+      ctx,
+      MaterialPageRoute(
+        builder: (context) => ImageViewerPage(
+          imagePaths: imagePaths,   // original selection for preview only
+          padding: const EdgeInsets.all(bottomPadding4),
+          platform: platform ?? '',
+          onSend: (finalPaths, captions, completed) async {
+            // finalPaths = whatever _entries contains after user add/delete
+            // This is the ONLY place onImagePicked should be called
+            String processedPaths = finalPaths;
+
+            if (config?.onImagePicked != null) {
+              final updated = await config!.onImagePicked!(finalPaths);
+              if (updated != null && updated.isNotEmpty) {
+                processedPaths = updated;
+              }
+            }
+
+            widget.onImageSelected(processedPaths, '', captions ?? '');
+          },
+        ),
+      ),
+    );
+  } catch (e) {
+    widget.onImageSelected('', e.toString(), '');
+  }
+}
   void _onChanged(String inputText) async {
     if (inputText.startsWith('/')) {
       String searchText =
@@ -1639,124 +1653,365 @@ class _ChatUITextFieldState extends State<ChatUITextField>
   }
 }
 
-// Rest of the supporting widgets remain the same...
+
+// ═══════════════════════════════════════════════════════════════════════════
+// _ImageEntry  — one object per image, never splits apart
+// ═══════════════════════════════════════════════════════════════════════════
+class _ImageEntry {
+  final String path;
+  final TextEditingController captionCtrl = TextEditingController();
+  final FocusNode focusNode = FocusNode();
+
+  _ImageEntry(this.path);
+
+  void dispose() {
+    captionCtrl.dispose();
+    focusNode.dispose();
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ImageViewerPage
+// ═══════════════════════════════════════════════════════════════════════════
 class ImageViewerPage extends StatefulWidget {
-  final String? imagePath;
+  final List<String> imagePaths;
   final Function(String, String?, VoidCallback) onSend;
   final String platform;
   final EdgeInsetsGeometry padding;
-  const ImageViewerPage(
-      {Key? key,
-      required this.imagePath,
-      required this.onSend,
-      required this.padding,
-      required this.platform})
-      : super(key: key);
+
+  const ImageViewerPage({
+    Key? key,
+    required this.imagePaths,
+    required this.onSend,
+    required this.padding,
+    required this.platform,
+  }) : super(key: key);
+
   @override
-  _ImageViewerPageState createState() => _ImageViewerPageState();
+  State<ImageViewerPage> createState() => _ImageViewerPageState();
 }
 
 class _ImageViewerPageState extends State<ImageViewerPage> {
-  final TextEditingController _messageController = TextEditingController();
-  final FocusNode _focusNode = FocusNode();
-  bool _isMounted = false;
-  
+  late List<_ImageEntry> _entries;
+  int _currentIndex = 0;
+  final ScrollController _stripScroll = ScrollController();
+  final ImagePicker _picker = ImagePicker();
+
+  // ── Lifecycle ─────────────────────────────────────────────────────────────
   @override
   void initState() {
     super.initState();
-    _isMounted = true;
-    _focusNode.addListener(() { if (_isMounted) setState(() {}); });
+    _entries = widget.imagePaths.map((p) => _ImageEntry(p)).toList();
   }
-  
+
   @override
   void dispose() {
-    _isMounted = false;
-    _messageController.dispose();
-    _focusNode.dispose();
+    for (final e in _entries) e.dispose();
+    _stripScroll.dispose();
     super.dispose();
   }
-  
+
+  // ── Helpers ───────────────────────────────────────────────────────────────
+  bool get _hasCaption =>
+      widget.platform != 'facebook' &&
+      widget.platform != 'Facebook' &&
+      widget.platform != 'instagram' &&
+      widget.platform != 'Instagram';
+
+  void _goTo(int i) {
+    if (i == _currentIndex) return;
+    if (i < 0 || i >= _entries.length) return;
+    _entries[_currentIndex].focusNode.unfocus();
+    setState(() => _currentIndex = i);
+  }
+
+  // ── Add ───────────────────────────────────────────────────────────────────
+  Future<void> _addImages() async {
+    try {
+      final picked = await _picker.pickMultiImage();
+      if (picked.isEmpty) return;
+      if (!mounted) return;
+      setState(() {
+        final insertAt = _entries.length;
+        for (final xf in picked) {
+          _entries.add(_ImageEntry(xf.path));
+        }
+        _currentIndex = insertAt;
+      });
+    } catch (_) {}
+  }
+
+  // ── Delete ────────────────────────────────────────────────────────────────
+  void _deleteAt(int i) {
+    if (_entries.length == 1) {
+      Navigator.of(context).pop();
+      return;
+    }
+
+    final dying = _entries[i];
+
+    setState(() {
+      _entries.removeAt(i);
+      if (_currentIndex >= _entries.length) {
+        _currentIndex = _entries.length - 1;
+      }
+    });
+
+    WidgetsBinding.instance.addPostFrameCallback((_) => dying.dispose());
+  }
+
+  // ── Send ──────────────────────────────────────────────────────────────────
+  // THIS was the broken method — now reads directly from _entries
+  void _send() {
+    final String joinedPaths =
+        _entries.map((e) => e.path).join(',');
+
+    final String joinedCaptions =
+        _entries.map((e) => e.captionCtrl.text.trim()).join('||');
+
+    widget.onSend(
+      joinedPaths,
+      joinedCaptions.replaceAll('|', '').trim().isEmpty
+          ? null
+          : joinedCaptions,
+      () {},
+    );
+
+    Navigator.of(context).pop();
+  }
+
+  // ── Build ─────────────────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
-    final mediaQuery = MediaQuery.of(context);
-    final hasCaption =
-        widget.platform != 'facebook' && widget.platform != 'instagram';
+    final bottom = MediaQuery.of(context).viewInsets.bottom +
+        MediaQuery.of(context).padding.bottom;
+    final entry = _entries[_currentIndex];
+
     return Scaffold(
       backgroundColor: Colors.black,
       resizeToAvoidBottomInset: true,
+
       appBar: AppBar(
         backgroundColor: Colors.black,
-        title: const Text('Image Preview',
-            style: TextStyle(color: Colors.white)),
-        centerTitle: true,
         iconTheme: const IconThemeData(color: Colors.white),
+        centerTitle: true,
+        title: Text(
+          _entries.length > 1
+              ? 'Preview  ${_currentIndex + 1} / ${_entries.length}'
+              : 'Image Preview',
+          style: const TextStyle(color: Colors.white, fontSize: 16),
+        ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
+            onPressed: () => _deleteAt(_currentIndex),
+          ),
+        ],
       ),
+
       body: Column(
         children: [
+          // ── Main image ──────────────────────────────────────────────────
           Expanded(
-            child: Center(
-              child: widget.imagePath != null && widget.imagePath!.isNotEmpty
-                  ? ClipRRect(
-                      borderRadius: BorderRadius.circular(15),
-                      child: Image.file(File(widget.imagePath!),
-                          fit: BoxFit.contain))
-                  : const Text('No image selected',
-                      style: TextStyle(color: Colors.white70)),
+            child: GestureDetector(
+              onHorizontalDragEnd: (d) {
+                if ((d.primaryVelocity ?? 0) < -300) _goTo(_currentIndex + 1);
+                if ((d.primaryVelocity ?? 0) > 300) _goTo(_currentIndex - 1);
+              },
+              child: Center(
+                child: Image.file(
+                  File(entry.path),
+                  fit: BoxFit.contain,
+                ),
+              ),
             ),
           ),
-          Container(
-            margin: EdgeInsets.only(
-                left: 16,
-                right: 16,
-                bottom: mediaQuery.padding.bottom + 10),
-            child: Container(
+
+          // ── Thumbnail strip ─────────────────────────────────────────────
+          SizedBox(
+            height: 88,
+            child: ListView.builder(
+              controller: _stripScroll,
+              scrollDirection: Axis.horizontal,
               padding:
-                  const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
-              decoration: BoxDecoration(
-                  color: Colors.grey[900],
-                  borderRadius: BorderRadius.circular(15)),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  if (hasCaption)
-                    Expanded(
-                      child: TextField(
-                        controller: _messageController,
-                        focusNode: _focusNode,
-                        style: const TextStyle(
-                            color: Colors.white, fontSize: 16),
-                        maxLines: 3,
-                        minLines: 1,
-                        decoration: const InputDecoration(
-                          hintText: "Add a caption...",
-                          hintStyle: TextStyle(color: Colors.white54),
-                          border: InputBorder.none,
-                          contentPadding: EdgeInsets.symmetric(
-                              horizontal: 12, vertical: 8),
-                          isDense: true,
-                        ),
-                      ),
-                    ),
-                  if (!hasCaption) const Spacer(),
-                  GestureDetector(
-                    onTap: () {
-                      widget.onSend(widget.imagePath ?? '',
-                          _messageController.text.trim(), () {});
-                      _messageController.clear();
-                      Navigator.pop(context);
-                    },
+                  const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              itemCount: _entries.length + 1,
+              itemBuilder: (_, i) {
+                // Add button
+                if (i == _entries.length) {
+                  return GestureDetector(
+                    onTap: _addImages,
                     child: Container(
-                      margin: const EdgeInsets.all(4),
-                      padding: const EdgeInsets.all(10),
+                      width: 64,
+                      height: 64,
+                      margin: const EdgeInsets.only(left: 4),
                       decoration: BoxDecoration(
-                          color: Colors.blue,
-                          borderRadius: BorderRadius.circular(30)),
-                      child: const Icon(Icons.send,
-                          color: Colors.white, size: 22),
+                        color: Colors.grey[850],
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(
+                            color: Colors.grey[600]!, width: 1.5),
+                      ),
+                      child: const Icon(Icons.add,
+                          color: Colors.white, size: 30),
+                    ),
+                  );
+                }
+
+                // Thumbnail
+                final selected = i == _currentIndex;
+                return GestureDetector(
+                  onTap: () => _goTo(i),
+                  child: Container(
+                    width: 68,
+                    height: 68,
+                    margin: const EdgeInsets.only(right: 6),
+                    child: Stack(
+                      clipBehavior: Clip.none,
+                      children: [
+                        AnimatedContainer(
+                          duration: const Duration(milliseconds: 150),
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(
+                              color: selected
+                                  ? Colors.blue
+                                  : Colors.transparent,
+                              width: 2.5,
+                            ),
+                          ),
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(8),
+                            child: Image.file(
+                              File(_entries[i].path),
+                              width: 64,
+                              height: 64,
+                              fit: BoxFit.cover,
+                            ),
+                          ),
+                        ),
+
+                        // Red × delete
+                        Positioned(
+                          top: -4,
+                          right: -4,
+                          child: GestureDetector(
+                            behavior: HitTestBehavior.opaque,
+                            onTap: () => _deleteAt(i),
+                            child: Container(
+                              width: 20,
+                              height: 20,
+                              decoration: const BoxDecoration(
+                                color: Colors.red,
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(Icons.close,
+                                  color: Colors.white, size: 13),
+                            ),
+                          ),
+                        ),
+
+                        // Green dot — caption exists
+                        if (_entries[i].captionCtrl.text.trim().isNotEmpty)
+                          Positioned(
+                            bottom: 0,
+                            right: 0,
+                            child: Container(
+                              width: 10,
+                              height: 10,
+                              decoration: const BoxDecoration(
+                                color: Color(0xFF00A884),
+                                shape: BoxShape.circle,
+                              ),
+                            ),
+                          ),
+                      ],
                     ),
                   ),
-                ],
-              ),
+                );
+              },
+            ),
+          ),
+
+          // ── Caption + Send ──────────────────────────────────────────────
+          Container(
+            margin: EdgeInsets.fromLTRB(12, 4, 12, bottom + 10),
+            padding:
+                const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+            decoration: BoxDecoration(
+              color: Colors.grey[900],
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                if (_hasCaption)
+                  Expanded(
+                    child: TextField(
+                      key: ValueKey(_currentIndex),
+                      controller: entry.captionCtrl,
+                      focusNode: entry.focusNode,
+                      style: const TextStyle(
+                          color: Colors.white, fontSize: 15),
+                      maxLines: 3,
+                      minLines: 1,
+                      textInputAction: TextInputAction.done,
+                      decoration: InputDecoration(
+                        hintText: _entries.length > 1
+                            ? 'Caption for image ${_currentIndex + 1}…'
+                            : 'Add a caption…',
+                        hintStyle:
+                            const TextStyle(color: Colors.white54),
+                        border: InputBorder.none,
+                        contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 8),
+                        isDense: true,
+                      ),
+                    ),
+                  )
+                else
+                  const Spacer(),
+
+                // Send button
+                GestureDetector(
+                  onTap: _send,
+                  child: Container(
+                    margin: const EdgeInsets.all(4),
+                    padding: const EdgeInsets.all(11),
+                    decoration: BoxDecoration(
+                      color: Colors.blue,
+                      borderRadius: BorderRadius.circular(32),
+                    ),
+                    child: _entries.length > 1
+                        ? Stack(
+                            clipBehavior: Clip.none,
+                            children: [
+                              const Icon(Icons.send,
+                                  color: Colors.white, size: 22),
+                              Positioned(
+                                top: -7,
+                                right: -9,
+                                child: Container(
+                                  padding: const EdgeInsets.all(3),
+                                  decoration: const BoxDecoration(
+                                    color: Colors.red,
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: Text(
+                                    '${_entries.length}',
+                                    style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.bold),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          )
+                        : const Icon(Icons.send,
+                            color: Colors.white, size: 22),
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -1764,7 +2019,6 @@ class _ImageViewerPageState extends State<ImageViewerPage> {
     );
   }
 }
-
 class AudioViewerPage extends StatefulWidget {
   final String fileUrl;
   final Function(String, String?, VoidCallback) onSend;
