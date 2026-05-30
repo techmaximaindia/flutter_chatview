@@ -1,4 +1,3 @@
-
 /*
  * Copyright (c) 2022 Simform Solutions
  *
@@ -1517,11 +1516,12 @@ void _onIconPressed(
 
     List<XFile> images = [];
     if (imageSource == ImageSource.gallery) {
-      images = await _imagePicker.pickMultiImage(
-        maxHeight: config?.maxHeight,
-        maxWidth: config?.maxWidth,
-        imageQuality: config?.imageQuality,
-      );
+      //images = await _imagePicker.pickMultiImage(
+      //  maxHeight: config?.maxHeight,
+      //  maxWidth: config?.maxWidth,
+      //  imageQuality: config?.imageQuality,
+      //);
+      images = await _imagePicker.pickMultiImage();
     } else {
       final XFile? single = await _imagePicker.pickImage(
         source: imageSource,
@@ -1579,13 +1579,35 @@ void _onIconPressed(
         }
       }
     }
-
+    await Future.delayed(const Duration(milliseconds: 300));
+    if (!mounted) return;
+    if (imagePaths.length > 10) {
+      ScaffoldMessenger.of(ctx).showSnackBar(
+        SnackBar(
+          content: const Row(
+            children: [
+              Icon(Icons.warning_amber_rounded, color: Colors.white),
+              SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'Only 10 images can be sent at a time. Please remove extra images on the preview screen.',
+                  style: TextStyle(color: Colors.white),
+                ),
+              ),
+            ],
+          ),
+          backgroundColor: Colors.orange[700],
+          behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 4),
+        ),
+      );
+    }
     // ── Open preview page ──────────────────────────────────────────────────
     Navigator.push(
       ctx,
       MaterialPageRoute(
         builder: (context) => ImageViewerPage(
-          imagePaths: imagePaths,   // original selection for preview only
+          imagePaths: imagePaths,   // original selection for preview only 
           padding: const EdgeInsets.all(bottomPadding4),
           platform: platform ?? '',
           onSend: (finalPaths, captions, completed) async {
@@ -1659,10 +1681,30 @@ void _onIconPressed(
 // ═══════════════════════════════════════════════════════════════════════════
 class _ImageEntry {
   final String path;
+  int fileSizeBytes; // mutable — filled after async read
   final TextEditingController captionCtrl = TextEditingController();
   final FocusNode focusNode = FocusNode();
 
-  _ImageEntry(this.path);
+  _ImageEntry(this.path, {this.fileSizeBytes = 0});
+
+  // Async factory: waits for the file to be ready, then reads its size
+  static Future<_ImageEntry> create(String path) async {
+    final entry = _ImageEntry(path);
+    for (int i = 0; i < 30; i++) {
+      try {
+        final file = File(path);
+        if (file.existsSync()) {
+          final bytes = file.lengthSync();
+          if (bytes > 100) {
+            entry.fileSizeBytes = bytes;
+            break;
+          }
+        }
+      } catch (_) {}
+      await Future.delayed(const Duration(milliseconds: 50));
+    }
+    return entry;
+  }
 
   void dispose() {
     captionCtrl.dispose();
@@ -1696,21 +1738,63 @@ class _ImageViewerPageState extends State<ImageViewerPage> {
   int _currentIndex = 0;
   final ScrollController _stripScroll = ScrollController();
   final ImagePicker _picker = ImagePicker();
-
+  
   // ── Lifecycle ─────────────────────────────────────────────────────────────
-  @override
+ @override
   void initState() {
     super.initState();
     _entries = widget.imagePaths.map((p) => _ImageEntry(p)).toList();
+    _loadFileSizes(); // ← add this
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) setState(() {});
+    });
   }
-
+  Future<void> _loadFileSizes() async {
+    final futures = _entries.map((e) async {
+      for (int i = 0; i < 30; i++) {
+        try {
+          final file = File(e.path);
+          if (file.existsSync()) {
+            final bytes = file.lengthSync();
+            print('DEBUG poll $i: path=${e.path} bytes=$bytes');
+            if (bytes > 100) {
+              e.fileSizeBytes = bytes;
+              print('DEBUG size set: ${e.fileSizeBytes}');
+              break;
+            }
+          } else {
+            print('DEBUG poll $i: file does not exist yet');
+          }
+        } catch (e) {
+          print('DEBUG error: $e');
+        }
+        await Future.delayed(const Duration(milliseconds: 50));
+      }
+    });
+    await Future.wait(futures);
+    print('DEBUG _loadFileSizes done, calling setState');
+    if (mounted) setState(() {});
+  }
   @override
   void dispose() {
     for (final e in _entries) e.dispose();
     _stripScroll.dispose();
     super.dispose();
   }
-
+  
+  Future<int> _getFileBytes(String path) async {
+    for (int i = 0; i < 20; i++) {
+      try {
+        final file = File(path);
+        if (file.existsSync()) {
+          final bytes = file.lengthSync();
+          if (bytes > 100) return bytes; // > 100 bytes = real file, not empty
+        }
+      } catch (_) {}
+      await Future.delayed(const Duration(milliseconds: 50));
+    }
+    return 0;
+  }
   // ── Helpers ───────────────────────────────────────────────────────────────
   bool get _hasCaption =>
       widget.platform != 'facebook' &&
@@ -1724,20 +1808,64 @@ class _ImageViewerPageState extends State<ImageViewerPage> {
     _entries[_currentIndex].focusNode.unfocus();
     setState(() => _currentIndex = i);
   }
+  double _fileSizeMB(String path) {
+    final entry = _entries.firstWhere((e) => e.path == path,
+        orElse: () => _ImageEntry(path));
+    if (entry.fileSizeBytes == 0) return 0.0;
+    return double.parse((entry.fileSizeBytes / 1000000).toStringAsFixed(2));
+  }
 
+  bool _isOversized(String path) {
+    final entry = _entries.firstWhere((e) => e.path == path,
+        orElse: () => _ImageEntry(path));
+    print('DEBUG _isOversized: path=$path fileSizeBytes=${entry.fileSizeBytes} result=${entry.fileSizeBytes > (10 * 1000 * 1000)}');
+    return entry.fileSizeBytes > (10 * 1000 * 1000);
+  }
+
+  bool get _hasOversizedFiles => _entries.any((e) => _isOversized(e.path));
+  bool get _isOverLimit => _entries.length > 10;
+  bool get _canSend => !_isOverLimit && !_hasOversizedFiles;
   // ── Add ───────────────────────────────────────────────────────────────────
   Future<void> _addImages() async {
     try {
       final picked = await _picker.pickMultiImage();
       if (picked.isEmpty) return;
       if (!mounted) return;
+
+      final insertAt = _entries.length;
+
+      // Create entries with actual file sizes (waits for files to be ready)
+      final newEntries = await Future.wait(
+        picked.map((xf) => _ImageEntry.create(xf.path)),
+      );
+
+      if (!mounted) return;
       setState(() {
-        final insertAt = _entries.length;
-        for (final xf in picked) {
-          _entries.add(_ImageEntry(xf.path));
-        }
-        _currentIndex = insertAt;
+        _entries.addAll(newEntries);
+        _currentIndex = insertAt.clamp(0, _entries.length - 1);
       });
+
+      if (_entries.length > 10) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Row(
+              children: [
+                Icon(Icons.warning_amber_rounded, color: Colors.white),
+                SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'Only 10 images can be sent at a time. Please remove extra images.',
+                    style: TextStyle(color: Colors.white),
+                  ),
+                ),
+              ],
+            ),
+            backgroundColor: Colors.orange[700],
+            behavior: SnackBarBehavior.floating,
+            duration: const Duration(seconds: 4),
+          ),
+        );
+      }
     } catch (_) {}
   }
 
@@ -1763,9 +1891,104 @@ class _ImageViewerPageState extends State<ImageViewerPage> {
   // ── Send ──────────────────────────────────────────────────────────────────
   // THIS was the broken method — now reads directly from _entries
   void _send() {
-    final String joinedPaths =
-        _entries.map((e) => e.path).join(',');
+    if (_entries.isEmpty) return;
 
+    // ── Check 1: oversized files (raw decimal bytes) ──
+    final List<_ImageEntry> oversized = [];
+    for (final e in _entries) {
+      try {
+        final file = File(e.path);
+        if (!file.existsSync()) continue;
+        if (file.lengthSync() > (10 * 1000 * 1000)) {
+          oversized.add(e);
+        }
+      } catch (_) {}
+    }
+
+    if (oversized.isNotEmpty) {
+      showDialog(
+        context: context,
+        builder: (_) => AlertDialog(
+          title: const Row(
+            children: [
+              Icon(Icons.error_outline, color: Colors.red),
+              SizedBox(width: 8),
+              Text('Cannot Send'),
+            ],
+          ),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'The following images exceed the 10 MB limit. Maximum allowed size is 10 MB per image.',
+                ),
+                const SizedBox(height: 10),
+                ...oversized.map((e) {
+                  final mb = _fileSizeMB(e.path);
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 3),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Icon(Icons.image, size: 14, color: Colors.red),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            '${e.path.split('/').last}\n${mb.toStringAsFixed(2)} MB  (limit: 10 MB)',
+                            style: const TextStyle(
+                                fontSize: 13, color: Colors.red),
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('OK'),
+            ),
+          ],
+        ),
+      );
+      return;
+    }
+
+    // ── Check 2: too many images ──
+    if (_entries.length > 10) {
+      showDialog(
+        context: context,
+        builder: (_) => AlertDialog(
+          title: const Row(
+            children: [
+              Icon(Icons.warning_amber_rounded, color: Colors.orange),
+              SizedBox(width: 8),
+              Text('Too Many Images'),
+            ],
+          ),
+          content: Text(
+            'You have ${_entries.length} images selected. '
+            'Only 10 can be sent at a time. '
+            'Please remove ${_entries.length - 10} image(s).',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('OK'),
+            ),
+          ],
+        ),
+      );
+      return;
+    }
+
+    // ── All good: send ──
+    final String joinedPaths = _entries.map((e) => e.path).join(',');
     final String joinedCaptions =
         _entries.map((e) => e.captionCtrl.text.trim()).join('||');
 
@@ -1786,7 +2009,7 @@ class _ImageViewerPageState extends State<ImageViewerPage> {
     final bottom = MediaQuery.of(context).viewInsets.bottom +
         MediaQuery.of(context).padding.bottom;
     final entry = _entries[_currentIndex];
-
+    final bool currentOversized = _isOversized(entry.path);
     return Scaffold(
       backgroundColor: Colors.black,
       resizeToAvoidBottomInset: true,
@@ -1809,215 +2032,292 @@ class _ImageViewerPageState extends State<ImageViewerPage> {
         ],
       ),
 
-      body: Column(
-        children: [
-          // ── Main image ──────────────────────────────────────────────────
-          Expanded(
-            child: GestureDetector(
-              onHorizontalDragEnd: (d) {
-                if ((d.primaryVelocity ?? 0) < -300) _goTo(_currentIndex + 1);
-                if ((d.primaryVelocity ?? 0) > 300) _goTo(_currentIndex - 1);
-              },
-              child: Center(
-                child: Image.file(
-                  File(entry.path),
-                  fit: BoxFit.contain,
-                ),
-              ),
-            ),
-          ),
+       body: Column(
+      children: [
 
-          // ── Thumbnail strip ─────────────────────────────────────────────
-          SizedBox(
-            height: 88,
-            child: ListView.builder(
-              controller: _stripScroll,
-              scrollDirection: Axis.horizontal,
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              itemCount: _entries.length + 1,
-              itemBuilder: (_, i) {
-                // Add button
-                if (i == _entries.length) {
-                  return GestureDetector(
-                    onTap: _addImages,
-                    child: Container(
-                      width: 64,
-                      height: 64,
-                      margin: const EdgeInsets.only(left: 4),
-                      decoration: BoxDecoration(
-                        color: Colors.grey[850],
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(
-                            color: Colors.grey[600]!, width: 1.5),
-                      ),
-                      child: const Icon(Icons.add,
-                          color: Colors.white, size: 30),
-                    ),
-                  );
-                }
-
-                // Thumbnail
-                final selected = i == _currentIndex;
-                return GestureDetector(
-                  onTap: () => _goTo(i),
-                  child: Container(
-                    width: 68,
-                    height: 68,
-                    margin: const EdgeInsets.only(right: 6),
-                    child: Stack(
-                      clipBehavior: Clip.none,
-                      children: [
-                        AnimatedContainer(
-                          duration: const Duration(milliseconds: 150),
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(10),
-                            border: Border.all(
-                              color: selected
-                                  ? Colors.blue
-                                  : Colors.transparent,
-                              width: 2.5,
-                            ),
-                          ),
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(8),
-                            child: Image.file(
-                              File(_entries[i].path),
-                              width: 64,
-                              height: 64,
-                              fit: BoxFit.cover,
-                            ),
-                          ),
-                        ),
-
-                        // Red × delete
-                        Positioned(
-                          top: -4,
-                          right: -4,
-                          child: GestureDetector(
-                            behavior: HitTestBehavior.opaque,
-                            onTap: () => _deleteAt(i),
-                            child: Container(
-                              width: 20,
-                              height: 20,
-                              decoration: const BoxDecoration(
-                                color: Colors.red,
-                                shape: BoxShape.circle,
-                              ),
-                              child: const Icon(Icons.close,
-                                  color: Colors.white, size: 13),
-                            ),
-                          ),
-                        ),
-
-                        // Green dot — caption exists
-                        if (_entries[i].captionCtrl.text.trim().isNotEmpty)
-                          Positioned(
-                            bottom: 0,
-                            right: 0,
-                            child: Container(
-                              width: 10,
-                              height: 10,
-                              decoration: const BoxDecoration(
-                                color: Color(0xFF00A884),
-                                shape: BoxShape.circle,
-                              ),
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
-                );
-              },
-            ),
-          ),
-
-          // ── Caption + Send ──────────────────────────────────────────────
+        // ── Over-limit banner ───────────────────────────────────────────
+        if (_isOverLimit)
           Container(
-            margin: EdgeInsets.fromLTRB(12, 4, 12, bottom + 10),
-            padding:
-                const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+            margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
             decoration: BoxDecoration(
-              color: Colors.grey[900],
-              borderRadius: BorderRadius.circular(14),
+              color: Colors.orange[800]!.withOpacity(0.92),
+              borderRadius: BorderRadius.circular(10),
             ),
             child: Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                if (_hasCaption)
-                  Expanded(
-                    child: TextField(
-                      key: ValueKey(_currentIndex),
-                      controller: entry.captionCtrl,
-                      focusNode: entry.focusNode,
-                      style: const TextStyle(
-                          color: Colors.white, fontSize: 15),
-                      maxLines: 3,
-                      minLines: 1,
-                      textInputAction: TextInputAction.done,
-                      decoration: InputDecoration(
-                        hintText: _entries.length > 1
-                            ? 'Caption for image ${_currentIndex + 1}…'
-                            : 'Add a caption…',
-                        hintStyle:
-                            const TextStyle(color: Colors.white54),
-                        border: InputBorder.none,
-                        contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 10, vertical: 8),
-                        isDense: true,
-                      ),
-                    ),
-                  )
-                else
-                  const Spacer(),
-
-                // Send button
-                GestureDetector(
-                  onTap: _send,
-                  child: Container(
-                    margin: const EdgeInsets.all(4),
-                    padding: const EdgeInsets.all(11),
-                    decoration: BoxDecoration(
-                      color: Colors.blue,
-                      borderRadius: BorderRadius.circular(32),
-                    ),
-                    child: _entries.length > 1
-                        ? Stack(
-                            clipBehavior: Clip.none,
-                            children: [
-                              const Icon(Icons.send,
-                                  color: Colors.white, size: 22),
-                              Positioned(
-                                top: -7,
-                                right: -9,
-                                child: Container(
-                                  padding: const EdgeInsets.all(3),
-                                  decoration: const BoxDecoration(
-                                    color: Colors.red,
-                                    shape: BoxShape.circle,
-                                  ),
-                                  child: Text(
-                                    '${_entries.length}',
-                                    style: const TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 10,
-                                        fontWeight: FontWeight.bold),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          )
-                        : const Icon(Icons.send,
-                            color: Colors.white, size: 22),
+                const Icon(Icons.info_outline, color: Colors.white, size: 18),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    '${_entries.length} images selected — only 10 allowed. '
+                    'Remove ${_entries.length - 10} image(s) to enable sending.',
+                    style: const TextStyle(color: Colors.white, fontSize: 13),
                   ),
                 ),
               ],
             ),
           ),
-        ],
-      ),
-    );
-  }
+
+        // ── Oversized banner for current image ──────────────────────────
+        if (currentOversized)
+          Container(
+            margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            decoration: BoxDecoration(
+              color: Colors.red[900]!.withOpacity(0.92),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.warning_amber_rounded,
+                    color: Colors.white, size: 18),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'This image is ${_fileSizeMB(entry.path).toStringAsFixed(2)} MB'
+                    ' — only up to 10 MB allowed.',
+                    style: const TextStyle(color: Colors.white, fontSize: 13),
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+        // ── Main image ──────────────────────────────────────────────────
+        Expanded(
+          child: GestureDetector(
+            onHorizontalDragEnd: (d) {
+              if ((d.primaryVelocity ?? 0) < -300) _goTo(_currentIndex + 1);
+              if ((d.primaryVelocity ?? 0) > 300) _goTo(_currentIndex - 1);
+            },
+            child: Center(
+              child: Image.file(
+                File(entry.path),
+                fit: BoxFit.contain,
+              ),
+            ),
+          ),
+        ),
+
+        // ── Thumbnail strip ─────────────────────────────────────────────
+        SizedBox(
+          height: 88,
+          child: ListView.builder(
+            controller: _stripScroll,
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            itemCount: _entries.length + 1,
+            itemBuilder: (_, i) {
+              // Add button
+              if (i == _entries.length) {
+                return GestureDetector(
+                  onTap: _addImages,
+                  child: Container(
+                    width: 64,
+                    height: 64,
+                    margin: const EdgeInsets.only(left: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.grey[850],
+                      borderRadius: BorderRadius.circular(10),
+                      border:
+                          Border.all(color: Colors.grey[600]!, width: 1.5),
+                    ),
+                    child: const Icon(Icons.add, color: Colors.white, size: 30),
+                  ),
+                );
+              }
+
+              // Thumbnail
+              final selected = i == _currentIndex;
+              final thumbOversized = _isOversized(_entries[i].path);
+              final thumbSizeMB = _fileSizeMB(_entries[i].path);
+
+              return GestureDetector(
+                onTap: () => _goTo(i),
+                child: Container(
+                  width: 68,
+                  height: 68,
+                  margin: const EdgeInsets.only(right: 6),
+                  child: Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      // ── Thumb with border ──
+                      AnimatedContainer(
+                        duration: const Duration(milliseconds: 150),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(
+                            color: thumbOversized
+                                ? Colors.red
+                                : selected
+                                    ? Colors.blue
+                                    : Colors.transparent,
+                            width: 2.5,
+                          ),
+                        ),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          child: Image.file(
+                            File(_entries[i].path),
+                            width: 64,
+                            height: 64,
+                            fit: BoxFit.cover,
+                          ),
+                        ),
+                      ),
+
+                      // ── Oversized MB overlay ──
+                      if (thumbOversized)
+                        Positioned(
+                          bottom: 2,
+                          left: 2,
+                          right: 2,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(vertical: 2),
+                            decoration: BoxDecoration(
+                              color: Colors.red.withOpacity(0.85),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              '${thumbSizeMB.toStringAsFixed(1)}MB',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 9,
+                                fontWeight: FontWeight.bold,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                          ),
+                        ),
+
+                      // ── Red × delete ──
+                      Positioned(
+                        top: -4,
+                        right: -4,
+                        child: GestureDetector(
+                          behavior: HitTestBehavior.opaque,
+                          onTap: () => _deleteAt(i),
+                          child: Container(
+                            width: 20,
+                            height: 20,
+                            decoration: const BoxDecoration(
+                              color: Colors.red,
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(Icons.close,
+                                color: Colors.white, size: 13),
+                          ),
+                        ),
+                      ),
+
+                      // ── Green dot = caption exists ──
+                      if (_entries[i].captionCtrl.text.trim().isNotEmpty &&
+                          !thumbOversized)
+                        Positioned(
+                          bottom: 0,
+                          right: 0,
+                          child: Container(
+                            width: 10,
+                            height: 10,
+                            decoration: const BoxDecoration(
+                              color: Color(0xFF00A884),
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+
+        // ── Caption + Send ──────────────────────────────────────────────
+        Container(
+          margin: EdgeInsets.fromLTRB(12, 4, 12, bottom + 10),
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+          decoration: BoxDecoration(
+            color: Colors.grey[900],
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              if (_hasCaption)
+                Expanded(
+                  child: TextField(
+                    key: ValueKey(_currentIndex),
+                    controller: entry.captionCtrl,
+                    focusNode: entry.focusNode,
+                    style: const TextStyle(color: Colors.white, fontSize: 15),
+                    maxLines: 3,
+                    minLines: 1,
+                    textInputAction: TextInputAction.done,
+                    decoration: InputDecoration(
+                      hintText: _entries.length > 1
+                          ? 'Caption for image ${_currentIndex + 1}…'
+                          : 'Add a caption…',
+                      hintStyle: const TextStyle(color: Colors.white54),
+                      border: InputBorder.none,
+                      contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 8),
+                      isDense: true,
+                    ),
+                  ),
+                )
+              else
+                const Spacer(),
+
+              // ── Send button — always tappable, grey when blocked ──
+              GestureDetector(
+                onTap: _send,
+                child: Container(
+                  margin: const EdgeInsets.all(4),
+                  padding: const EdgeInsets.all(11),
+                  decoration: BoxDecoration(
+                    color: _canSend ? Colors.blue : Colors.grey[700],
+                    borderRadius: BorderRadius.circular(32),
+                  ),
+                  child: Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      Icon(
+                        Icons.send,
+                        color: _canSend ? Colors.white : Colors.white38,
+                        size: 22,
+                      ),
+                      if (_entries.length > 1)
+                        Positioned(
+                          top: -7,
+                          right: -9,
+                          child: Container(
+                            padding: const EdgeInsets.all(3),
+                            decoration: const BoxDecoration(
+                              color: Colors.red,
+                              shape: BoxShape.circle,
+                            ),
+                            child: Text(
+                              '${_entries.length}',
+                              style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    ),
+  );
+}
 }
 class AudioViewerPage extends StatefulWidget {
   final String fileUrl;
