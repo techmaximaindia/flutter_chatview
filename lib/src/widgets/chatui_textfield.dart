@@ -1494,143 +1494,7 @@ class _ChatUITextFieldState extends State<ChatUITextField>
     }
   }
 
-  
-/*void _onIconPressed(
-  BuildContext ctx,
-  ImageSource imageSource, {
-  ImagePickerConfiguration? config,
-}) async {
-  try {
-    final prefs = await SharedPreferences.getInstance();
-    final String? platform = prefs.getString('platform');
-    final String? page = prefs.getString('page');
 
-    bool needsWhatsAppValidation =
-        page == 'chat' && (platform == 'fb_whatsapp' || platform == 'whatsapp');
-    bool needsInstagramValidation =
-        page == 'chat' && (platform == 'instagram' || platform == 'Instagram');
-    bool needsTelegramValidation =
-        page == 'chat' && (platform == 'telegram' || platform == 'Telegram');
-    bool needsFacebookValidation =
-        page == 'chat' && (platform == 'facebook' || platform == 'Facebook');
-
-    List<XFile> images = [];
-    if (imageSource == ImageSource.gallery) {
-      //images = await _imagePicker.pickMultiImage(
-      //  maxHeight: config?.maxHeight,
-      //  maxWidth: config?.maxWidth,
-      //  imageQuality: config?.imageQuality,
-      //);
-      images = await _imagePicker.pickMultiImage(limit: 10);
-    } else {
-      final XFile? single = await _imagePicker.pickImage(
-        source: imageSource,
-        maxHeight: config?.maxHeight,
-        maxWidth: config?.maxWidth,
-        imageQuality: config?.imageQuality,
-        preferredCameraDevice:
-            config?.preferredCameraDevice ?? CameraDevice.rear,
-      );
-      if (single != null) images = [single];
-    }
-
-    if (images.isEmpty) return;
-
-    List<String> imagePaths = images.map((xfile) => xfile.path).toList();
-
-    // Platform validation
-    for (final path in imagePaths) {
-      final lower = path.toLowerCase();
-      if (needsWhatsAppValidation) {
-        if (!lower.endsWith('.jpg') &&
-            !lower.endsWith('.jpeg') &&
-            !lower.endsWith('.png')) {
-          _showCustomNotification(
-              ctx, 'WhatsApp only supports JPG, JPEG, and PNG images.');
-          return;
-        }
-      } else if (needsInstagramValidation) {
-        if (!lower.endsWith('.jpg') &&
-            !lower.endsWith('.jpeg') &&
-            !lower.endsWith('.png')) {
-          _showCustomNotification(
-              ctx, 'Instagram only supports JPEG and PNG images.');
-          return;
-        }
-      } else if (needsTelegramValidation) {
-        if (!lower.endsWith('.png') &&
-            !lower.endsWith('.jpeg') &&
-            !lower.endsWith('.jpg') &&
-            !lower.endsWith('.gif') &&
-            !lower.endsWith('.webp') &&
-            !lower.endsWith('.bmp')) {
-          _showCustomNotification(
-              ctx, 'Telegram supports PNG, JPEG, GIF, and WEBP images.');
-          return;
-        }
-      } else if (needsFacebookValidation) {
-        if (!lower.endsWith('.png') &&
-            !lower.endsWith('.jpeg') &&
-            !lower.endsWith('.jpg') &&
-            !lower.endsWith('.gif')) {
-          _showCustomNotification(
-              ctx, 'Facebook supports PNG, JPEG, and GIF images.');
-          return;
-        }
-      }
-    }
-    await Future.delayed(const Duration(milliseconds: 300));
-    if (!mounted) return;
-    if (imagePaths.length > 10) {
-      ScaffoldMessenger.of(ctx).showSnackBar(
-        SnackBar(
-          content: const Row(
-            children: [
-              Icon(Icons.warning_amber_rounded, color: Colors.white),
-              SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  'Only 10 images can be sent at a time. Please remove extra images on the preview screen.',
-                  style: TextStyle(color: Colors.white),
-                ),
-              ),
-            ],
-          ),
-          backgroundColor: Colors.orange[700],
-          behavior: SnackBarBehavior.floating,
-          duration: const Duration(seconds: 4),
-        ),
-      );
-    }
-    // ── Open preview page ──────────────────────────────────────────────────
-    Navigator.push(
-      ctx,
-      MaterialPageRoute(
-        builder: (context) => ImageViewerPage(
-          imagePaths: imagePaths,   // original selection for preview only 
-          padding: const EdgeInsets.all(bottomPadding4),
-          platform: platform ?? '',
-          onSend: (finalPaths, captions, completed) async {
-            // finalPaths = whatever _entries contains after user add/delete
-            // This is the ONLY place onImagePicked should be called
-            String processedPaths = finalPaths;
-
-            if (config?.onImagePicked != null) {
-              final updated = await config!.onImagePicked!(finalPaths);
-              if (updated != null && updated.isNotEmpty) {
-                processedPaths = updated;
-              }
-            }
-
-            widget.onImageSelected(processedPaths, '', captions ?? '');
-          },
-        ),
-      ),
-    );
-  } catch (e) {
-    widget.onImageSelected('', e.toString(), '');
-  }
-}*/
   void _onIconPressed(
     BuildContext ctx,
     ImageSource imageSource, {
@@ -1643,7 +1507,7 @@ class _ChatUITextFieldState extends State<ChatUITextField>
 
       List<XFile> images = [];
       if (imageSource == ImageSource.gallery) {
-        images = await _imagePicker.pickMultiImage(limit: 10);
+        images = await _imagePicker.pickMultiImage();
       } else {
         final XFile? single = await _imagePicker.pickImage(
           source: imageSource,
@@ -2989,3 +2853,4 @@ class _PulsingDotsState extends State<_PulsingDots>
         _dot(0.4)
       ]);
 }
+
