@@ -1495,7 +1495,7 @@ class _ChatUITextFieldState extends State<ChatUITextField>
   }
 
   
-void _onIconPressed(
+/*void _onIconPressed(
   BuildContext ctx,
   ImageSource imageSource, {
   ImagePickerConfiguration? config,
@@ -1521,7 +1521,7 @@ void _onIconPressed(
       //  maxWidth: config?.maxWidth,
       //  imageQuality: config?.imageQuality,
       //);
-      images = await _imagePicker.pickMultiImage();
+      images = await _imagePicker.pickMultiImage(limit: 10);
     } else {
       final XFile? single = await _imagePicker.pickImage(
         source: imageSource,
@@ -1630,7 +1630,85 @@ void _onIconPressed(
   } catch (e) {
     widget.onImageSelected('', e.toString(), '');
   }
-}
+}*/
+  void _onIconPressed(
+    BuildContext ctx,
+    ImageSource imageSource, {
+    ImagePickerConfiguration? config,
+  }) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final String? platform = prefs.getString('platform');
+      final String? page = prefs.getString('page');
+
+      List<XFile> images = [];
+      if (imageSource == ImageSource.gallery) {
+        images = await _imagePicker.pickMultiImage(limit: 10);
+      } else {
+        final XFile? single = await _imagePicker.pickImage(
+          source: imageSource,
+          maxHeight: config?.maxHeight,
+          maxWidth: config?.maxWidth,
+          imageQuality: config?.imageQuality,
+          preferredCameraDevice:
+              config?.preferredCameraDevice ?? CameraDevice.rear,
+        );
+        if (single != null) images = [single];
+      }
+
+      if (images.isEmpty) return;
+
+      List<String> imagePaths = images.map((xfile) => xfile.path).toList();
+
+      await Future.delayed(const Duration(milliseconds: 300));
+      if (!mounted) return;
+
+      if (imagePaths.length > 10) {
+        ScaffoldMessenger.of(ctx).showSnackBar(
+          SnackBar(
+            content: const Row(
+              children: [
+                Icon(Icons.warning_amber_rounded, color: Colors.white),
+                SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'Only 10 images can be sent at a time. Please remove extra images on the preview screen.',
+                    style: TextStyle(color: Colors.white),
+                  ),
+                ),
+              ],
+            ),
+            backgroundColor: Colors.orange[700],
+            behavior: SnackBarBehavior.floating,
+            duration: const Duration(seconds: 4),
+          ),
+        );
+      }
+
+      Navigator.push(
+        ctx,
+        MaterialPageRoute(
+          builder: (context) => ImageViewerPage(
+            imagePaths: imagePaths,
+            padding: const EdgeInsets.all(bottomPadding4),
+            platform: platform ?? '',
+            onSend: (finalPaths, captions, completed) async {
+              String processedPaths = finalPaths;
+              if (config?.onImagePicked != null) {
+                final updated = await config!.onImagePicked!(finalPaths);
+                if (updated != null && updated.isNotEmpty) {
+                  processedPaths = updated;
+                }
+              }
+              widget.onImageSelected(processedPaths, '', captions ?? '');
+            },
+          ),
+        ),
+      );
+    } catch (e) {
+      widget.onImageSelected('', e.toString(), '');
+    }
+  }
   void _onChanged(String inputText) async {
     if (inputText.startsWith('/')) {
       String searchText =
@@ -1759,11 +1837,10 @@ class _ImageViewerPageState extends State<ImageViewerPage> {
             print('DEBUG poll $i: path=${e.path} bytes=$bytes');
             if (bytes > 100) {
               e.fileSizeBytes = bytes;
-              print('DEBUG size set: ${e.fileSizeBytes}');
+      
               break;
             }
           } else {
-            print('DEBUG poll $i: file does not exist yet');
           }
         } catch (e) {
           print('DEBUG error: $e');
@@ -1772,7 +1849,6 @@ class _ImageViewerPageState extends State<ImageViewerPage> {
       }
     });
     await Future.wait(futures);
-    print('DEBUG _loadFileSizes done, calling setState');
     if (mounted) setState(() {});
   }
   @override
@@ -1814,7 +1890,7 @@ class _ImageViewerPageState extends State<ImageViewerPage> {
     if (entry.fileSizeBytes == 0) return 0.0;
     return double.parse((entry.fileSizeBytes / 1000000).toStringAsFixed(2));
   }
-
+  
   bool _isOversized(String path) {
     final entry = _entries.firstWhere((e) => e.path == path,
         orElse: () => _ImageEntry(path));
@@ -1822,9 +1898,34 @@ class _ImageViewerPageState extends State<ImageViewerPage> {
     return entry.fileSizeBytes > (10 * 1000 * 1000);
   }
 
+  bool _isUnsupportedFormat(String path) {
+    if (widget.platform.isEmpty) return false;
+    final ext = '.${path.split('.').last}'.toLowerCase();
+    final p = widget.platform.toLowerCase();
+    if (p == 'fb_whatsapp' || p == 'whatsapp') {
+      return !['.jpg', '.jpeg', '.png'].contains(ext);
+    } else if (p == 'instagram') {
+      return !['.jpg', '.jpeg', '.png'].contains(ext);
+    } else if (p == 'telegram') {
+      return !['.png', '.jpeg', '.jpg', '.gif', '.webp', '.bmp'].contains(ext);
+    } else if (p == 'facebook') {
+      return !['.png', '.jpeg', '.jpg', '.gif'].contains(ext);
+    }
+    return false;
+  }
+  String get _platformDisplayName {
+    final p = widget.platform.toLowerCase();
+    if (p == 'fb_whatsapp' || p == 'whatsapp') return 'WhatsApp';
+    if (p == 'instagram') return 'Instagram';
+    if (p == 'telegram') return 'Telegram';
+    if (p == 'facebook') return 'Facebook';
+    return widget.platform;
+  }
+  bool get _hasUnsupportedFiles => _entries.any((e) => _isUnsupportedFormat(e.path));
   bool get _hasOversizedFiles => _entries.any((e) => _isOversized(e.path));
   bool get _isOverLimit => _entries.length > 10;
-  bool get _canSend => !_isOverLimit && !_hasOversizedFiles;
+  //bool get _canSend => !_isOverLimit && !_hasOversizedFiles;
+  bool get _canSend => !_isOverLimit && !_hasOversizedFiles && !_hasUnsupportedFiles;
   // ── Add ───────────────────────────────────────────────────────────────────
   Future<void> _addImages() async {
     try {
@@ -1986,7 +2087,66 @@ class _ImageViewerPageState extends State<ImageViewerPage> {
       );
       return;
     }
+    // ── Check 3: unsupported formats ──
+    final List<_ImageEntry> unsupported = _entries
+      .where((e) => _isUnsupportedFormat(e.path))
+      .toList();
 
+    if (unsupported.isNotEmpty) {
+      showDialog(
+        context: context,
+        builder: (_) => AlertDialog(
+          title: const Row(
+            children: [
+              Icon(Icons.block, color: Colors.orange),
+              SizedBox(width: 8),
+              Text('Unsupported Format'),
+            ],
+          ),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'The following images are not supported on $_platformDisplayName. '
+                  'Remove them or switch to a supported format.',
+                ),
+                const SizedBox(height: 10),
+                ...unsupported.map((e) {
+                  final ext = '.${e.path.split('.').last}'.toLowerCase();
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 3),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Icon(Icons.image, size: 14, color: Colors.orange),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            '${e.path.split('/').last}\n'
+                            'Format $ext not supported on $_platformDisplayName',
+                            style: const TextStyle(
+                                fontSize: 13, color: Colors.orange),
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('OK'),
+            ),
+          ],
+        ),
+      );
+      return;
+    }
     // ── All good: send ──
     final String joinedPaths = _entries.map((e) => e.path).join(',');
     final String joinedCaptions =
@@ -2059,6 +2219,29 @@ class _ImageViewerPageState extends State<ImageViewerPage> {
             ),
           ),
 
+        // ── Unsupported format banner for current image ──────────────────
+        if (_isUnsupportedFormat(entry.path))
+          Container(
+            margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            decoration: BoxDecoration(
+              color: Colors.orange[800]!.withOpacity(0.92),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.block, color: Colors.white, size: 18),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'This format (.${entry.path.split('.').last.toLowerCase()}) is not supported on ${_platformDisplayName}.',
+                    style: const TextStyle(color: Colors.white, fontSize: 13),
+                  ),
+                ),
+              ],
+            ),
+          ),
+
         // ── Oversized banner for current image ──────────────────────────
         if (currentOversized)
           Container(
@@ -2092,9 +2275,37 @@ class _ImageViewerPageState extends State<ImageViewerPage> {
               if ((d.primaryVelocity ?? 0) > 300) _goTo(_currentIndex - 1);
             },
             child: Center(
+              /*child: Image.file(
+                File(entry.path),
+                fit: BoxFit.contain,
+              ),*/
               child: Image.file(
                 File(entry.path),
                 fit: BoxFit.contain,
+                errorBuilder: (context, error, stackTrace) => Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.broken_image_rounded,
+                          size: 80, color: Colors.orange[300]),
+                      const SizedBox(height: 12),
+                      const Text(
+                        'Invalid image data',
+                        style: TextStyle(
+                          color: Colors.orange,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        entry.path.split('/').last,
+                        style: TextStyle(color: Colors.grey[500], fontSize: 12),
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
+                  ),
+                ),
               ),
             ),
           ),
@@ -2132,6 +2343,7 @@ class _ImageViewerPageState extends State<ImageViewerPage> {
               final selected = i == _currentIndex;
               final thumbOversized = _isOversized(_entries[i].path);
               final thumbSizeMB = _fileSizeMB(_entries[i].path);
+              final thumbUnsupported = _isUnsupportedFormat(_entries[i].path);
 
               return GestureDetector(
                 onTap: () => _goTo(i),
@@ -2150,13 +2362,15 @@ class _ImageViewerPageState extends State<ImageViewerPage> {
                           border: Border.all(
                             color: thumbOversized
                                 ? Colors.red
-                                : selected
-                                    ? Colors.blue
-                                    : Colors.transparent,
+                                : thumbUnsupported
+                                    ? Colors.orange
+                                    : selected
+                                        ? Colors.blue
+                                        : Colors.transparent,
                             width: 2.5,
                           ),
                         ),
-                        child: ClipRRect(
+                        /*child: ClipRRect(
                           borderRadius: BorderRadius.circular(8),
                           child: Image.file(
                             File(_entries[i].path),
@@ -2164,11 +2378,30 @@ class _ImageViewerPageState extends State<ImageViewerPage> {
                             height: 64,
                             fit: BoxFit.cover,
                           ),
-                        ),
+                        ),*/
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          child: Image.file(
+                            File(_entries[i].path),
+                            width: 64,
+                            height: 64,
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, error, stackTrace) => Container(
+                              width: 64,
+                              height: 64,
+                              color: Colors.grey[800],
+                              child: const Icon(
+                                Icons.broken_image_rounded,
+                                color: Colors.orange,
+                                size: 28,
+                              ),
+                            ),
+                          ),
+                      ),
                       ),
 
                       // ── Oversized MB overlay ──
-                      if (thumbOversized)
+                      if (thumbUnsupported && !thumbOversized)
                         Positioned(
                           bottom: 2,
                           left: 2,
@@ -2176,12 +2409,12 @@ class _ImageViewerPageState extends State<ImageViewerPage> {
                           child: Container(
                             padding: const EdgeInsets.symmetric(vertical: 2),
                             decoration: BoxDecoration(
-                              color: Colors.red.withOpacity(0.85),
+                              color: Colors.orange[800]!.withOpacity(0.9),
                               borderRadius: BorderRadius.circular(4),
                             ),
-                            child: Text(
-                              '${thumbSizeMB.toStringAsFixed(1)}MB',
-                              style: const TextStyle(
+                            child: const Text(
+                              '⚠ format',
+                              style: TextStyle(
                                 color: Colors.white,
                                 fontSize: 9,
                                 fontWeight: FontWeight.bold,
