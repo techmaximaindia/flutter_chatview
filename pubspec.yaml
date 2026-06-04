@@ -38,7 +38,12 @@ dependencies:
   flutter_widget_from_html: ^0.16.0
   #flutter_widget_from_html_core: ^0.16.0
   font_awesome_flutter: ^10.4.0
-  file_picker: ^9.0.0 
+  file_picker: ^9.0.0
+  # Directly used by widgets in this package; declared so the package builds
+  # standalone (previously supplied transitively by the host app).
+  audioplayers: ^6.1.0
+  permission_handler: ^11.3.1
+  shared_preferences: ^2.2.0
 dev_dependencies:
   flutter_test:
     sdk: flutter

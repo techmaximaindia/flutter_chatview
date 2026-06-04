@@ -30,9 +30,40 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:http/http.dart' as http;
 import 'profile_page.dart';
-import 'package:chatmaxima/pages/lead.dart';
+
+/// Data passed to [ChatViewAppBar.onProfileTap] when the chat header is tapped.
+/// Lets a host app open its own profile/lead screen without this package
+/// depending on the host app.
+class ChatViewProfileTapData {
+  final String chatTitle;
+  final String aliasToUse;
+  final String profilePicture;
+  final String leadId;
+  final String email;
+  final String platform;
+  final String mobile;
+
+  const ChatViewProfileTapData({
+    this.chatTitle = '',
+    this.aliasToUse = '',
+    this.profilePicture = '',
+    this.leadId = '',
+    this.email = '',
+    this.platform = '',
+    this.mobile = '',
+  });
+}
+
+/// Optional handler invoked when the chat header is tapped. A host app can
+/// register this once at startup to open its lead/profile screen. When unset
+/// (standalone / SDK usage), tapping the header is a no-op.
+typedef ChatViewProfileTapHandler = void Function(
+    BuildContext context, ChatViewProfileTapData data);
 
 class ChatViewAppBar extends StatelessWidget {
+  /// App-injected handler for tapping the chat header. Null = no navigation.
+  static ChatViewProfileTapHandler? onProfileTap;
+
   const ChatViewAppBar({
     Key? key,
     required this.chatTitle,
@@ -151,43 +182,21 @@ class ChatViewAppBar extends StatelessWidget {
           Material(
             elevation: elevation ?? 0,
             child: InkWell( // Add InkWell for tap effect
-              onTap: () async {
-                final prefs = await SharedPreferences.getInstance();
-                String? current_page = prefs.getString('page') ?? '';
-                if (current_page == 'chat') {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => lead(
-                        cb_lead_name: chatTitle,
-                        lead_alias: alias_to_use ?? '',
-                        img: profilePicture ?? '',
-                        cb_lead_id: lead_id ?? '',
-                        cb_lead_email: email_id ?? '',
-                        account_platform: platform ?? '',
-                        to_mobile: mobile_number ?? '',
-                        distinct_alias: alias_to_use ?? '',
-                      ),
-                    ),
-                  );
-                }
-                else if(current_page=='ticket'){
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) =>lead(
-                        cb_lead_name: chatTitle,
-                        lead_alias: alias_to_use ?? '',
-                        img: profilePicture ?? '',
-                        cb_lead_id:'',
-                        cb_lead_email: email_id ?? '',
-                        account_platform: platform ?? '',
-                        to_mobile: mobile_number ?? '',
-                        distinct_alias:'',
-                      ), //profilepage(chatTitle: chatTitle,profilePicture: profilePicture,platform: '',mobile: '',profile_email:email_id,lead_id: '',page: current_page,aliasuse: ''),
-                    ),
-                  );
-                }
+              onTap: () {
+                // Delegate to the host app's handler if one is registered;
+                // otherwise (standalone / SDK) tapping the header does nothing.
+                onProfileTap?.call(
+                  context,
+                  ChatViewProfileTapData(
+                    chatTitle: chatTitle,
+                    aliasToUse: alias_to_use ?? '',
+                    profilePicture: profilePicture ?? '',
+                    leadId: lead_id ?? '',
+                    email: email_id ?? '',
+                    platform: platform ?? '',
+                    mobile: mobile_number ?? '',
+                  ),
+                );
               },
             child: Container(
               padding: padding ??
