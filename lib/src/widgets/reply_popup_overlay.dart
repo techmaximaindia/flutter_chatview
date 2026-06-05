@@ -17,6 +17,8 @@ class ReplyPopup extends StatefulWidget {
     required this.onTicketTap,
     required this.onDeleteTap,
     this.user_roles,
+    this.show_translate = true,
+    this.show_ticket = true,
   }) : super(key: key);
 
   final VoidCallBack onTap;
@@ -27,6 +29,12 @@ class ReplyPopup extends StatefulWidget {
   final MessageCallBack onTicketTap;
   final MessageCallBack onDeleteTap;
   final String? user_roles;
+
+  /// Show the "Translate" menu item (default true; agent app keeps it).
+  final bool show_translate;
+
+  /// Show the "Ticket" menu item (default true; agent app keeps it).
+  final bool show_ticket;
 
   @override
   ReplyPopupState createState() => ReplyPopupState();
@@ -140,7 +148,7 @@ class ReplyPopupState extends State<ReplyPopup>
             }
           },
         ),
-        if(_message?.profilename !='Summary' && _message?.message_deleted == false)
+        if(widget.show_translate && _message?.profilename !='Summary' && _message?.message_deleted == false)
         _buildReplyAction(
           icon: Icons.translate,
           text: 'Translate',
@@ -165,7 +173,7 @@ class ReplyPopupState extends State<ReplyPopup>
             },
             isDelete: true, 
           ),
-          if (_message?.profilename != "Bot" && _message?.profilename != "bot" && _message?.profilename !='Summary'&& _message?.message_deleted == false)
+          if (widget.show_ticket && _message?.profilename != "Bot" && _message?.profilename != "bot" && _message?.profilename !='Summary'&& _message?.message_deleted == false)
             _buildReplyAction(
               icon: Icons.confirmation_num,
               text: 'Ticket',

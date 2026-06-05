@@ -365,6 +365,8 @@ class _ChatListWidgetState extends State<ChatListWidget>
                               _showDeleteConfirmationDialog(message);
                             },
                             user_roles: _user_role??'',
+                            show_translate: featureActiveConfig?.enableTranslateMessage ?? true,
+                            show_ticket: featureActiveConfig?.enableTicketFromMessage ?? true,
                           );
                         },
                       ),

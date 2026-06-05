@@ -14,6 +14,8 @@ class FeatureActiveConfig {
     this.receiptsBuilderVisibility = true,
     this.enableOtherUserName = true,
     this.enableScrollToBottomButton = true,
+    this.enableTranslateMessage = true,
+    this.enableTicketFromMessage = true,
   });
 
   /// Used for enable/disable swipe to reply.
@@ -56,4 +58,10 @@ class FeatureActiveConfig {
   final bool enableOtherUserName;
   /// Scroll to last messages
   final bool enableScrollToBottomButton;
+
+  /// Used for enable/disable the "Translate" item in the long-press menu.
+  final bool enableTranslateMessage;
+
+  /// Used for enable/disable the "Ticket" item in the long-press menu.
+  final bool enableTicketFromMessage;
 }

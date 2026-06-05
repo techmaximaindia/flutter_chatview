@@ -73,6 +73,10 @@ class SendMessageConfiguration {
 
   final Color? maxiaIconColor;
 
+  /// Enable/disable the MaxIA "generate AI reply" button. Enabled by default
+  /// (agent app keeps it); end-customer hosts can turn it off.
+  final bool enableMaxIA;
+
   const SendMessageConfiguration({
     this.textFieldConfig,
     this.textFieldBackgroundColor,
@@ -90,6 +94,7 @@ class SendMessageConfiguration {
     this.voiceRecordingConfiguration,
     this.micIconColor,
     this.maxiaIconColor,
+    this.enableMaxIA = true,
   });
 }
 

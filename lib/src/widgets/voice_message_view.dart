@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:audio_waveforms/audio_waveforms.dart';
 import 'package:chatview/chatview.dart';
@@ -6,6 +7,8 @@ import 'package:chatview/src/models/voice_message_configuration.dart';
 import 'package:chatview/src/widgets/reaction_widget.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'package:path_provider/path_provider.dart';
 
 class VoiceMessageView extends StatefulWidget {
   const VoiceMessageView({
@@ -60,15 +63,58 @@ class _VoiceMessageViewState extends State<VoiceMessageView> {
   @override
   void initState() {
     super.initState();
-    controller = PlayerController()
-      ..preparePlayer(
-        path: widget.message.message,
-        noOfSamples: widget.config?.playerWaveStyle
-                ?.getSamplesForWidth(widget.screenWidth * 0.5) ??
-            playerWaveStyle.getSamplesForWidth(widget.screenWidth * 0.5),
-      ).whenComplete(() => widget.onMaxDuration?.call(controller.maxDuration));
+    controller = PlayerController();
     playerStateSubscription = controller.onPlayerStateChanged
         .listen((state) => _playerState.value = state);
+    // Remote voice URLs must be downloaded first: the audio player needs a
+    // local file path. Local paths are used as-is.
+    _prepare_player();
+  }
+
+  Future<void> _prepare_player() async {
+    final source = widget.message.message;
+    String localPath = source;
+    if (source.startsWith('http://') || source.startsWith('https://')) {
+      try {
+        localPath = await _download_to_cache(source);
+      } catch (_) {
+        return; // leave the bubble in a non-playable state on failure
+      }
+    }
+    if (!mounted) return;
+    await controller.preparePlayer(
+      path: localPath,
+      noOfSamples: widget.config?.playerWaveStyle
+              ?.getSamplesForWidth(widget.screenWidth * 0.5) ??
+          playerWaveStyle.getSamplesForWidth(widget.screenWidth * 0.5),
+    );
+    widget.onMaxDuration?.call(controller.maxDuration);
+  }
+
+  // Download a remote audio file into the temp dir, caching by file name so we
+  // do not re-download the same voice note on rebuilds.
+  Future<String> _download_to_cache(String url) async {
+    final dir = await getTemporaryDirectory();
+    final name = 'cm_voice_${url.hashCode}${_extension_of(url)}';
+    final file = File('${dir.path}/$name');
+    if (await file.exists() && await file.length() > 0) {
+      return file.path;
+    }
+    final res = await http.get(Uri.parse(url));
+    if (res.statusCode != 200) {
+      throw Exception('voice download failed: ${res.statusCode}');
+    }
+    await file.writeAsBytes(res.bodyBytes);
+    return file.path;
+  }
+
+  String _extension_of(String url) {
+    final clean = url.split('?').first;
+    final dot = clean.lastIndexOf('.');
+    if (dot != -1 && clean.length - dot <= 5) {
+      return clean.substring(dot);
+    }
+    return '.m4a';
   }
 
   @override

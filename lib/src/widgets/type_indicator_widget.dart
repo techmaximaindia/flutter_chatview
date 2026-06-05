@@ -284,9 +284,10 @@ class _TypingIndicatorState extends State<TypingIndicator>
             margin: EdgeInsets.symmetric(horizontal: indicatorSpacing),
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color:Color(0xFF90CAF9),
-              /* color: Color.lerp(flashingCircleDarkColor,
-                  flashingCircleBrightColor, circleColorPercent), */
+              // Use the configured indicator colours so hosts can theme the
+              // typing dots (defaults to the grey shades when unset).
+              color: Color.lerp(flashingCircleDarkColor,
+                  flashingCircleBrightColor, circleColorPercent),
             ),
           ),
         );
