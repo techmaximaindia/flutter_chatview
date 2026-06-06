@@ -1328,11 +1328,10 @@ class _ChatUITextFieldState extends State<ChatUITextField>
                                             IconButton(
                                               constraints:
                                                   const BoxConstraints(),
-                                              onPressed: () => _onFilePickerPressed(
-                                                context,
-                                                config: sendMessageConfig
-                                                    ?.imagePickerConfiguration,
-                                              ),
+                                              // No-op by default; hosts override
+                                              // cameraImagePickerIcon with their
+                                              // own gesture (e.g. a file picker).
+                                              onPressed: () {},
                                               icon: imagePickerIconsConfig
                                                       ?.cameraImagePickerIcon ??
                                                   Icon(
@@ -1454,7 +1453,13 @@ class _ChatUITextFieldState extends State<ChatUITextField>
             builder: (ctx) => AudioViewerPage(
               fileUrl: recordedPath,
               onSend: (fileUrl, caption, onComplete) {
-                send_file_tap(fileUrl, caption ?? '', onComplete);
+                if (sendMessageConfig?.recordViaHostCallback ?? false) {
+                  // Hand the recording to the host (-> onSendTap voice).
+                  widget.onRecordingComplete(fileUrl);
+                  onComplete();
+                } else {
+                  send_file_tap(fileUrl, caption ?? '', onComplete);
+                }
               },
               platform: platform ?? '',
             ),
@@ -1579,52 +1584,6 @@ class _ChatUITextFieldState extends State<ChatUITextField>
       widget.onImageSelected('', e.toString(), '');
     }
   }
-  // Pick an image via file_picker (used in place of the camera) and route it
-  // through the same preview + send flow as the gallery picker.
-  void _onFilePickerPressed(
-    BuildContext ctx, {
-    ImagePickerConfiguration? config,
-  }) async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final String? platform = prefs.getString('platform');
-
-      final result = await FilePicker.platform.pickFiles(
-        type: FileType.image,
-        allowMultiple: false,
-      );
-      if (result == null || result.files.isEmpty) return;
-      final path = result.files.single.path;
-      if (path == null || path.isEmpty) return;
-
-      await Future.delayed(const Duration(milliseconds: 300));
-      if (!mounted) return;
-
-      Navigator.push(
-        ctx,
-        MaterialPageRoute(
-          builder: (context) => ImageViewerPage(
-            imagePaths: [path],
-            padding: const EdgeInsets.all(bottomPadding4),
-            platform: platform ?? '',
-            onSend: (finalPaths, captions, completed) async {
-              String processedPaths = finalPaths;
-              if (config?.onImagePicked != null) {
-                final updated = await config!.onImagePicked!(finalPaths);
-                if (updated != null && updated.isNotEmpty) {
-                  processedPaths = updated;
-                }
-              }
-              widget.onImageSelected(processedPaths, '', captions ?? '');
-            },
-          ),
-        ),
-      );
-    } catch (e) {
-      widget.onImageSelected('', e.toString(), '');
-    }
-  }
-
   void _onChanged(String inputText) async {
     if (inputText.startsWith('/')) {
       String searchText =

@@ -77,6 +77,11 @@ class SendMessageConfiguration {
   /// (agent app keeps it); end-customer hosts can turn it off.
   final bool enableMaxIA;
 
+  /// When true, a recorded voice note is delivered to the host via
+  /// onRecordingComplete (-> onSendTap) instead of the built-in agent upload.
+  /// Default false keeps the agent app's existing behaviour.
+  final bool recordViaHostCallback;
+
   const SendMessageConfiguration({
     this.textFieldConfig,
     this.textFieldBackgroundColor,
@@ -95,6 +100,7 @@ class SendMessageConfiguration {
     this.micIconColor,
     this.maxiaIconColor,
     this.enableMaxIA = true,
+    this.recordViaHostCallback = false,
   });
 }
 
