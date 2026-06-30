@@ -169,8 +169,11 @@ class TextFieldConfiguration {
   /// status to be changed to [TypeWriterStatus.composed].
   /// Default is 1 second.
   final Duration compositionThresholdTime;
+  
+  final TextEditingController? controller;
 
   const TextFieldConfiguration({
+    this.controller, 
     this.contentPadding,
     this.maxLines,
     this.borderRadius,
