@@ -367,6 +367,9 @@ class _ChatListWidgetState extends State<ChatListWidget>
                             user_roles: _user_role??'',
                             show_translate: featureActiveConfig?.enableTranslateMessage ?? true,
                             show_ticket: featureActiveConfig?.enableTicketFromMessage ?? true,
+                            onMarkAsUnreadTap: (message) {
+                              _markMessageAsUnread(message);
+                            },
                           );
                         },
                       ),
@@ -570,7 +573,72 @@ class _ChatListWidgetState extends State<ChatListWidget>
       },
     );
   }
-
+  Future<void> _markMessageAsUnread(Message message) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final String? uuid = prefs.getString('uuid');
+      final String? team_alias = prefs.getString('team_alias');
+      final String? conversation_id = prefs.getString('conversation_id');
+  
+      
+  
+      if (conversation_id == null) {
+        print("Conversation ID is null");
+        return;
+      }
+  
+      //final messageDateTime = message.createdAt;
+      final messageDateTime = message.timestringraw??'';
+      print("Marking message as unread with createdAt: $messageDateTime");
+  
+      var headers = {
+        'Authorization': '$uuid|$team_alias',
+        'Content-Type': 'application/json',
+      };
+  
+      var request = http.Request(
+        'GET',
+        Uri.parse(base_url+'/api/v2/conversations/messages/mark-us-unread/'),
+      );
+  
+      request.body = json.encode({
+        "conversation_id": conversation_id,
+        "message_created_datetime": messageDateTime,
+      });
+  
+      request.headers.addAll(headers);
+  
+      http.StreamedResponse response = await request.send();
+  
+      if (response.statusCode == 200) {
+        var responseBody = await response.stream.bytesToString();
+        print('Mark as Unread Success: $responseBody');
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Message marked as unread'),
+            duration: Duration(seconds: 1),
+          ),
+        );
+      } else {
+        print('Mark as Unread Failed: ${response.reasonPhrase}');
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to mark as unread'),
+            duration: Duration(seconds: 1),
+          ),
+        );
+      }
+    } catch (e) {
+      print('Mark as Unread Error: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error: $e'),
+          duration: Duration(seconds: 1),
+        ),
+      );
+    }
+  }
   Future<void> _translateMessage(Message message) async {
     final prefs = await SharedPreferences.getInstance();
     final String? uuid = prefs.getString('uuid');
