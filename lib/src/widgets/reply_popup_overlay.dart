@@ -17,7 +17,7 @@ class ReplyPopup extends StatefulWidget {
     required this.onTranslateTap,
     required this.onTicketTap,
     required this.onDeleteTap,
-
+    this.onMarkAsUnreadTap,
     this.user_roles,
     this.show_translate = true,
     this.show_ticket = true,
@@ -30,6 +30,7 @@ class ReplyPopup extends StatefulWidget {
   final MessageCallBack onTranslateTap;
   final MessageCallBack onTicketTap;
   final MessageCallBack onDeleteTap;
+  final MessageCallBack? onMarkAsUnreadTap;
 
   final String? user_roles;
 
@@ -52,20 +53,20 @@ class ReplyPopupState extends State<ReplyPopup>
   double _yCoordinate = 0.0;
   double _xCoordinate = 0.0;
   Message? _message;
-
+  String? _cbLeadId;
 
   @override
   void initState() {
     super.initState();
-
+    _loadCbLeadId();
     _initializeAnimationControllers();
   }
-
-
-
-
-
-
+  void _loadCbLeadId() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _cbLeadId = prefs.getString('cb_lead_id');
+    });
+  }
   void _initializeAnimationControllers() {
     _animationController = AnimationController(
       vsync: this,
@@ -183,6 +184,17 @@ class ReplyPopupState extends State<ReplyPopup>
               }
             },
             isDelete: true, 
+          ),
+          if(_message?.message_deleted==false&& _message?.sendBy=='${_cbLeadId}' &&_message?.profilename != "Bot" && _message?.profilename != "bot"&& _message?.profilename !='Summary')
+          _buildReplyAction(
+            icon: Icons.mail,
+            text: 'Mark as Unread',
+            onTap: () {
+              widget.onTap(); // This closes the popup
+              if (_message != null) {
+                widget.onMarkAsUnreadTap?.call(_message!);  // ← HERE
+              }
+            },
           ),
           if (widget.show_ticket && _message?.profilename != "Bot" && _message?.profilename != "bot" && _message?.profilename !='Summary'&& _message?.message_deleted == false)
             _buildReplyAction(
