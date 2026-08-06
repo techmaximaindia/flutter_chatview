@@ -54,8 +54,10 @@ class Message {
   /// Status of the message.
   final ValueNotifier<MessageStatus> _status;
 
+  final String timestringraw;
   /// Provides max duration for recorded voice message.
   Duration? voiceMessageDuration;
+
 
   final String profilename;
   final String chatmaximatype;
@@ -92,7 +94,9 @@ class Message {
     this.bubble_footer_text,
     this.cb_message_options_full,
     this.pagetype,
-    this.message_deleted = false, 
+    this.message_deleted = false,
+    this.timestringraw='',
+
     MessageStatus status = MessageStatus.pending,
   })  : reaction = reaction ?? Reaction(reactions: [], reactedUserIds: []),
         key = GlobalKey(),
@@ -140,6 +144,7 @@ class Message {
       pagetype: json["pagetype"],
       status: json['status'],
       message_deleted: json["isDeleted"] ?? false,
+      timestringraw: json["timestringraw"]??''
     );
 
   Map<String, dynamic> toJson() => {
@@ -162,5 +167,6 @@ class Message {
         'pagetype':pagetype,
         'status': status.name,
         'isDeleted': message_deleted,
+        'timestringraw': timestringraw,
       };
 }
