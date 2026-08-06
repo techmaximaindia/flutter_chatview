@@ -38,6 +38,9 @@ class ReplyPopupConfiguration {
   /// Provides callback on onReply button.
   final MessageCallBack? onReplyTap;
 
+  /// Provides callback on Mark as Unread button.
+  final MessageCallBack? onMarkAsUnreadTap;
+
   /// Provides callback on onReport button.
   final VoidCallBack? onReportTap;
 
@@ -55,6 +58,7 @@ class ReplyPopupConfiguration {
     this.topBorderColor,
     this.onUnsendTap,
     this.onReplyTap,
+    this.onMarkAsUnreadTap,
     this.onReportTap,
     this.onMoreTap,
     this.backgroundColor,
