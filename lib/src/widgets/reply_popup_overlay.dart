@@ -1,12 +1,10 @@
-import 'dart:io';
-
 import 'package:chatview/chatview.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../chatview.dart';
 import '../models/models.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+
 
 
 class ReplyPopup extends StatefulWidget {
@@ -19,8 +17,10 @@ class ReplyPopup extends StatefulWidget {
     required this.onTranslateTap,
     required this.onTicketTap,
     required this.onDeleteTap,
-    this.onMarkAsUnreadTap,
+
     this.user_roles,
+    this.show_translate = true,
+    this.show_ticket = true,
   }) : super(key: key);
 
   final VoidCallBack onTap;
@@ -30,8 +30,14 @@ class ReplyPopup extends StatefulWidget {
   final MessageCallBack onTranslateTap;
   final MessageCallBack onTicketTap;
   final MessageCallBack onDeleteTap;
-  final MessageCallBack? onMarkAsUnreadTap;
+
   final String? user_roles;
+
+  /// Show the "Translate" menu item (default true; agent app keeps it).
+  final bool show_translate;
+
+  /// Show the "Ticket" menu item (default true; agent app keeps it).
+  final bool show_ticket;
 
   @override
   ReplyPopupState createState() => ReplyPopupState();
@@ -46,20 +52,20 @@ class ReplyPopupState extends State<ReplyPopup>
   double _yCoordinate = 0.0;
   double _xCoordinate = 0.0;
   Message? _message;
-  String? _cbLeadId;
+
 
   @override
   void initState() {
     super.initState();
-    _loadCbLeadId();
+
     _initializeAnimationControllers();
   }
-  void _loadCbLeadId() async {
-    final prefs = await SharedPreferences.getInstance();
-    setState(() {
-      _cbLeadId = prefs.getString('cb_lead_id');
-    });
-  }
+
+
+
+
+
+
   void _initializeAnimationControllers() {
     _animationController = AnimationController(
       vsync: this,
@@ -77,13 +83,13 @@ class ReplyPopupState extends State<ReplyPopup>
     final deviceWidth = MediaQuery.of(context).size.width;
     final toolTipWidth = deviceWidth > 450 ? 450 : deviceWidth;
 
-    
+
     if (showPopUp) {
       _animationController.forward();
     } else {
       _animationController.reverse();
     }
-    
+
     return showPopUp
         ? Positioned(
             top: _yCoordinate,
@@ -153,7 +159,7 @@ class ReplyPopupState extends State<ReplyPopup>
             }
           },
         ),
-        if(_message?.profilename !='Summary' && _message?.message_deleted == false)
+        if(widget.show_translate && _message?.profilename !='Summary' && _message?.message_deleted == false)
         _buildReplyAction(
           icon: Icons.translate,
           text: 'Translate',
@@ -172,31 +178,20 @@ class ReplyPopupState extends State<ReplyPopup>
               widget.onTap();
               // Add your delete logic here
               if (_message != null) {
-             
+                // Call delete callback if you add it
                  widget.onDeleteTap(_message!);
               }
             },
             isDelete: true, 
           ),
-          if(_message?.message_deleted==false&& _message?.sendBy=='${_cbLeadId}' &&_message?.profilename != "Bot" && _message?.profilename != "bot"&& _message?.profilename !='Summary')
-          _buildReplyAction(
-            icon: Icons.mail,
-            text: 'Mark as Unread',
-            onTap: () {
-              widget.onTap(); // This closes the popup
-              if (_message != null) {
-                widget.onMarkAsUnreadTap?.call(_message!);  // ← HERE
-              }
-            },
-          ),
-          if (_message?.profilename != "Bot" && _message?.profilename != "bot" && _message?.profilename !='Summary'&& _message?.message_deleted == false)
+          if (widget.show_ticket && _message?.profilename != "Bot" && _message?.profilename != "bot" && _message?.profilename !='Summary'&& _message?.message_deleted == false)
             _buildReplyAction(
               icon: Icons.confirmation_num,
               text: 'Ticket',
               onTap: () {
                 widget.onTap();
                 if (_message != null) {
-                 
+
                   if (_message!.messageType == MessageType.image || 
                       _message!.messageType == MessageType.custom) {
                     // Create a copy of the message with empty message text
@@ -249,7 +244,7 @@ class ReplyPopupState extends State<ReplyPopup>
     bool isDelete = false, // Add this parameter
   }) {
     final color = isDelete ? Colors.red : Colors.black; // Red for delete, black for others
-    
+
     return Expanded(
       child: Material(
         color: Colors.transparent,
