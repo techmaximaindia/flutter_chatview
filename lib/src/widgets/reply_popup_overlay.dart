@@ -59,13 +59,33 @@ class ReplyPopupState extends State<ReplyPopup>
     super.initState();
     _loadCbLeadId();
     _initializeAnimationControllers();
+    // Sync animation with initial value in case popup starts open.
+    if (showPopUp) {
+      _animationController.forward();
+    }
   }
+
+  // Animation is now driven here instead of inside build().
+  @override
+  void didUpdateWidget(covariant ReplyPopup oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.replyshowPopUp != oldWidget.replyshowPopUp) {
+      if (widget.replyshowPopUp) {
+        _animationController.forward();
+      } else {
+        _animationController.reverse();
+      }
+    }
+  }
+
   void _loadCbLeadId() async {
     final prefs = await SharedPreferences.getInstance();
+    if (!mounted) return;
     setState(() {
       _cbLeadId = prefs.getString('cb_lead_id');
     });
   }
+
   void _initializeAnimationControllers() {
     _animationController = AnimationController(
       vsync: this,
@@ -81,129 +101,155 @@ class ReplyPopupState extends State<ReplyPopup>
   @override
   Widget build(BuildContext context) {
     final deviceWidth = MediaQuery.of(context).size.width;
-    final toolTipWidth = deviceWidth > 450 ? 450 : deviceWidth;
-
-
-    if (showPopUp) {
-      _animationController.forward();
-    } else {
-      _animationController.reverse();
-    }
+    final toolTipWidth = deviceWidth > 450 ? 450.0 : deviceWidth;
 
     return showPopUp
-        ? Positioned(
-            top: _yCoordinate,
-            left: _xCoordinate + toolTipWidth > deviceWidth
-                ? deviceWidth - toolTipWidth
-                : _xCoordinate - (toolTipWidth / 2) < 0
-                    ? 0
-                    : _xCoordinate - (toolTipWidth / 2),
-            child: SizedBox(
-              width: deviceWidth > 450 ? 450 : deviceWidth,
-              child: AnimatedBuilder(
-                animation: _scaleAnimation,
-                builder: (context, child) => Transform.scale(
-                  scale: _scaleAnimation.value,
-                  child: Container(
-                    constraints: BoxConstraints(
-                      maxWidth: 350,
+        ? Stack(
+            children: [
+              // Full-screen transparent barrier: tapping anywhere outside
+              // the popup closes it. Sits behind the popup in this same
+              // Stack, so it only ever receives taps that miss the popup.
+              Positioned.fill(
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: widget.onTap,
+                  child: const SizedBox.expand(),
+                ),
+              ),
+              Positioned(
+                top: _yCoordinate,
+                left: _xCoordinate + toolTipWidth > deviceWidth
+                    ? deviceWidth - toolTipWidth
+                    : _xCoordinate - (toolTipWidth / 2) < 0
+                        ? 0
+                        : _xCoordinate - (toolTipWidth / 2),
+                child: SizedBox(
+                  width: deviceWidth > 450 ? 450 : deviceWidth,
+                  child: AnimatedBuilder(
+                    animation: _scaleAnimation,
+                    builder: (context, child) => Transform.scale(
+                      // Clamp away from exact 0 to avoid a degenerate
+                      // zero-size Transform combined with BoxShadow.
+                      scale: _scaleAnimation.value.clamp(0.01, 1.0),
+                      alignment: Alignment.topCenter,
+                      child: child,
                     ),
-                    margin: const EdgeInsets.symmetric(horizontal: 25),
-                    padding: const EdgeInsets.symmetric(
-                      vertical: 6,
-                      horizontal: 14,
+                    // Built once, not on every animation tick.
+                    child: Container(
+                      constraints: const BoxConstraints(maxWidth: 170),
+                      margin: const EdgeInsets.symmetric(horizontal: 25),
+                      padding: const EdgeInsets.symmetric(
+                        vertical: 4,
+                        horizontal: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(10),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.grey.shade400,
+                            blurRadius: 8,
+                            spreadRadius: -2,
+                            offset: const Offset(0, 8),
+                          ),
+                        ],
+                      ),
+                      child: _replyPopupRow,
                     ),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(30),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.grey.shade400,
-                          blurRadius: 8,
-                          spreadRadius: -2,
-                          offset: const Offset(0, 8),
-                        ),
-                      ],
-                    ),
-                    child: _replyPopupRow,
                   ),
                 ),
               ),
-            ),
+            ],
           )
         : const SizedBox.shrink();
   }
 
-  Widget get _replyPopupRow => Row(
-      mainAxisAlignment: MainAxisAlignment.spaceAround,
-      children: [
-        if(_message?.profilename !='Summary'&& _message?.message_deleted == false)
-        _buildReplyAction(
-          icon: Icons.reply,
-          text: 'Reply',
-          onTap: () {
-            widget.onTap(); // This closes the popup
-            if (_message != null) {
-              widget.onReplyTap(_message!);
-            }
-          },
-        ),
-        if(_message?.message_deleted==false)
-        _buildReplyAction(
-          icon: Icons.copy,
-          text: 'Copy',
-          onTap: () {
-            widget.onTap(); // This closes the popup
-            if (_message != null) {
-              widget.onCopyTap(_message!);
-            }
-          },
-        ),
-        if(widget.show_translate && _message?.profilename !='Summary' && _message?.message_deleted == false)
-        _buildReplyAction(
-          icon: Icons.translate,
-          text: 'Translate',
-          onTap: () {
-            widget.onTap(); // This closes the popup
-            if (_message != null) {
-              widget.onTranslateTap(_message!);
-            }
-          },
-        ),
-        if (_message?.profilename != "Bot" && _message?.profilename != "bot"&& _message?.profilename !='Summary'&& _message?.message_deleted == false && (widget.user_roles == 'admin' || widget.user_roles == 'member'|| widget.user_roles == 'Admin'|| widget.user_roles == 'Member'))
-          _buildReplyAction(
-            icon: Icons.delete, // Fixed: changed from Icons.Delete to Icons.delete
-            text: 'Delete',
-            onTap: () {
-              widget.onTap();
-              // Add your delete logic here
-              if (_message != null) {
-                // Call delete callback if you add it
-                 widget.onDeleteTap(_message!);
-              }
-            },
-            isDelete: true, 
-          ),
-          if(_message?.message_deleted==false&& _message?.sendBy=='${_cbLeadId}' &&_message?.profilename != "Bot" && _message?.profilename != "bot"&& _message?.profilename !='Summary')
-          _buildReplyAction(
-            icon: Icons.mail,
-            text: 'Mark as Unread',
-            onTap: () {
-              widget.onTap(); // This closes the popup
-              if (_message != null) {
-                widget.onMarkAsUnreadTap?.call(_message!);  // ← HERE
-              }
-            },
-          ),
-          if (widget.show_ticket && _message?.profilename != "Bot" && _message?.profilename != "bot" && _message?.profilename !='Summary'&& _message?.message_deleted == false)
+  Widget get _replyPopupRow => Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (_message?.profilename != 'Summary' &&
+              _message?.message_deleted == false)
             _buildReplyAction(
-              icon: Icons.confirmation_num,
-              text: 'Ticket',
+              icon: Icons.reply,
+              text: 'Reply',
+              onTap: () {
+                widget.onTap(); // This closes the popup
+                if (_message != null) {
+                  widget.onReplyTap(_message!);
+                }
+              },
+            ),
+          if (_message?.message_deleted == false)
+            _buildReplyAction(
+              icon: Icons.copy,
+              text: 'Copy',
+              onTap: () {
+                widget.onTap(); // This closes the popup
+                if (_message != null) {
+                  widget.onCopyTap(_message!);
+                }
+              },
+            ),
+          if (widget.show_translate &&
+              _message?.profilename != 'Summary' &&
+              _message?.message_deleted == false)
+            _buildReplyAction(
+              icon: Icons.translate,
+              text: 'Translate',
+              onTap: () {
+                widget.onTap(); // This closes the popup
+                if (_message != null) {
+                  widget.onTranslateTap(_message!);
+                }
+              },
+            ),
+          if (_message?.profilename != "Bot" &&
+              _message?.profilename != "bot" &&
+              _message?.profilename != 'Summary' &&
+              _message?.message_deleted == false &&
+              (widget.user_roles == 'admin' ||
+                  widget.user_roles == 'member' ||
+                  widget.user_roles == 'Admin' ||
+                  widget.user_roles == 'Member'))
+            _buildReplyAction(
+              icon: Icons.delete,
+              text: 'Delete',
               onTap: () {
                 widget.onTap();
                 if (_message != null) {
-
-                  if (_message!.messageType == MessageType.image || 
+                  widget.onDeleteTap(_message!);
+                }
+              },
+              isDelete: true,
+            ),
+          if (_message?.message_deleted == false &&
+              _message?.sendBy == '${_cbLeadId}' &&
+              _message?.profilename != "Bot" &&
+              _message?.profilename != "bot" &&
+              _message?.profilename != 'Summary')
+            _buildReplyAction(
+              icon: Icons.mail,
+              text: 'Mark as Unread',
+              onTap: () {
+                widget.onTap(); // This closes the popup
+                if (_message != null) {
+                  widget.onMarkAsUnreadTap?.call(_message!);
+                }
+              },
+            ),
+          if (widget.show_ticket &&
+              _message?.profilename != "Bot" &&
+              _message?.profilename != "bot" &&
+              _message?.profilename != 'Summary' &&
+              _message?.message_deleted == false)
+            _buildReplyAction(
+              icon: Icons.confirmation_num,
+              text: 'Create Ticket',
+              onTap: () {
+                widget.onTap();
+                if (_message != null) {
+                  if (_message!.messageType == MessageType.image ||
                       _message!.messageType == MessageType.custom) {
                     // Create a copy of the message with empty message text
                     Message emptyMessage = Message(
@@ -222,70 +268,70 @@ class ReplyPopupState extends State<ReplyPopup>
               },
             ),
           if (_message?.message_deleted == true)
-          Expanded(
-            child: Container(
-              padding: EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.grey[200],
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.delete_outline, color: Colors.grey[600], size: 16),
-                  SizedBox(width: 8),
-                  Text(
-                    'Message has been deleted',
-                    style: TextStyle(
-                      color: Colors.grey[600],
-                      fontSize: 14,
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: Container(
+                padding: EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.grey[200],
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.delete_outline,
+                        color: Colors.grey[600], size: 16),
+                    SizedBox(width: 8),
+                    Text(
+                      'Message has been deleted',
+                      style: TextStyle(
+                        color: Colors.grey[600],
+                        fontSize: 14,
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
-          ),
-      ],
-    );
+        ],
+      );
 
   Widget _buildReplyAction({
     required IconData icon,
     required String text,
     required VoidCallback onTap,
-    bool isDelete = false, // Add this parameter
+    bool isDelete = false,
   }) {
-    final color = isDelete ? Colors.red : Colors.black; // Red for delete, black for others
+    final color = isDelete ? Colors.red : Colors.black;
 
-    return Expanded(
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(20),
-          child: Container(
-            padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  icon,
-                  size: 18,
-                  color: color, // Use the color variable
+    // NOTE: no Expanded here — that's what caused the RenderFlex crash.
+    // Each row now just takes its natural height inside the Column.
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(6),
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(vertical: 7, horizontal: 8),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                icon,
+                size: 15,
+                color: color,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                text,
+                style: TextStyle(
+                  color: color,
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w500,
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  text,
-                  style: TextStyle(
-                    color: color, // Use the color variable
-                    fontSize: 11,
-                    fontWeight: FontWeight.w500,
-                  ),
-                  textAlign: TextAlign.center,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),
