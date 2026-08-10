@@ -98,10 +98,22 @@ class ReplyPopupState extends State<ReplyPopup>
     );
   }
 
+  // Fixed popup width used both for sizing and for the tap-anchored
+  // position calculation below — must match the Container's width.
+  static const double _popupWidth = 170;
+  static const double _edgePadding = 8;
+
   @override
   Widget build(BuildContext context) {
     final deviceWidth = MediaQuery.of(context).size.width;
-    final toolTipWidth = deviceWidth > 450 ? 450.0 : deviceWidth;
+
+    // Anchor the popup horizontally around the tap point (like WhatsApp's
+    // menu), then clamp so it never runs off either screen edge.
+    final double rawLeft = _xCoordinate - (_popupWidth / 2);
+    final double maxLeft = deviceWidth - _popupWidth - _edgePadding;
+    final double popupLeft = rawLeft < _edgePadding
+        ? _edgePadding
+        : (rawLeft > maxLeft ? maxLeft : rawLeft);
 
     return showPopUp
         ? Stack(
@@ -118,44 +130,36 @@ class ReplyPopupState extends State<ReplyPopup>
               ),
               Positioned(
                 top: _yCoordinate,
-                left: _xCoordinate + toolTipWidth > deviceWidth
-                    ? deviceWidth - toolTipWidth
-                    : _xCoordinate - (toolTipWidth / 2) < 0
-                        ? 0
-                        : _xCoordinate - (toolTipWidth / 2),
-                child: SizedBox(
-                  width: deviceWidth > 450 ? 450 : deviceWidth,
-                  child: AnimatedBuilder(
-                    animation: _scaleAnimation,
-                    builder: (context, child) => Transform.scale(
-                      // Clamp away from exact 0 to avoid a degenerate
-                      // zero-size Transform combined with BoxShadow.
-                      scale: _scaleAnimation.value.clamp(0.01, 1.0),
-                      alignment: Alignment.topCenter,
-                      child: child,
+                left: popupLeft,
+                child: AnimatedBuilder(
+                  animation: _scaleAnimation,
+                  builder: (context, child) => Transform.scale(
+                    // Clamp away from exact 0 to avoid a degenerate
+                    // zero-size Transform combined with BoxShadow.
+                    scale: _scaleAnimation.value.clamp(0.01, 1.0),
+                    alignment: Alignment.topCenter,
+                    child: child,
+                  ),
+                  // Built once, not on every animation tick.
+                  child: Container(
+                    width: _popupWidth,
+                    padding: const EdgeInsets.symmetric(
+                      vertical: 4,
+                      horizontal: 4,
                     ),
-                    // Built once, not on every animation tick.
-                    child: Container(
-                      constraints: const BoxConstraints(maxWidth: 170),
-                      margin: const EdgeInsets.symmetric(horizontal: 25),
-                      padding: const EdgeInsets.symmetric(
-                        vertical: 4,
-                        horizontal: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(10),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.grey.shade400,
-                            blurRadius: 8,
-                            spreadRadius: -2,
-                            offset: const Offset(0, 8),
-                          ),
-                        ],
-                      ),
-                      child: _replyPopupRow,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(10),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.grey.shade400,
+                          blurRadius: 8,
+                          spreadRadius: -2,
+                          offset: const Offset(0, 8),
+                        ),
+                      ],
                     ),
+                    child: _replyPopupRow,
                   ),
                 ),
               ),
