@@ -36,7 +36,7 @@ enum TypeWriterStatus { typing, typed }
 
 /// [MessageStatus] defines the current state of the message
 /// if you are sender sending a message then, the
-enum MessageStatus { read, delivered, undelivered, pending }
+enum MessageStatus { read, delivered, undelivered, pending ,locked}
 
 /// Types of states
 enum ChatViewState { hasMessages, noData, loading, error }
