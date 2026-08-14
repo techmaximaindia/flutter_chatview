@@ -119,6 +119,9 @@ class _ChatBubbleWidgetState extends State<ChatBubbleWidget> {
   ChatController? chatController;
   ChatUser? currentUser;
   int? maxDuration;
+  bool _isPrivateMessage(Message message) {
+    return message.is_private == 'Y';
+  }
 
   @override
   void didChangeDependencies() {
@@ -245,7 +248,8 @@ class _ChatBubbleWidgetState extends State<ChatBubbleWidget> {
           Expanded(
             child: isMessageBySender
                 ? SwipeToReply(
-                      onLeftSwipe: featureActiveConfig?.enableSwipeToReply ?? true
+                      onLeftSwipe: (featureActiveConfig?.enableSwipeToReply ?? true) &&
+                            !_isPrivateMessage(widget.message)
                           ? () {
                               if (maxDuration != null) {
                                 widget.message.voiceMessageDuration =
@@ -274,7 +278,8 @@ class _ChatBubbleWidgetState extends State<ChatBubbleWidget> {
                     )
                 : SwipeToReply(
                     onRightSwipe:
-                        featureActiveConfig?.enableSwipeToReply ?? true
+                        (featureActiveConfig?.enableSwipeToReply) ?? true &&
+                          !_isPrivateMessage(widget.message)
                             ? () {
                                 if (maxDuration != null) {
                                   widget.message.voiceMessageDuration =
