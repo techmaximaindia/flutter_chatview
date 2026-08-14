@@ -109,7 +109,7 @@ class _ChatUITextFieldState extends State<ChatUITextField>
       sendMessageConfig?.imagePickerIconsConfig;
   TextFieldConfiguration? get textFieldConfig =>
       sendMessageConfig?.textFieldConfig;
-
+  bool get _isPrivateNote => sendMessageConfig?.isPrivateNoteMode ?? false;
   OutlineInputBorder get _outLineBorder => OutlineInputBorder(
         borderSide: const BorderSide(color: Colors.transparent),
         borderRadius: textFieldConfig?.borderRadius ??
@@ -1278,8 +1278,9 @@ class _ChatUITextFieldState extends State<ChatUITextField>
                                 )*/
                               if (isRecordingValue && !kIsWeb)
                                 Expanded(child: _buildRecordingBar())
+
                               else
-                                Expanded(
+                                /*Expanded(
                                   child: TextField(
                                     cursorColor: Colors.black,
                                     autofocus: widget.autofocus,
@@ -1336,7 +1337,100 @@ class _ChatUITextFieldState extends State<ChatUITextField>
                                       ),
                                     ),
                                   ),
+                                ),*/
+                                Expanded(
+                                child: Container(
+                                  clipBehavior: _isPrivateNote ? Clip.antiAlias : Clip.none,  // ← FIXED
+                                  decoration: _isPrivateNote
+                                      ? BoxDecoration(
+                                          color: const Color(0xFFFFF8E1),
+                                          borderRadius: BorderRadius.circular(10),
+                                          border: Border.all(
+                                            color: const Color(0xFFFFB300),
+                                            width: 1.3,
+                                          ),
+                                        )
+                                      : null,
+                                  child: TextField(
+                                    cursorColor: _isPrivateNote ? const Color(0xFFB25E00) : Colors.black,
+                                    autofocus: widget.autofocus,
+                                    controller: _activeController,
+                                    /*style: textFieldConfig?.textStyle ??
+                                        TextStyle(
+                                          color: _isPrivateNote ? const Color(0xFF6D4C00) : Colors.white,
+                                        ),*/
+                                    style: _isPrivateNote
+                                      ? const TextStyle(
+                                          color: Color(0xFF6D4C00),
+                                          fontWeight: FontWeight.w500,
+                                        )
+                                      : (textFieldConfig?.textStyle ?? const TextStyle(color: Colors.white)),
+                                    maxLines: textFieldConfig?.maxLines ?? 5,
+                                    minLines: textFieldConfig?.minLines ?? 1,
+                                    keyboardType: textFieldConfig?.textInputType,
+                                    inputFormatters: textFieldConfig?.inputFormatters,
+                                    onChanged: _onChanged,
+                                    textCapitalization:
+                                        textFieldConfig?.textCapitalization ?? TextCapitalization.sentences,
+                                    decoration: InputDecoration(
+                                      hintText: _isPrivateNote
+                                          ? 'Write a private note — not visible to the customer'
+                                          : (textFieldConfig?.hintText ?? PackageStrings.message),
+                                      prefixIcon: _isPrivateNote
+                                          ? const Padding(
+                                              padding: EdgeInsets.only(left: 10, right: 4),
+                                              child: Icon(
+                                                Icons.lock_rounded,
+                                                color: Color(0xFFB25E00),
+                                                size: 18,
+                                              ),
+                                            )
+                                          : null,
+                                      prefixIconConstraints: _isPrivateNote
+                                          ? const BoxConstraints(minWidth: 0, minHeight: 0)
+                                          : null,
+                                      fillColor: _isPrivateNote
+                                          ? null
+                                          : (sendMessageConfig?.textFieldBackgroundColor ?? Colors.white),
+                                      //filled: true,
+                                      filled: _isPrivateNote ? false : true,
+                                      hintStyle: textFieldConfig?.hintStyle ??
+                                          TextStyle(
+                                            fontSize: _isPrivateNote ? 13.5 : 16,
+                                            fontWeight: FontWeight.w400,
+                                            color: _isPrivateNote
+                                                ? const Color(0xFFB98A3D)
+                                                : Colors.grey.shade600,
+                                            letterSpacing: 0.25,
+                                          ),
+                                      contentPadding: textFieldConfig?.contentPadding ??
+                                          const EdgeInsets.symmetric(horizontal: 6),
+                                      border: _isPrivateNote
+                                          ? OutlineInputBorder(
+                                              borderSide: BorderSide.none,
+                                              borderRadius: BorderRadius.circular(10),
+                                            )
+                                          : _outLineBorder,
+                                      focusedBorder: _isPrivateNote
+                                          ? OutlineInputBorder(
+                                              borderSide: BorderSide.none,
+                                              borderRadius: BorderRadius.circular(10),
+                                            )
+                                          : _outLineBorder,
+                                      enabledBorder: _isPrivateNote
+                                          ? OutlineInputBorder(
+                                              borderSide: BorderSide.none,
+                                              borderRadius: BorderRadius.circular(10),
+                                            )
+                                          : OutlineInputBorder(
+                                              borderSide: const BorderSide(color: Colors.transparent),
+                                              borderRadius: textFieldConfig?.borderRadius ??
+                                                  BorderRadius.circular(textFieldBorderRadius),
+                                            ),
+                                    ),
+                                  ),
                                 ),
+                              ),
                               ValueListenableBuilder<String>(
                                 valueListenable: _inputText,
                                 builder: (_, inputTextValue, child) {
@@ -2000,7 +2094,7 @@ class _ChatUITextFieldState extends State<ChatUITextField>
       widget.onImageSelected('', e.toString(), '');
     }
   }
-  void _onChanged(String inputText) async {
+  /*void _onChanged(String inputText) async {
     if (inputText.startsWith('/')) {
       String searchText =
           inputText == '/' ? '/' : inputText.substring(1);
@@ -2041,9 +2135,52 @@ class _ChatUITextFieldState extends State<ChatUITextField>
       () { if (!_isDisposed) composingStatus.value = TypeWriterStatus.typed; },
       () { if (!_isDisposed) composingStatus.value = TypeWriterStatus.typing; },
     );
+  }*/
+  void _onChanged(String inputText) async {
+  final bool cannedResponsesEnabled =
+        sendMessageConfig?.enableCannedResponses ?? true;
+
+    if (cannedResponsesEnabled && inputText.startsWith('/')) {
+      String searchText = inputText == '/' ? '/' : inputText.substring(1);
+      final canned_response = await fetch_canned_responses(searchText);
+      if (_isMounted && !_isDisposed) {
+        setState(() {
+          if (inputText == '/') {
+            suggestions = canned_response.isEmpty
+                ? [
+                    {
+                      "short_code": "Please Enter Short code",
+                      "content": "",
+                      "media_type": "",
+                      "media_url": ""
+                    }
+                  ]
+                : canned_response;
+          } else if (canned_response.isEmpty) {
+            suggestions = [
+              {
+                "short_code": "Nothing to Suggest",
+                "content": "",
+                "media_type": "",
+                "media_url": ""
+              }
+            ];
+          } else {
+            suggestions = canned_response;
+          }
+        });
+      }
+    } else {
+      _removeSuggestionOverlay();
+      if (_isMounted && !_isDisposed) setState(() => suggestions = []);
+    }
+    _inputText.value = inputText.isEmpty ? '' : inputText;
+    debouncer.run(
+      () { if (!_isDisposed) composingStatus.value = TypeWriterStatus.typed; },
+      () { if (!_isDisposed) composingStatus.value = TypeWriterStatus.typing; },
+    );
   }
 }
-
 
 // ═══════════════════════════════════════════════════════════════════════════
 // _ImageEntry  — one object per image, never splits apart
