@@ -102,7 +102,9 @@ class ReplyPopupState extends State<ReplyPopup>
   // position calculation below — must match the Container's width.
   static const double _popupWidth = 170;
   static const double _edgePadding = 8;
-
+  bool _isPrivateMessage(Message? message) {
+    return message?.is_private == 'Y';
+  }
   @override
   Widget build(BuildContext context) {
     final deviceWidth = MediaQuery.of(context).size.width;
@@ -173,7 +175,7 @@ class ReplyPopupState extends State<ReplyPopup>
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           if (_message?.profilename != 'Summary' &&
-              _message?.message_deleted == false)
+              _message?.message_deleted == false && !_isPrivateMessage(_message))
             _buildReplyAction(
               icon: Icons.reply,
               text: 'Reply',
