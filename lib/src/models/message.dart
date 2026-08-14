@@ -73,6 +73,7 @@ class Message {
   final Map<String, dynamic>? cb_message_options_full;
   String? pagetype;
   final bool message_deleted;
+  String? is_private;
   Message({
     this.id = '',
     required this.message,
@@ -96,6 +97,7 @@ class Message {
     this.pagetype,
     this.message_deleted = false,
     this.timestringraw='',
+    this.is_private='',
 
     MessageStatus status = MessageStatus.pending,
   })  : reaction = reaction ?? Reaction(reactions: [], reactedUserIds: []),
@@ -144,7 +146,8 @@ class Message {
       pagetype: json["pagetype"],
       status: json['status'],
       message_deleted: json["isDeleted"] ?? false,
-      timestringraw: json["timestringraw"]??''
+      timestringraw: json["timestringraw"]??'',
+      is_private: json['is_private']??'',
     );
 
   Map<String, dynamic> toJson() => {
@@ -168,5 +171,6 @@ class Message {
         'status': status.name,
         'isDeleted': message_deleted,
         'timestringraw': timestringraw,
+        'is_private':is_private
       };
 }
