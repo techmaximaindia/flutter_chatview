@@ -1281,6 +1281,10 @@ Widget _buildMarkdownText(String text) {
       if (message.profilename == 'Summary') {
         return const Color.fromRGBO(255, 193, 7, 1.0);
       }
+      if (message.is_private == 'Y') {
+        return  Color.fromARGB(255, 255, 169, 31);
+        //return const Color(0xFF3b7ddd);
+      }
       return isMessageBySender
           ? outgoingChatBubbleConfig?.color ?? const Color(0xFFE8F0FE)
           : inComingChatBubbleConfig?.color ?? const Color(0xFFF5F5F5);
