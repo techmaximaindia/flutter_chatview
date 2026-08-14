@@ -328,6 +328,10 @@ class SendMessageConfiguration {
   final bool recordViaHostCallback;
 
  // final TextEditingController? controller;
+  final bool enableCannedResponses;
+  /// When true, styles the text field distinctly (color/border/icon) 
+  /// to signal Private Note mode is active. Defaults to false.
+  final bool isPrivateNoteMode;
 
   const SendMessageConfiguration({
     this.textFieldConfig,
@@ -348,6 +352,8 @@ class SendMessageConfiguration {
     this.maxiaIconColor,
     this.enableMaxIA = true,
     this.recordViaHostCallback = false,
+    this.enableCannedResponses = true,
+    this.isPrivateNoteMode = false,
    // this.controller,
   });
 }
