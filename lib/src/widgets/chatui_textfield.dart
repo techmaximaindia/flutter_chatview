@@ -134,7 +134,13 @@ class _ChatUITextFieldState extends State<ChatUITextField>
     //widget.sendMessageConfig?.textFieldConfig?.controller ??
     //widget.textEditingController;
   late final TextEditingController _activeController; 
+  List<Map<String, String>> mentionSuggestions = [];
+  bool _mentionActive = false;
+  // Tracks mentions inserted via the picker: name -> alias
+  // Rebuilt fresh each time text changes significantly, matched by name+position at send time
+  final List<Map<String, String>> _insertedMentions = [];
 
+ 
   @override
   void initState() {
     super.initState();
@@ -277,7 +283,71 @@ class _ChatUITextFieldState extends State<ChatUITextField>
   }
 
   List<dynamic> responses = [];
+  
+  Future<List<Map<String, String>>> fetch_mention_users(String query) async {
+    final prefs = await SharedPreferences.getInstance();
+    final String? uuid = prefs.getString('uuid');
+    final String? team_alias = prefs.getString('team_alias');
+    final String? cb_lead_id = prefs.getString('cb_lead_id');
+    final String? cb_lead_alias = prefs.getString('cb_lead_alias');
+    final String? conversation_id = prefs.getString('conversation_id');
 
+    final url = base_url + 'api/v2/conversations/message/mention-users/';
+    var headers = {
+        "Content-Type": "application/json",
+        "Accept": "application/json",
+        "Authorization": "$uuid|$team_alias",
+    };
+    var request = http.Request('GET', Uri.parse(url));
+    request.body = json.encode({
+      "cb_lead_id": cb_lead_id,
+      "cb_lead_alias": cb_lead_alias,
+      "conversation_alias": conversation_id,
+      "search": query,
+    });
+    request.headers.addAll(headers);
+    print('DEBUG mention request body: ${request.body}');
+    try {
+      http.StreamedResponse response = await request.send();
+      print('DEBUG mention status: ${response.statusCode}');
+      debugPrint('MENTION USER $response');
+      if (response.statusCode == 200) {
+        String responseBody = await response.stream.bytesToString();
+        debugPrint('MENTION USER $responseBody',wrapWidth: 1024);
+        Map<String, dynamic> decoded = json.decode(responseBody);
+        if (decoded['status'] == 'success' && decoded['data'] != null) {
+          final List mentionList = decoded['data']['mention_list'] ?? [];
+          return mentionList
+              .map<Map<String, String>>((item) => {
+                    "user_alias": item['user_alias']?.toString() ?? '',
+                    "name": item['name']?.toString() ?? '',
+                    "user_email": item['user_email']?.toString() ?? '',
+                    "role_label": item['role_label']?.toString() ?? '',
+                    "image": item['image']?.toString() ?? '',
+                    "availability_status":
+                        item['availability_status']?.toString() ?? 'N',
+                  })
+              .toList();
+        }
+        return [];
+      }
+      return [];
+    } catch (e) {
+      return [];
+    }
+  }
+  String? _extractMentionQuery(String text, int cursorPos) {
+    if (cursorPos < 0 || cursorPos > text.length) return null;
+    int start = cursorPos;
+    while (start > 0 && text[start - 1] != ' ' && text[start - 1] != '\n') {
+      start--;
+    }
+    final word = text.substring(start, cursorPos);
+    if (word.startsWith('@') && !word.contains('@', 1)) {
+      return word.substring(1);
+    }
+    return null;
+  }
   Future<List<Map<String, String>>> fetch_canned_responses(
       String? shortcode) async {
     if (shortcode == null) return Future.value([]);
@@ -916,6 +986,88 @@ class _ChatUITextFieldState extends State<ChatUITextField>
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
+        if (_isPrivateNote && _mentionActive)
+          Container(
+            width: MediaQuery.sizeOf(context).width,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(14), bottom: Radius.circular(14)),
+              border: Border.all(color: const Color(0xFFFFB300), width: 0.5),
+            ),
+            child: mentionSuggestions.isEmpty
+                ? const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                    child: Text('No matching teammates',
+                        style: TextStyle(color: Colors.grey, fontSize: 13)),
+                  )
+                : Container(
+                    constraints: const BoxConstraints(maxHeight: 220),
+                    child: ListView.builder(
+                      shrinkWrap: true,
+                      padding: const EdgeInsets.symmetric(vertical: 4),
+                      itemCount: mentionSuggestions.length,
+                      itemBuilder: (context, index) {
+                        final member = mentionSuggestions[index];
+                        final name = member['name'] ?? '';
+                        final role = member['role_label'] ?? '';
+                        final isAvailable = member['availability_status'] == 'Y';
+                        final initial = name.isNotEmpty ? name[0].toUpperCase() : '?';
+                        return InkWell(
+                          onTap: () => _insertMention(member),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                            decoration: BoxDecoration(
+                              border: Border(bottom: BorderSide(color: Colors.grey.shade200, width: 0.5)),
+                            ),
+                            child: Row(
+                              children: [
+                                Stack(
+                                  children: [
+                                    CircleAvatar(
+                                      radius: 16,
+                                      backgroundColor: const Color(0xFFB25E00),
+                                      child: Text(initial,
+                                          style: const TextStyle(
+                                              color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600)),
+                                    ),
+                                    Positioned(
+                                      right: 0,
+                                      bottom: 0,
+                                      child: Container(
+                                        width: 9,
+                                        height: 9,
+                                        decoration: BoxDecoration(
+                                          color: isAvailable ? Colors.green : Colors.grey,
+                                          shape: BoxShape.circle,
+                                          border: Border.all(color: Colors.white, width: 1.5),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(name,
+                                          style: const TextStyle(
+                                              fontSize: 14, fontWeight: FontWeight.w500, color: Colors.black87)),
+                                      if (role.isNotEmpty)
+                                        Text(role,
+                                            style: TextStyle(fontSize: 11, color: Colors.grey.shade500)),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ),
         // Quick Replies
         if (suggestions.isNotEmpty)
           Container(
@@ -1196,7 +1348,7 @@ class _ChatUITextFieldState extends State<ChatUITextField>
               ],
             ),
           ),
-
+        
         // Input bar
         IntrinsicHeight(
           child: Align(
@@ -1458,7 +1610,11 @@ class _ChatUITextFieldState extends State<ChatUITextField>
                                               Colors.green,
                                            onPressed: () {
                                             if (_activeController != widget.textEditingController) {
-                                              widget.textEditingController.text = _activeController.text;
+                                              final outgoingText = _isPrivateNote
+                                                ? _buildMentionMarkup(_activeController.text)
+                                                : _activeController.text;
+                                              //widget.textEditingController.text = _activeController.text;
+                                              widget.textEditingController.text = outgoingText;
                                               widget.textEditingController.selection = TextSelection.fromPosition(
                                                 TextPosition(offset: widget.textEditingController.text.length),
                                               );
@@ -1466,6 +1622,7 @@ class _ChatUITextFieldState extends State<ChatUITextField>
                                             widget.onPressed();
                                             _activeController.clear(); 
                                             _inputText.value = '';
+                                            _insertedMentions.clear(); 
                                           },
                                           icon: sendMessageConfig
                                                   ?.sendButtonIcon ??
@@ -2094,52 +2251,108 @@ class _ChatUITextFieldState extends State<ChatUITextField>
       widget.onImageSelected('', e.toString(), '');
     }
   }
-  /*void _onChanged(String inputText) async {
-    if (inputText.startsWith('/')) {
-      String searchText =
-          inputText == '/' ? '/' : inputText.substring(1);
-      final canned_response = await fetch_canned_responses(searchText);
-      if (_isMounted && !_isDisposed) {
-        setState(() {
-          if (inputText == '/') {
-            suggestions = canned_response.isEmpty
-                ? [
-                    {
-                      "short_code": "Please Enter Short code",
-                      "content": "",
-                      "media_type": "",
-                      "media_url": ""
-                    }
-                  ]
-                : canned_response;
-          } else if (canned_response.isEmpty) {
-            suggestions = [
-              {
-                "short_code": "Nothing to Suggest",
-                "content": "",
-                "media_type": "",
-                "media_url": ""
-              }
-            ];
-          } else {
-            suggestions = canned_response;
-          }
-        });
-      }
-    } else {
-      _removeSuggestionOverlay();
-      if (_isMounted && !_isDisposed) setState(() => suggestions = []);
+  
+  /*void _insertMention(String name) {
+    final text = _activeController.text;
+    int cursorPos = _activeController.selection.baseOffset;
+    if (cursorPos < 0) cursorPos = text.length;
+    int start = cursorPos;
+    while (start > 0 && text[start - 1] != ' ' && text[start - 1] != '\n') {
+      start--;
     }
-    _inputText.value = inputText.isEmpty ? '' : inputText;
-    debouncer.run(
-      () { if (!_isDisposed) composingStatus.value = TypeWriterStatus.typed; },
-      () { if (!_isDisposed) composingStatus.value = TypeWriterStatus.typing; },
-    );
+    final newText = text.replaceRange(start, cursorPos, '@$name ');
+    _activeController.text = newText;
+    final newCursorPos = start + name.length + 2;
+    _activeController.selection =
+        TextSelection.fromPosition(TextPosition(offset: newCursorPos));
+    _inputText.value = newText;
+    if (_isMounted && !_isDisposed) {
+      setState(() {
+        mentionSuggestions = [];
+        _mentionActive = false;
+      });
+    }
   }*/
+  void _insertMention(Map<String, String> member) {
+    final name = member['name'] ?? '';
+    final alias = member['user_alias'] ?? '';
+    final text = _activeController.text;
+    int cursorPos = _activeController.selection.baseOffset;
+    if (cursorPos < 0) cursorPos = text.length;
+    int start = cursorPos;
+    while (start > 0 && text[start - 1] != ' ' && text[start - 1] != '\n') {
+      start--;
+    }
+    final newText = text.replaceRange(start, cursorPos, '@$name ');
+    _activeController.text = newText;
+    final newCursorPos = start + name.length + 2;
+    _activeController.selection =
+        TextSelection.fromPosition(TextPosition(offset: newCursorPos));
+    _inputText.value = newText;
+
+    // Track this mention so we can convert to markup at send time
+    _insertedMentions.add({'name': name, 'alias': alias});
+
+    if (_isMounted && !_isDisposed) {
+      setState(() {
+        mentionSuggestions = [];
+        _mentionActive = false;
+      });
+    }
+  }
+  String _buildMentionMarkup(String text) {
+    String result = text;
+    for (final mention in _insertedMentions) {
+      final name = mention['name'] ?? '';
+      final alias = mention['alias'] ?? '';
+      if (name.isEmpty || alias.isEmpty) continue;
+      result = result.replaceAll('@$name', '@[$name](u:$alias)');
+    }
+    return result;
+  }
   void _onChanged(String inputText) async {
   final bool cannedResponsesEnabled =
         sendMessageConfig?.enableCannedResponses ?? true;
-
+    
+    if (_isPrivateNote) {
+      final cursorPos = _activeController.selection.baseOffset;
+      final query = _extractMentionQuery(
+          inputText, cursorPos < 0 ? inputText.length : cursorPos);
+      if (query != null) {
+        if (query.isEmpty) {
+          // Show full list immediately, no debounce
+          final members = await fetch_mention_users('');
+          if (_isMounted && !_isDisposed) {
+            setState(() {
+              mentionSuggestions = members;
+              _mentionActive = true;
+              suggestions = [];
+            });
+          }
+        } else {
+          // Debounce for actual search typing
+          debouncer.run(() async {
+            final members = await fetch_mention_users(query);
+            if (_isMounted && !_isDisposed) {
+              setState(() {
+                mentionSuggestions = members;
+                _mentionActive = true;
+                suggestions = [];
+              });
+            }
+          }, () {});
+        }
+        _inputText.value = inputText.isEmpty ? '' : inputText;
+        return;
+      } else if (_mentionActive) {
+        if (_isMounted && !_isDisposed) {
+          setState(() {
+            _mentionActive = false;
+            mentionSuggestions = [];
+          });
+        }
+      }
+    }
     if (cannedResponsesEnabled && inputText.startsWith('/')) {
       String searchText = inputText == '/' ? '/' : inputText.substring(1);
       final canned_response = await fetch_canned_responses(searchText);
