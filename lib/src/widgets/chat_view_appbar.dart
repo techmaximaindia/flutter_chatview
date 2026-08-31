@@ -30,6 +30,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:http/http.dart' as http;
 import 'profile_page.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 /// Data passed to [ChatViewAppBar.onProfileTap] when the chat header is tapped.
 /// Lets a host app open its own profile/lead screen without this package
@@ -59,10 +60,56 @@ class ChatViewProfileTapData {
 /// (standalone / SDK usage), tapping the header is a no-op.
 typedef ChatViewProfileTapHandler = void Function(
     BuildContext context, ChatViewProfileTapData data);
+typedef ChatViewAdReferralTapHandler = void Function(
+    BuildContext context, String sourceUrl);
+
+/// Data describing the Meta ad (CTWA) that started this conversation, mirroring
+/// the attribution banner shown on the web inbox. Passed in from the host app
+/// after it fetches referral info for the conversation; this widget only
+/// renders it.
+class ChatViewAdReferralData {
+  final String platform;
+  final String platformLabel;
+  final String adTitle;
+  final String adBody;
+  final String mediaUrl;
+  final String sourceUrl;
+  final String capturedDatetime;
+  final bool isFirstTouch;
+  
+  /// Localized label for first contact (e.g., "First contact", "முதல் தொடர்பு")
+  final String firstContactLabel;
+  
+  /// Localized label for returning contact (e.g., "Returning contact", "திரும்பிவரும் தொடர்பு")
+  final String returningContactLabel;
+  
+  /// Localized label for view ad button (e.g., "View Ad", "விளம்பரம் பார்")
+  final String viewAdLabel;
+  final String startedFromAdLabel;
+  final String untitle_name;
+
+  const ChatViewAdReferralData({
+    this.platform = '',
+    this.platformLabel = '',
+    this.adTitle = '',
+    this.adBody = '',
+    this.mediaUrl = '',
+    this.sourceUrl = '',
+    this.capturedDatetime = '',
+    this.isFirstTouch = false,
+    this.firstContactLabel = 'First contact',
+    this.returningContactLabel = 'Returning contact',
+    this.viewAdLabel = 'View Ad',
+    this.startedFromAdLabel = 'Conversation started from an ad',
+    this.untitle_name='Untitled ad',
+  });
+}
+
 
 class ChatViewAppBar extends StatelessWidget {
   /// App-injected handler for tapping the chat header. Null = no navigation.
   static ChatViewProfileTapHandler? onProfileTap;
+  static ChatViewAdReferralTapHandler? onAdReferralTap; 
 
   const ChatViewAppBar({
     Key? key,
@@ -86,7 +133,8 @@ class ChatViewAppBar extends StatelessWidget {
     this.ticket_title,
     this.message_date,
     this.alias_to_use,
-    this.chat_label
+    this.chat_label,
+    this.adReferral,
   }) : super(key: key);
 
   /// Allow user to change colour of appbar.
@@ -140,6 +188,7 @@ class ChatViewAppBar extends StatelessWidget {
   final String? message_date;
   final String? alias_to_use;
   final String? chat_label;
+  final ChatViewAdReferralData? adReferral;
   @override
   Widget build(BuildContext context) {
     Future<bool> image_url_valid(String url) async {              
@@ -400,6 +449,8 @@ class ChatViewAppBar extends StatelessWidget {
                     ],
                   ),
                 ), 
+
+            if (adReferral != null) _buildappbar_Banner(context),
       ],
     );
   }
@@ -452,6 +503,145 @@ class ChatViewAppBar extends StatelessWidget {
       Colors.deepPurple,
     ];
     return colors[hash.abs() % colors.length];
+  }
+  // Brand colour/icon per Meta placement, used only by the ad-referral card.
+  Color _adPlatformColor(String platform) {
+    if (platform == 'instagram') return const Color(0xFFC13584);
+    if (platform == 'wa_status') return const Color(0xFF128C4A);
+    return const Color(0xFF1877F2);
+  }
+
+  IconData _adPlatformIcon(String platform) {
+    if (platform == 'instagram') return FontAwesomeIcons.instagram;
+    if (platform == 'wa_status') return FontAwesomeIcons.whatsapp;
+    return FontAwesomeIcons.facebook;
+  }
+
+  
+  Widget _buildappbar_Banner(BuildContext context) {
+    final referral = adReferral;
+    if (referral == null) return const SizedBox.shrink();
+
+    final Color accent = _adPlatformColor(referral.platform);
+    String headline = referral.adTitle;
+    if (headline.isEmpty) {
+      headline = referral.untitle_name;
+    }
+
+    return Container(
+      margin: const EdgeInsets.fromLTRB(8, 8, 8, 0),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border.all(color: const Color(0xFFE6EAF2)),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Theme(
+        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+        child: ExpansionTile(
+          tilePadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 0),
+          childrenPadding: const EdgeInsets.fromLTRB(10, 0, 10, 10),
+          leading: Icon(_adPlatformIcon(referral.platform), color: accent, size: 20),
+          title: Row(
+            children: [
+              if (referral.platformLabel.isNotEmpty)
+                /*Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  margin: const EdgeInsets.only(right: 6),
+                  decoration: BoxDecoration(
+                    color: accent.withOpacity(0.10),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text(
+                    referral.platformLabel,
+                    style: TextStyle(
+                        fontSize: 10, fontWeight: FontWeight.w700, color: accent),
+                  ),
+                ),*/
+              Expanded(
+                child: Text(
+                  headline,
+                  maxLines: 3,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF0F172A),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          subtitle: Text(
+            referral.startedFromAdLabel,
+            style: const TextStyle(fontSize: 10.5, color: Color(0xFF94A3B8)),
+          ),
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (referral.mediaUrl.isNotEmpty)
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(6),
+                    child: Image.network(
+                      referral.mediaUrl,
+                      width: 56,
+                      height: 56,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) =>
+                          const SizedBox.shrink(),
+                    ),
+                  ),
+                if (referral.mediaUrl.isNotEmpty) const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (referral.adBody.isNotEmpty)
+                        Text(
+                          referral.adBody,
+                          style: const TextStyle(
+                              fontSize: 12, height: 1.4, color: Color(0xFF475569)),
+                        ),
+                      if (referral.adBody.isNotEmpty) const SizedBox(height: 6),
+                      Text(
+                        (referral.isFirstTouch
+                                ? referral.firstContactLabel
+                                : referral.returningContactLabel) +
+                            (referral.capturedDatetime.isNotEmpty
+                                ? '  \u00b7  ${referral.capturedDatetime}'
+                                : ''),
+                        style:
+                            const TextStyle(fontSize: 10.5, color: Color(0xFF94A3B8)),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            if (referral.sourceUrl.isNotEmpty)
+              Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton.icon(
+                  //onPressed: () {
+                    //onAdReferralTap?.call(context, referral.sourceUrl);
+                  //},
+                  onPressed: () async {
+                    final Uri uri = Uri.parse(referral.sourceUrl);
+                    if (await canLaunchUrl(uri)) {
+                      await launchUrl(uri, mode: LaunchMode.externalApplication);
+                    }
+                  },
+                  icon: Icon(Icons.open_in_new, size: 14, color: accent),
+                  label: Text(
+                    referral.viewAdLabel,
+                    style: TextStyle(fontSize: 12, color: accent),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
   }
   get_platform_widget(platform) 
   {
