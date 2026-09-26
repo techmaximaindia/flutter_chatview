@@ -1,6 +1,7 @@
 // max_ia_prompt_dialog.dart
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:chatmaxima/brand.dart';
 
 class MaxIAPromptDialog extends StatefulWidget {
   final Function(String) onGenerate;
@@ -89,8 +90,9 @@ class _MaxIAPromptDialogState extends State<MaxIAPromptDialog> {
                               ),
                             ),
                             const SizedBox(width: 8),
-                            const Text(
-                              'Generate Reply with MaxIA',
+                            Text(
+                              //'Generate Reply with MaxIA',
+                              Brand.products('Generate Reply with MaxIA'),
                               style: TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.w700,
@@ -103,7 +105,8 @@ class _MaxIAPromptDialogState extends State<MaxIAPromptDialog> {
                         Text(
                           hasTypedText
                               ? 'Edit your message below and add instructions to improve it.'
-                              : 'Enter your message and let MaxIA AI Assistant help you write better content.',
+                              : Brand.products('Enter your message and let MaxIA AI Assistant help you write better content.'),
+                             //: 'Enter your message and let MaxIA AI Assistant help you write better content.',
                           style: TextStyle(
                             fontSize: 12.5,
                             color: Colors.grey.shade600,
